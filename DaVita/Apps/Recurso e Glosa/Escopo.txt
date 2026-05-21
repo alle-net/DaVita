@@ -1,0 +1,310 @@
+================================================================================
+ESCOPO DO APLICATIVO - GESTAO DE RECURSOS E GLOSAS (DaVita)
+================================================================================
+
+DESCRICAO GERAL
+---------------
+Aplicativo web construido com Google Apps Script para gestao e acompanhamento
+de recursos e glosas de notas fiscais eletronicas (NFe). Permite que usuarios
+registrem, acompanhem, editem e excluam registros de faturamento, glosas e
+perdas, com visualizacao em tabela paginada e cards de resumo financeiro.
+
+TECNOLOGIAS
+-----------
+- Google Apps Script (backend em JavaScript)
+- HTML/CSS/JavaScript (frontend)
+- Bootstrap 5.3.2 (UI framework)
+- Select2 (busca em selects)
+- SweetAlert2 (notificacoes e confirmacoes)
+- Google Sheets (banco de dados)
+
+ESTRUTURA DE ARQUIVOS
+---------------------
+dist/
+  Config.gs       - Configuracoes globais (ID da planilha, nomes das abas)
+  Conexao.gs      - Funcoes de conexao com Google Sheets, cache e listas
+  Auth.gs         - Autenticacao e gestao de usuarios
+  CRUD.gs         - Operacoes de dados (inserir, listar, editar, excluir)
+  UI.gs           - doGet, include, setup de triggers
+  Index.html      - Interface principal (HTML + CSS)
+  Script.html     - Logica do frontend (JavaScript)
+
+ABAS DA PLANILHA (Google Sheets)
+---------------------------------
+- Dados            - Registros principais do aplicativo
+- Usuarios         - Cadastro de usuarios (id, nome, email, senha, ativo)
+- Hospitais        - Lista de hospitais (id, nome)
+- Regionais        - Lista de regionais (id, nome)
+- Unidades         - Lista de unidades (id, nome)
+- StatusNFe        - Status possiveis para NFe (id, nome)
+- MotivosGlosa     - Motivos possiveis de glosa (id, nome)
+
+================================================================================
+FUNCIONALIDADES
+================================================================================
+
+1. AUTENTICACAO
+   - Tela de login com selecao de usuario (dropdown) e senha
+   - Lista de usuarios filtrada: apenas ativos (coluna Ativo = "S")
+   - Validacao de email + senha contra a aba Usuarios
+   - Bloqueio temporario apos 5 tentativas falhas (1 minuto)
+   - Sessao mantida via sessionStorage
+   - Logout com limpeza completa de estado e filtros
+
+2. DASHBOARD / TELA PRINCIPAL
+   - Navbar com botao "+ Novo", campo de busca, botao de atualizar, email do usuario e logout
+   - 3 cards de resumo financeiro:
+     * Faturamento (soma total dos valores faturados)
+     * Glosa (soma total dos valores de glosa)
+     * Perda (soma total dos valores de perda)
+   - Os cards refletem o total geral ou o total filtrado pela busca
+   - Banner DaVita
+
+3. TABELA DE REGISTROS
+   - Colunas: Titulo, Competencia, Regional, Unidade, Hospital, NFe, Data NFe,
+     Status da NFe, Motivo de Glosa, Envio Faturamento, Valor Faturado,
+     Valor Glosa, Valor Perda, Observacoes, Acoes
+   - Paginacao (10 registros por pagina)
+   - Ordenacao por coluna (clicando no cabecalho)
+   - Badge colorido para status da NFe
+   - Botoes de editar e excluir em cada linha
+   - Filtro por busca textual (case-insensitive, busca parcial)
+
+4. FORMULARIO DE REGISTRO (Offcanvas)
+   - Seccao Identificacao:
+     * Titulo (obrigatorio)
+     * Competencia (obrigatorio, formato mes/ano)
+     * Regional (obrigatorio, select com busca)
+     * Unidade (obrigatorio, select com busca)
+     * Hospital (obrigatorio, select com busca)
+   - Seccao Envio NFe:
+     * NFe (opcional)
+     * Data NFe (desabilitado por padrao, habilita se NFe preenchido)
+     * Status da NFe (obrigatorio, select com busca)
+   - Seccao Glosa:
+     * Motivo de Glosa (obrigatorio, select com busca)
+     * Valor Glosa (desabilitado por padrao, habilita se motivo diferente de "NAO HOUVE GLOSA")
+   - Seccao Faturamento:
+     * Valor Faturado (obrigatorio)
+     * Envio Faturamento (obrigatorio, campo data)
+     * Valor Perda (opcional)
+   - Seccao Observacoes:
+     * Observacao (textarea, opcional)
+
+5. BUSCA
+   - Campo de busca na navbar
+   - Busca textual em todas as colunas dos registros
+   - Case-insensitive (nao diferencia maiusculas/minusculas)
+   - Busca por substrings (partes do texto)
+   - Debounce de 400ms para evitar chamadas excessivas
+
+6. ATUALIZACAO DE LISTAS
+   - Listas (regionais, unidades, hospitais, status, motivos) carregadas dinamicamente
+   - Verificacao automatica de mudancas a cada 60 segundos
+   - Botao manual para recarregar listas e dados
+
+7. CONTROLE DE ACESSO
+   - Cada registro vinculado a um usuario (IdUsuario)
+   - Usuario so ve e edita seus proprios registros
+   - Validacao de userId em todas as operacoes de backend
+
+================================================================================
+REGRAS DE NEGOCIO
+================================================================================
+
+REGRA 1 - LOGIN
+  - Apenas usuarios com Ativo = "S" na aba Usuarios podem fazer login
+  - A senha digitada deve corresponder exatamente a senha na planilha
+  - O dropdown de login mostra apenas usuarios ativos
+
+REGRA 2 - COMPETENCIA
+  - A competencia nao pode ser maior que o mes/ano atual
+  - Validacao no frontend (atributo max no input type="month")
+  - Validacao no backend (funcao validarCompetencia)
+  - Formatos aceitos: YYYY-MM, MM/YYYY, MMM/YYYY
+
+REGRA 3 - DATA NFE
+  - O campo Data NFe fica desabilitado por padrao
+  - Se o campo NFe for preenchido, Data NFe fica habilitado e obrigatorio
+  - A data nao pode ser maior que a data atual (atributo max)
+  - Se NFe for limpo, Data NFe e desabilitado e seu valor e apagado
+
+REGRA 4 - VALOR GLOSA
+  - O campo Valor Glosa fica desabilitado por padrao
+  - Se o Motivo de Glosa for diferente de "NAO HOUVE GLOSA", o campo fica habilitado e obrigatorio
+  - Se o motivo for "NAO HOUVE GLOSA" ou nenhum motivo selecionado, o campo fica desabilitado e seu valor e apagado
+
+REGRA 5 - CARDS DE RESUMO
+  - Os cards exibem a soma total de Faturamento, Glosa e Perda
+  - Quando ha busca ativa, os cards refletem a soma dos registros filtrados
+  - Os totais sao calculados no backend sobre todos os registros (nao apenas a pagina exibida)
+
+REGRA 6 - TROCA DE USUARIO
+  - Ao fazer logout, todos os filtros sao limpos (busca, ordenacao, pagina)
+  - Ao fazer login com outro usuario, a aplicacao comeca do zero
+
+REGRA 7 - PERMISSOES
+  - Usuario so pode editar e excluir seus proprios registros
+  - Tentativa de acesso nao autorizado retorna erro
+
+REGRA 8 - SEGURANCA
+  - Bloqueio de login apos 5 tentativas falhas (bloqueio de 1 minuto)
+  - userId validado em todas as operacoes CRUD
+
+================================================================================
+FUNCOES DO BACKEND (Google Apps Script)
+================================================================================
+
+CONFIG.GS
+  - CONFIG: objeto com SPREADSHEET_ID e nomes das abas (SHEETS)
+
+CONEXAO.GS
+  - getSheet(nome) - Retorna objeto Sheet pelo nome
+  - getSheetData(nome) - Retorna todos os dados de uma aba como array
+  - getNomesDaAba(nome) - Retorna lista de nomes de uma aba (coluna 2)
+  - getIdPorNome(nomeAba, nome) - Retorna o ID correspondente a um nome
+  - getMapaListas() - Retorna mapas ID <-> Nome de todas as listas
+  - getAllListas() - Retorna arrays de todas as listas
+  - sanitizarInput(valor) - Sanitiza strings de entrada
+  - invalidateAllCache() - Invalida todos os caches
+  - invalidateCacheUsuario(userId) - Invalida cache de um usuario
+
+AUTH.GS
+  - listarUsuariosAtivos() - Retorna usuarios com Ativo = "S"
+  - listarEmails() - Retorna emails dos usuarios ativos
+  - listarRegionais() - Lista de regionais
+  - listarUnidades() - Lista de unidades
+  - listarHospitais() - Lista de hospitais
+  - listarStatus() - Lista de status NFe
+  - listarMotivos() - Lista de motivos de glosa
+  - doLogin(email, senha) - Autentica usuario, retorna {success, userId, email}
+  - verificarUserId(userId) - Valida se userId existe e esta ativo
+
+CRUD.GS
+  - validarCompetencia(comp) - Valida se competencia nao e futura
+  - inserirRegistro(dados, userId) - Cria novo registro
+  - formatarCompetencia(comp) - Formata competencia para exibicao (MMM/YYYY)
+  - enriquecerRegistro(r, listas) - Adiciona nomes legiveis ao registro
+  - listarRegistros(userId, page, pageSize, searchTerm) - Lista registros paginados
+    Retorna: {dados, total, page, pageSize, totalPages, sumFaturamento, sumGlosa, sumPerda}
+  - editarRegistro(id, dados, userId) - Atualiza registro existente
+  - excluirRegistro(id, userId) - Remove registro
+  - carregarApp(userId, forceRefresh) - Inicializa app com listas e config
+  - getListas() - Retorna todas as listas
+  - testarListagem() - Funcao de debug para testar listagem
+
+UI.GS
+  - doGet() - Ponto de entrada da web app
+  - include(filename) - Inclui arquivos HTML
+  - getVersaoListas() - Retorna hash de versao das listas
+  - setupOnEditTrigger() - Configura trigger onEdit
+
+================================================================================
+FUNCOES DO FRONTEND (JavaScript)
+================================================================================
+
+VARIAVEIS GLOBAIS
+  - USER_ID, USER_EMAIL - Dados do usuario logado
+  - editandoId - ID do registro em edicao
+  - currentPage, pageSize, totalRegistros, totalPages - Controle de paginacao
+  - allLoadedRows - Registros da pagina atual
+  - isLoading - Flag de carregamento
+  - sortColumn, sortAsc - Controle de ordenacao
+  - searchTerm - Termo de busca atual
+  - listasVersao, versaoCheckInterval - Controle de atualizacao de listas
+  - selectsInicializados - Flag de inicializacao dos selects Select2
+  - searchTimeout - Timeout para debounce da busca
+  - formOffcanvas - Instancia do offcanvas Bootstrap
+
+INICIALIZACAO
+  - window.onload - Inicializa app, verifica sessao, carrega dados ou login
+
+AUTENTICACAO
+  - carregarEmails() - Carrega lista de usuarios ativos no dropdown
+  - fazerLogin() - Envia credenciais ao backend
+  - fazerLogout() - Limpa sessao, filtros e retorna ao login
+  - fecharAba() - Fecha a aba do navegador
+  - mostrarTelaPrincipal() - Exibe a tela principal
+
+DADOS
+  - carregarAppInicial() - Carrega listas e configura app
+  - carregarDados(reset) - Carrega registros paginados do backend
+  - salvarRegistro() - Salva ou atualiza registro
+  - editarRegistro(reg) - Preenche formulario para edicao
+  - excluirRegistro(id) - Confirma e exclui registro
+  - buscarRegistros() - Aplica filtro de busca com debounce
+  - recarregarListas() - Recarrega listas e dados do servidor
+
+INTERFACE
+  - novoRegistro() - Abre formulario limpo para novo registro
+  - fecharFormulario() - Fecha offcanvas do formulario
+  - limparFormulario() - Limpa todos os campos do formulario
+  - coletarForm() - Coleta dados do formulario
+  - validarFormulario() - Valida campos obrigatorios e condicionais
+  - setLoading(loading) - Exibe/ocultar estado de carregamento
+  - mostrarProgresso() / esconderProgresso() - Barra de progresso
+  - showToast(message, type) - Notificacao toast (SweetAlert2)
+  - showConfirm(title, text, callback) - Dialogo de confirmacao
+
+TABELA
+  - preencherTabela(registros) - Renderiza linhas da tabela
+  - preencherSelect(selectId, data) - Popula selects com opcoes
+  - ordenarRegistros(registros) - Ordena registros por coluna
+  - ordenarPorColuna(idx) - Handler de clique no cabecalho
+  - aplicarFiltroEOrdenacao() - Aplica ordenacao e re-renderiza
+  - atualizarResumo(totais) - Atualiza cards de resumo financeiro
+  - atualizarIndicador() - Atualiza info de paginacao (X-Y de Z registros)
+  - renderizarPaginacao() - Renderiza controles de paginacao
+  - irParaPagina(page) - Navega para pagina especifica
+
+FORMATACAO
+  - formatarMoeda(valor) - Formata como R$ com 2 casas decimais
+  - formatarDataParaExibicao(valor) - Formata data para DD/MM/AAAA
+  - formatarValorColuna(col, valor) - Formata valor conforme tipo de coluna
+  - formatarCompetenciaExibicao(comp) - Formata competencia para MMM/YYYY
+  - competenciaParaMesAno(comp) - Converte competencia para YYYY-MM
+  - getStatusBadge(status) - Gera badge HTML colorido por status
+
+CONDICOES
+  - atualizarCamposCondicionais() - Ativa/desativa campos condicionais
+  - iniciarValidacoes() - Configura validacoes e atributos max dos inputs
+
+LISTAS
+  - carregarListas() - Carrega listas do backend
+  - iniciarVerificacaoVersao() - Inicia verificacao periodica
+  - verificarVersaoListas() - Verifica se listas mudaram no servidor
+  - preencherDatalist(listId, data) - Popula datalists
+  - inicializarSelects() - Inicializa Select2 nos selects
+  - destruirSelects() - Destroi instancias Select2
+
+================================================================================
+CAMPOS OBRIGATORIOS DO FORMULARIO
+================================================================================
+  - Titulo
+  - Competencia
+  - Regional
+  - Unidade
+  - Hospital
+  - Status da NFe
+  - Motivo de Glosa
+  - Valor Faturado
+  - Envio Faturamento
+  - Data NFe (se NFe preenchido)
+  - Valor Glosa (se motivo diferente de "NAO HOUVE GLOSA")
+
+================================================================================
+FLUXO DE DADOS
+================================================================================
+
+1. Usuario acessa a web app -> doGet() -> Index.html
+2. Se nao logado: carrega emails ativos -> usuario seleciona e digita senha
+3. doLogin() valida credenciais -> retorna userId
+4. carregarAppInicial() -> carrega listas + chama carregarDados()
+5. carregarDados() -> listarRegistros() no backend -> retorna dados paginados
+6. Frontend renderiza tabela, cards, paginacao
+7. Usuario pode buscar, ordenar, criar, editar ou excluir registros
+8. Logout -> limpa tudo e retorna ao login
+
+================================================================================
+FIM DO ESCOPO
+================================================================================

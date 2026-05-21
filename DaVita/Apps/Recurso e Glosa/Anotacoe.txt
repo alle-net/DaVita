@@ -1,0 +1,2 @@
+1 retornar ao formulario de login solicitar o aumento do formulario e aumento dos campos, pois o email nao aparece no campo em sua totalidade
+2 no formulario de novo registro entendi que tem mais de um formulario para novo registro e nao e o certo deve haver apenas um e quando o usuario salvar o novo registro ele fecha o formulario e o se o usuario precisar incluir outro registro dever clicar no botao adicionar novamente
