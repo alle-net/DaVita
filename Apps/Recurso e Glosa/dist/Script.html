@@ -199,7 +199,7 @@ function preencherSelect(selectId, data) {
     jQuery(select).select2({
       theme: 'bootstrap-5',
       placeholder: 'Selecione...',
-      allowClear: true,
+      allowClear: jQuery(select).attr('id') !== 'IdMotivo',
       width: '100%'
     });
   }
@@ -214,7 +214,7 @@ function inicializarSelects() {
       jQuery(this).select2({
         theme: 'bootstrap-5',
         placeholder: 'Selecione...',
-        allowClear: true,
+        allowClear: jQuery(this).attr('id') !== 'IdMotivo',
         width: '100%',
         dropdownParent: jQuery('#formOffcanvas'),
         language: {
@@ -352,6 +352,9 @@ function novoRegistro() {
   formOffcanvas.show();
   setTimeout(function() {
     inicializarSelects();
+    if (typeof jQuery !== 'undefined') {
+      jQuery('#IdMotivo').val('NAO HOUVE GLOSA').trigger('change');
+    }
     atualizarCamposCondicionais();
   }, 100);
 }
@@ -668,9 +671,30 @@ function iniciarValidacoes() {
 
   document.getElementById('NFe').addEventListener('input', function () {
     var dataNfe = document.getElementById('Data');
+    var statusNfe = document.getElementById('IdStatus');
     var preenchido = this.value.trim();
     dataNfe.disabled = !preenchido;
     if (!preenchido) dataNfe.value = '';
+    garantirOpcaoStatusSemNFe();
+    if (typeof jQuery !== 'undefined' && jQuery(statusNfe).data('select2')) {
+      if (!preenchido) {
+        jQuery(statusNfe).val('PENDENTE DE EMISSAO').trigger('change');
+        jQuery(statusNfe).prop('disabled', true);
+        jQuery(statusNfe).data('select2').$container.find('.select2-selection__clear, .select2-selection__arrow').hide();
+      } else {
+        jQuery(statusNfe).prop('disabled', false);
+        jQuery(statusNfe).val('').trigger('change');
+        jQuery(statusNfe).data('select2').$container.find('.select2-selection__clear, .select2-selection__arrow').show();
+      }
+    } else {
+      if (!preenchido) {
+        statusNfe.value = 'PENDENTE DE EMISSAO';
+        statusNfe.disabled = true;
+      } else {
+        statusNfe.disabled = false;
+        statusNfe.value = '';
+      }
+    }
   });
 
   var motivoGlosaEl = document.getElementById('IdMotivo');
@@ -681,7 +705,7 @@ function iniciarValidacoes() {
       : motivoGlosaEl.value;
     var naoHouveGlosa = motivo && motivo.toLowerCase().indexOf('nao houve glosa') !== -1;
     valorGlosa.disabled = naoHouveGlosa || !motivo;
-    if (naoHouveGlosa || !motivo) valorGlosa.value = '';
+    valorGlosa.value = naoHouveGlosa || !motivo ? '0' : '';
   }
   if (typeof jQuery !== 'undefined' && jQuery(motivoGlosaEl).data('select2')) {
     jQuery(motivoGlosaEl).on('change', verificarMotivoGlosa);
@@ -727,6 +751,14 @@ function validarFormulario() {
           campo.focus();
         }
       }
+      return false;
+    }
+  }
+  if (camposObrigatorios.some(function(c) { return c.id === 'Glosa'; })) {
+    var glosaVal = parseFloat(document.getElementById('Glosa').value) || 0;
+    if (glosaVal <= 0) {
+      showToast('Valor Glosa deve ser maior que zero', 'warning');
+      document.getElementById('Glosa').focus();
       return false;
     }
   }
@@ -821,16 +853,50 @@ function competenciaParaMesAno(comp) {
   return str;
 }
 
+function garantirOpcaoStatusSemNFe() {
+  var select = document.getElementById('IdStatus');
+  if (!select) return;
+  for (var i = 0; i < select.options.length; i++) {
+    if (select.options[i].value === 'PENDENTE DE EMISSAO') return;
+  }
+  var opt = document.createElement('option');
+  opt.value = 'PENDENTE DE EMISSAO';
+  opt.textContent = 'PENDENTE DE EMISSAO';
+  select.appendChild(opt);
+}
+
 function atualizarCamposCondicionais() {
   var nfeValor = document.getElementById('NFe').value.trim();
   document.getElementById('Data').disabled = !nfeValor;
+
+  var statusNfe = document.getElementById('IdStatus');
+  garantirOpcaoStatusSemNFe();
+  if (typeof jQuery !== 'undefined' && jQuery(statusNfe).data('select2')) {
+    if (!nfeValor) {
+      jQuery(statusNfe).val('PENDENTE DE EMISSAO').trigger('change');
+      jQuery(statusNfe).prop('disabled', true);
+      jQuery(statusNfe).data('select2').$container.find('.select2-selection__clear, .select2-selection__arrow').hide();
+    } else {
+      jQuery(statusNfe).prop('disabled', false);
+      jQuery(statusNfe).data('select2').$container.find('.select2-selection__clear, .select2-selection__arrow').show();
+    }
+  } else {
+    if (!nfeValor) {
+      statusNfe.value = 'PENDENTE DE EMISSAO';
+      statusNfe.disabled = true;
+    } else {
+      statusNfe.disabled = false;
+    }
+  }
 
   var motivoGlosaEl = document.getElementById('IdMotivo');
   var motivo = typeof jQuery !== 'undefined' && jQuery(motivoGlosaEl).data('select2')
     ? jQuery(motivoGlosaEl).val()
     : motivoGlosaEl.value;
   var naoHouveGlosa = motivo && motivo.toLowerCase().indexOf('nao houve glosa') !== -1;
-  document.getElementById('Glosa').disabled = naoHouveGlosa || !motivo;
+  var glosaEl = document.getElementById('Glosa');
+  glosaEl.disabled = naoHouveGlosa || !motivo;
+  if (naoHouveGlosa || !motivo) glosaEl.value = '0';
 }
 
 function editarRegistro(reg) {
