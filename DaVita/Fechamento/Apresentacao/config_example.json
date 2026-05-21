@@ -1,0 +1,9 @@
+{
+  "url": "https://painel.davita.nefro.cloud/login",
+  "usuario": "seu.email@davita.com",
+  "senha": "sua_senha",
+  "pasta_salvar": "salvar",
+  "arquivo_unidades": "Lista_Unidades.xlsx",
+  "aba_unidades": "Lista_Unidades",
+  "coluna_unidade": "unidade"
+}

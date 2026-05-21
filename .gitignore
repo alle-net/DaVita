@@ -1,1 +1,8 @@
 Antigos.xlsx
+config.json
+salvar/
+venv/
+__pycache__/
+*.pyc
+.python-version
+*.html
