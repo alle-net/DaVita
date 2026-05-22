@@ -819,6 +819,7 @@ function coletarForm() {
 function limparFormulario() {
   var campos = document.querySelectorAll('#formOffcanvas input, #formOffcanvas textarea, #formOffcanvas select');
   campos.forEach(function (el) { el.value = ''; });
+  document.getElementById('Perda').value = '0';
   if (typeof jQuery !== 'undefined') {
     jQuery('.select-busca').trigger('change');
   }
