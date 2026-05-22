@@ -72,6 +72,16 @@ function invalidateCacheUsuario(userId) {
   _cache.remove('user_valid_' + userId);
 }
 
+function _colIndex(headers, names) {
+  for (var i = 0; i < headers.length; i++) {
+    var h = String(headers[i]).trim().toLowerCase();
+    for (var j = 0; j < names.length; j++) {
+      if (h === names[j]) return i;
+    }
+  }
+  return -1;
+}
+
 var _lookupCache = {};
 
 function getIdPorNome(sheetName, nome) {
@@ -80,9 +90,16 @@ function getIdPorNome(sheetName, nome) {
     var data = getCachedData(sheetName);
     var map = {};
     if (data && data.length > 1) {
+      var headers = data[0];
+      var idCol = _colIndex(headers, ['id', 'idusuario', 'id usuario']);
+      if (idCol < 0) idCol = 0;
+      var nomeCol = _colIndex(headers, ['nome', 'nomeusuario', 'nome usuario', 'regional', 'unidade', 'hospital', 'motivo', 'motivoglosa', 'statusnfe']);
+      if (nomeCol < 0) nomeCol = 1;
+      var statusCol = _colIndex(headers, ['status', 'ativo']);
       for (var i = 1; i < data.length; i++) {
-        var id = String(data[i][0]).trim();
-        var nm = String(data[i][1]).trim();
+        if (statusCol >= 0 && String(data[i][statusCol]).trim() !== '1') continue;
+        var id = String(data[i][idCol]).trim();
+        var nm = String(data[i][nomeCol]).trim();
         if (nm) map[nm] = id;
       }
     }
@@ -98,8 +115,13 @@ function getNomesDaAba(sheetName) {
   var data = getCachedData(sheetName);
   var nomes = [];
   if (data && data.length > 1) {
+    var headers = data[0];
+    var nomeCol = _colIndex(headers, ['nome', 'nomeusuario', 'nome usuario', 'regional', 'unidade', 'hospital', 'motivo', 'motivoglosa', 'statusnfe']);
+    if (nomeCol < 0) nomeCol = 1;
+    var statusCol = _colIndex(headers, ['status', 'ativo']);
     for (var i = 1; i < data.length; i++) {
-      var nome = String(data[i][1]).trim();
+      if (statusCol >= 0 && String(data[i][statusCol]).trim() !== '1') continue;
+      var nome = String(data[i][nomeCol]).trim();
       if (nome) nomes.push(nome);
     }
   }
@@ -111,9 +133,14 @@ function getIdsENomesDaAba(sheetName) {
   var data = getCachedData(sheetName);
   var result = { nomes: [], mapa: {} };
   if (data && data.length > 1) {
+    var headers = data[0];
+    var idCol = _colIndex(headers, ['id', 'idusuario', 'id usuario']);
+    if (idCol < 0) idCol = 0;
+    var nomeCol = _colIndex(headers, ['nome', 'nomeusuario', 'nome usuario', 'regional', 'unidade', 'hospital', 'motivo', 'motivoglosa', 'statusnfe']);
+    if (nomeCol < 0) nomeCol = 1;
     for (var i = 1; i < data.length; i++) {
-      var id = String(data[i][0]).trim();
-      var nome = String(data[i][1]).trim();
+      var id = String(data[i][idCol]).trim();
+      var nome = String(data[i][nomeCol]).trim();
       if (nome) {
         result.nomes.push(nome);
         result.mapa[id] = nome;
@@ -144,11 +171,11 @@ function getMapaListas() {
   var motivoData = getIdsENomesDaAba(CONFIG.SHEETS.MOTIVOS_GLOSA);
   
   return {
-    regionais: regionalData.nomes,
-    unidades: unidadeData.nomes,
-    hospitais: hospitalData.nomes,
-    statusList: statusData.nomes,
-    motivos: motivoData.nomes,
+    regionais: getNomesDaAba(CONFIG.SHEETS.REGIONAIS),
+    unidades: getNomesDaAba(CONFIG.SHEETS.UNIDADES),
+    hospitais: getNomesDaAba(CONFIG.SHEETS.HOSPITAIS),
+    statusList: getNomesDaAba(CONFIG.SHEETS.STATUS_NFE),
+    motivos: getNomesDaAba(CONFIG.SHEETS.MOTIVOS_GLOSA),
     regionalMap: regionalData.mapa,
     unidadeMap: unidadeData.mapa,
     hospitalMap: hospitalData.mapa,
