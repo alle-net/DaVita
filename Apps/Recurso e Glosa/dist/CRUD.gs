@@ -205,6 +205,7 @@ function listarRegistros(userId, page, pageSize, searchTerm) {
       Logger.log('listarRegistros - apos filtro: ' + filtrados.length + ' (search: "' + search + '")');
     }
     
+    filtrados.reverse();
     var total = filtrados.length;
     var totalPages = Math.ceil(total / ps);
     if (p > totalPages && totalPages > 0) p = totalPages;
