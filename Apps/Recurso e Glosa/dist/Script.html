@@ -218,7 +218,7 @@ function inicializarSelects() {
       jQuery(this).select2({
         theme: 'bootstrap-5',
         placeholder: 'Selecione...',
-        allowClear: jQuery(this).attr('id') !== 'IdMotivo',
+        allowClear: false,
         width: '100%',
         dropdownParent: jQuery('#formOffcanvas'),
         language: {
@@ -837,6 +837,7 @@ function coletarForm() {
 function limparFormulario() {
   var campos = document.querySelectorAll('#formOffcanvas input, #formOffcanvas textarea, #formOffcanvas select');
   campos.forEach(function (el) { el.value = ''; });
+  document.getElementById('Perda').value = '0';
   if (typeof jQuery !== 'undefined') {
     jQuery('.select-busca').trigger('change');
   }
