@@ -730,6 +730,16 @@ function iniciarValidacoes() {
   } else {
     motivoGlosaEl.addEventListener('change', verificarMotivoGlosa);
   }
+
+  var faturamentoEl = document.getElementById('Faturamento');
+  faturamentoEl.addEventListener('input', function () {
+    var envioEl = document.getElementById('Envio');
+    var valor = parseFloat(this.value) || 0;
+    var ativo = valor > 0;
+    envioEl.disabled = !ativo;
+    envioEl.required = ativo;
+    if (!ativo) envioEl.value = '';
+  });
 }
 
 function validarFormulario() {
@@ -741,8 +751,7 @@ function validarFormulario() {
     { id: 'IdHospital', nome: 'Hospital' },
     { id: 'IdStatus', nome: 'Status da NFe' },
     { id: 'IdMotivo', nome: 'Motivo de Glosa' },
-    { id: 'Faturamento', nome: 'Valor Faturado' },
-    { id: 'Envio', nome: 'Envio Faturamento' }
+    { id: 'Faturamento', nome: 'Valor Faturado' }
   ];
 
   var nfeValor = document.getElementById('NFe').value.trim();
@@ -779,6 +788,18 @@ function validarFormulario() {
       document.getElementById('Glosa').focus();
       return false;
     }
+  }
+  var fatVal = parseFloat(document.getElementById('Faturamento').value) || 0;
+  if (fatVal <= 0) {
+    showToast('Valor Faturado deve ser maior que zero', 'warning');
+    document.getElementById('Faturamento').focus();
+    return false;
+  }
+  var envioVal = document.getElementById('Envio').value.trim();
+  if (!envioVal) {
+    showToast('Campo obrigatório: Envio Faturamento', 'warning');
+    document.getElementById('Envio').focus();
+    return false;
   }
   return true;
 }
@@ -837,6 +858,7 @@ function coletarForm() {
 function limparFormulario() {
   var campos = document.querySelectorAll('#formOffcanvas input, #formOffcanvas textarea, #formOffcanvas select');
   campos.forEach(function (el) { el.value = ''; });
+  document.getElementById('Faturamento').value = '0';
   document.getElementById('Perda').value = '0';
   if (typeof jQuery !== 'undefined') {
     jQuery('.select-busca').trigger('change');
@@ -925,6 +947,14 @@ function atualizarCamposCondicionais() {
   var glosaEl = document.getElementById('Glosa');
   glosaEl.disabled = naoHouveGlosa || !motivo;
   if (naoHouveGlosa || !motivo) glosaEl.value = '0';
+
+  var faturamentoEl = document.getElementById('Faturamento');
+  var envioEl = document.getElementById('Envio');
+  var fatVal = parseFloat(faturamentoEl.value) || 0;
+  var ativo = fatVal > 0;
+  envioEl.disabled = !ativo;
+  envioEl.required = ativo;
+  if (!ativo) envioEl.value = '';
 }
 
 function editarRegistro(reg) {

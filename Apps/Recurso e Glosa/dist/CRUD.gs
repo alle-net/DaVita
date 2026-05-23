@@ -38,6 +38,18 @@ function inserirRegistro(dados, userId) {
       return { success: false, message: 'Competencia nao pode ser maior que o mes atual' };
     }
 
+    var fatVal = parseFloat(dados.Faturamento);
+    if (isNaN(fatVal) || fatVal <= 0) {
+      return { success: false, message: 'Valor Faturado deve ser maior que zero' };
+    }
+
+    if (dados.Data) {
+      var dataErr = validarDataNaoFutura(dados.Data, 'Data NFe');
+      if (dataErr) return { success: false, message: dataErr };
+    }
+    var envioErr = validarDataNaoFutura(dados.Envio, 'Envio Faturamento');
+    if (envioErr) return { success: false, message: envioErr };
+
     var sheet = getSheet(CONFIG.SHEETS.DADOS);
     var headers = sheet.getDataRange().getValues()[0];
     var row = [];
@@ -72,6 +84,15 @@ function inserirRegistro(dados, userId) {
   } catch (e) {
     return { success: false, message: 'Erro: ' + e.message };
   }
+}
+
+function validarDataNaoFutura(dataStr, nome) {
+  if (!dataStr) return null;
+  var data = new Date(dataStr + 'T00:00:00');
+  var hoje = new Date();
+  hoje.setHours(0, 0, 0, 0);
+  if (data > hoje) return nome + ' nao pode ser maior que a data atual';
+  return null;
 }
 
 function formatarCompetencia(comp) {
@@ -247,6 +268,16 @@ function editarRegistro(id, dados, userId) {
     if (dados.competencia && !validarCompetencia(dados.competencia)) {
       return { success: false, message: 'Competencia nao pode ser maior que o mes atual' };
     }
+
+    var fatVal = parseFloat(dados.Faturamento);
+    if (isNaN(fatVal) || fatVal <= 0) {
+      return { success: false, message: 'Valor Faturado deve ser maior que zero' };
+    }
+
+    var dataErr = validarDataNaoFutura(dados.Data, 'Data NFe');
+    if (dataErr) return { success: false, message: dataErr };
+    var envioErr = validarDataNaoFutura(dados.Envio, 'Envio Faturamento');
+    if (envioErr) return { success: false, message: envioErr };
 
     var sheet = getSheet(CONFIG.SHEETS.DADOS);
     var range = sheet.getDataRange();
