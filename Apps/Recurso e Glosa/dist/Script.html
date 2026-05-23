@@ -16,6 +16,8 @@ var versaoCheckInterval = null;
 var selectsInicializados = false;
 var searchTimeout = null;
 var formOffcanvas = null;
+var _statusCompleto = [];
+var _nfePreenchido = false;
 
 var colunasTabela = [
   'Titulo', 'competencia', 'Regional', 'Unidade', 'Hospital',
@@ -113,6 +115,7 @@ function carregarListas() {
       preencherSelect('IdUnidade', listas.unidades);
       preencherSelect('IdHospital', listas.hospitais);
       preencherSelect('IdStatus', listas.statusList);
+      _statusCompleto = listas.statusList;
       preencherSelect('IdMotivo', listas.motivos);
       inicializarSelects();
     })
@@ -155,6 +158,7 @@ function recarregarListas() {
       preencherSelect('IdUnidade', result.unidades);
       preencherSelect('IdHospital', result.hospitais);
       preencherSelect('IdStatus', result.statusList);
+      _statusCompleto = result.statusList;
       preencherSelect('IdMotivo', result.motivos);
       inicializarSelects();
       listasVersao = result.versao || '';
@@ -199,7 +203,7 @@ function preencherSelect(selectId, data) {
     jQuery(select).select2({
       theme: 'bootstrap-5',
       placeholder: 'Selecione...',
-      allowClear: jQuery(select).attr('id') !== 'IdMotivo',
+      allowClear: jQuery(select).attr('id') !== 'IdMotivo' && jQuery(select).attr('id') !== 'IdStatus',
       width: '100%'
     });
   }
@@ -383,6 +387,7 @@ function carregarAppInicial() {
       preencherSelect('IdUnidade', result.unidades);
       preencherSelect('IdHospital', result.hospitais);
       preencherSelect('IdStatus', result.statusList);
+      _statusCompleto = result.statusList;
       preencherSelect('IdMotivo', result.motivos);
       inicializarSelects();
       verificarVersaoListas();
@@ -672,27 +677,40 @@ function iniciarValidacoes() {
   document.getElementById('NFe').addEventListener('input', function () {
     var dataNfe = document.getElementById('Data');
     var statusNfe = document.getElementById('IdStatus');
-    var preenchido = this.value.trim();
+    var preenchido = this.value.trim().length > 0;
     dataNfe.disabled = !preenchido;
     if (!preenchido) dataNfe.value = '';
-    garantirOpcaoStatusSemNFe();
+
+    if (preenchido !== _nfePreenchido) {
+      _nfePreenchido = preenchido;
+      if (typeof jQuery !== 'undefined' && jQuery(statusNfe).data('select2')) {
+        if (preenchido) {
+          preencherSelect('IdStatus', ['EMITIDA']);
+        } else {
+          garantirOpcaoStatusSemNFe();
+          var listaFiltrada = _statusCompleto.filter(function(s) { return s !== 'EMITIDA'; });
+          preencherSelect('IdStatus', listaFiltrada);
+        }
+      }
+    }
+
     if (typeof jQuery !== 'undefined' && jQuery(statusNfe).data('select2')) {
       if (!preenchido) {
         jQuery(statusNfe).val('PENDENTE DE EMISSAO').trigger('change');
+        jQuery(statusNfe).prop('disabled', false);
+        jQuery(statusNfe).data('select2').$container.find('.select2-selection__clear, .select2-selection__arrow').show();
+      } else {
+        jQuery(statusNfe).val('EMITIDA').trigger('change');
         jQuery(statusNfe).prop('disabled', true);
         jQuery(statusNfe).data('select2').$container.find('.select2-selection__clear, .select2-selection__arrow').hide();
-      } else {
-        jQuery(statusNfe).prop('disabled', false);
-        jQuery(statusNfe).val('').trigger('change');
-        jQuery(statusNfe).data('select2').$container.find('.select2-selection__clear, .select2-selection__arrow').show();
       }
     } else {
       if (!preenchido) {
         statusNfe.value = 'PENDENTE DE EMISSAO';
-        statusNfe.disabled = true;
-      } else {
         statusNfe.disabled = false;
-        statusNfe.value = '';
+      } else {
+        statusNfe.value = 'EMITIDA';
+        statusNfe.disabled = true;
       }
     }
   });
@@ -867,27 +885,36 @@ function garantirOpcaoStatusSemNFe() {
 
 function atualizarCamposCondicionais() {
   var nfeValor = document.getElementById('NFe').value.trim();
-  document.getElementById('Data').disabled = !nfeValor;
+  var preenchido = nfeValor.length > 0;
+  document.getElementById('Data').disabled = !preenchido;
 
   var statusNfe = document.getElementById('IdStatus');
-  garantirOpcaoStatusSemNFe();
+
   if (typeof jQuery !== 'undefined' && jQuery(statusNfe).data('select2')) {
-    if (!nfeValor) {
-      jQuery(statusNfe).val('PENDENTE DE EMISSAO').trigger('change');
+    if (preenchido) {
+      preencherSelect('IdStatus', ['EMITIDA']);
+      jQuery(statusNfe).val('EMITIDA').trigger('change');
       jQuery(statusNfe).prop('disabled', true);
       jQuery(statusNfe).data('select2').$container.find('.select2-selection__clear, .select2-selection__arrow').hide();
     } else {
+      garantirOpcaoStatusSemNFe();
+      var listaFiltrada = _statusCompleto.filter(function(s) { return s !== 'EMITIDA'; });
+      preencherSelect('IdStatus', listaFiltrada);
+      jQuery(statusNfe).val('PENDENTE DE EMISSAO').trigger('change');
       jQuery(statusNfe).prop('disabled', false);
       jQuery(statusNfe).data('select2').$container.find('.select2-selection__clear, .select2-selection__arrow').show();
     }
   } else {
-    if (!nfeValor) {
+    if (!preenchido) {
       statusNfe.value = 'PENDENTE DE EMISSAO';
-      statusNfe.disabled = true;
-    } else {
       statusNfe.disabled = false;
+    } else {
+      statusNfe.value = 'EMITIDA';
+      statusNfe.disabled = true;
     }
   }
+
+  _nfePreenchido = preenchido;
 
   var motivoGlosaEl = document.getElementById('IdMotivo');
   var motivo = typeof jQuery !== 'undefined' && jQuery(motivoGlosaEl).data('select2')

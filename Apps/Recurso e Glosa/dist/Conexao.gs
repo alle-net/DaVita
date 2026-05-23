@@ -107,6 +107,19 @@ function getNomesDaAba(sheetName) {
   return nomes;
 }
 
+function getStatusAtivos() {
+  var data = getCachedData(CONFIG.SHEETS.STATUS_NFE);
+  var nomes = [];
+  if (data && data.length > 1) {
+    for (var i = 1; i < data.length; i++) {
+      var nome = String(data[i][1]).trim();
+      var ativo = String(data[i][2] || '').trim();
+      if (nome && ativo === '1') nomes.push(nome);
+    }
+  }
+  return nomes;
+}
+
 function getIdsENomesDaAba(sheetName) {
   var data = getCachedData(sheetName);
   var result = { nomes: [], mapa: {} };
@@ -129,7 +142,7 @@ function getAllListas() {
     regionais: getNomesDaAba(CONFIG.SHEETS.REGIONAIS),
     unidades: getNomesDaAba(CONFIG.SHEETS.UNIDADES),
     hospitais: getNomesDaAba(CONFIG.SHEETS.HOSPITAIS),
-    statusList: getNomesDaAba(CONFIG.SHEETS.STATUS_NFE),
+    statusList: getStatusAtivos(),
     motivos: getNomesDaAba(CONFIG.SHEETS.MOTIVOS_GLOSA)
   };
   Logger.log('getAllListas - fim, regionais: ' + result.regionais.length + ', unidades: ' + result.unidades.length);
@@ -141,13 +154,14 @@ function getMapaListas() {
   var unidadeData = getIdsENomesDaAba(CONFIG.SHEETS.UNIDADES);
   var hospitalData = getIdsENomesDaAba(CONFIG.SHEETS.HOSPITAIS);
   var statusData = getIdsENomesDaAba(CONFIG.SHEETS.STATUS_NFE);
+  var statusAtivos = getStatusAtivos();
   var motivoData = getIdsENomesDaAba(CONFIG.SHEETS.MOTIVOS_GLOSA);
   
   return {
     regionais: regionalData.nomes,
     unidades: unidadeData.nomes,
     hospitais: hospitalData.nomes,
-    statusList: statusData.nomes,
+    statusList: statusAtivos,
     motivos: motivoData.nomes,
     regionalMap: regionalData.mapa,
     unidadeMap: unidadeData.mapa,
