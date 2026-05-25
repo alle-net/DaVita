@@ -894,6 +894,11 @@ function competenciaParaMesAno(comp) {
   return str;
 }
 
+function dataParaInputDate(valor) {
+  if (!valor) return '';
+  return String(valor).trim().split('T')[0];
+}
+
 function garantirOpcaoStatusSemNFe() {
   var select = document.getElementById('IdStatus');
   if (!select) return;
@@ -964,7 +969,6 @@ function editarRegistro(reg) {
   formOffcanvas.show();
   setTimeout(function() {
     inicializarSelects();
-    setTimeout(atualizarCamposCondicionais, 150);
   }, 100);
 
   var mapa = {
@@ -974,14 +978,14 @@ function editarRegistro(reg) {
     IdUnidade: reg.Unidade || reg.IdUnidade,
     IdHospital: reg.Hospital || reg.IdHospital,
     NFe: reg.NFe,
-    Data: reg.Data,
+    Data: dataParaInputDate(reg.Data),
     IdStatus: reg.StatusNFe || reg.IdStatus,
     IdMotivo: reg.MotivoGlosa || reg.IdMotivo,
     Faturamento: reg.Faturamento,
     Glosa: reg.Glosa,
     Perda: reg.Perda,
     Observacao: reg.Observacao,
-    Envio: reg.Envio
+    Envio: dataParaInputDate(reg.Envio)
   };
   for (var key in mapa) {
     var el = document.getElementById(key);
