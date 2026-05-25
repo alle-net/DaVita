@@ -184,6 +184,14 @@ function getMapaListas() {
   };
 }
 
+function desmesclarLinha(sheet, rowNum, numCols) {
+  var range = sheet.getRange(rowNum, 1, 1, numCols);
+  var celulasMescladas = range.getMergedRanges();
+  for (var i = 0; i < celulasMescladas.length; i++) {
+    celulasMescladas[i].breakApart();
+  }
+}
+
 function sanitizarInput(valor) {
   if (valor === null || valor === undefined) return '';
   return String(valor)

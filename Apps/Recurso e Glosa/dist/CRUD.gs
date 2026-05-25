@@ -64,6 +64,10 @@ function inserirRegistro(dados, userId) {
     dados.IdStatus = getIdPorNome(CONFIG.SHEETS.STATUS_NFE, dados.IdStatus) || dados.IdStatus;
     dados.IdMotivo = getIdPorNome(CONFIG.SHEETS.MOTIVOS_GLOSA, dados.IdMotivo) || dados.IdMotivo;
 
+    var dadosNorm = {};
+    for (var key in dados) {
+      dadosNorm[String(key).trim().toLowerCase()] = dados[key];
+    }
     for (var i = 0; i < headers.length; i++) {
       var h = String(headers[i]).trim();
       var hLower = h.toLowerCase();
@@ -71,13 +75,14 @@ function inserirRegistro(dados, userId) {
         row.push(validUserId);
       } else if (hLower === 'data') {
         row.push(dados.Data);
-      } else if (dados[h] !== undefined && dados[h] !== null) {
-        row.push(sanitizarInput(dados[h]));
+      } else if (dadosNorm[hLower] !== undefined && dadosNorm[hLower] !== null) {
+        row.push(sanitizarInput(dadosNorm[hLower]));
       } else {
         row.push('');
       }
     }
     sheet.appendRow(row);
+    desmesclarLinha(sheet, sheet.getLastRow(), headers.length);
     invalidateAllCache();
     invalidateCacheUsuario(validUserId);
     return { success: true, message: 'Registro inserido com sucesso' };
@@ -304,14 +309,19 @@ function editarRegistro(id, dados, userId) {
           return { success: false, message: 'Sem permissao para editar este registro' };
         }
         var newRow = [];
+        var dadosNorm = {};
+        for (var key in dados) {
+          dadosNorm[String(key).trim().toLowerCase()] = dados[key];
+        }
         for (var j = 0; j < headers.length; j++) {
-          var header = headers[j];
-          if (dados[header] !== undefined) {
-            newRow.push(sanitizarInput(dados[header]));
+          var header = String(headers[j]).trim().toLowerCase();
+          if (dadosNorm[header] !== undefined) {
+            newRow.push(sanitizarInput(dadosNorm[header]));
           } else {
             newRow.push(values[i][j]);
           }
         }
+        desmesclarLinha(sheet, i + 1, headers.length);
         sheet.getRange(i + 1, 1, 1, headers.length).setValues([newRow]);
         invalidateAllCache();
         invalidateCacheUsuario(validUserId);
