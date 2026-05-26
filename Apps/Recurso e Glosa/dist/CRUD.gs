@@ -131,23 +131,23 @@ function formatarCompetencia(comp) {
 }
 
 function enriquecerRegistro(r, listas) {
-  var idR = String(r.IdRegional || '').trim();
-  var idU = String(r.IdUnidade || '').trim();
-  var idH = String(r.IdHospital || '').trim();
-  var idS = String(r.IdStatus || '').trim();
-  var idM = String(r.IdMotivo || '').trim();
+  var idR = String(r.idregional || '').trim();
+  var idU = String(r.idunidade || '').trim();
+  var idH = String(r.idhospital || '').trim();
+  var idS = String(r.idstatus || '').trim();
+  var idM = String(r.idmotivo || '').trim();
 
-  var dataStr = r.Data;
+  var dataStr = r.data;
   if (dataStr instanceof Date) dataStr = dataStr.toISOString();
   else dataStr = String(dataStr || '').trim();
 
-  var envioStr = r.Envio;
+  var envioStr = r.envio;
   if (envioStr instanceof Date) envioStr = envioStr.toISOString();
   else envioStr = String(envioStr || '').trim();
 
   return {
     id: String(r.id || '').trim(),
-    IdUsuario: String(r.IdUsuario || '').trim(),
+    IdUsuario: String(r.idusuario || '').trim(),
     competencia: formatarCompetencia(r.competencia),
     IdRegional: idR,
     IdUnidade: idU,
@@ -155,13 +155,13 @@ function enriquecerRegistro(r, listas) {
     IdStatus: idS,
     IdMotivo: idM,
     Envio: envioStr,
-    Faturamento: r.Faturamento,
-    Perda: r.Perda,
-    Glosa: r.Glosa,
-    Observacao: String(r.Observacao || '').trim(),
+    Faturamento: r.faturamento,
+    Perda: r.perda,
+    Glosa: r.glosa,
+    Observacao: String(r.observacao || '').trim(),
     Data: dataStr,
-    NFe: String(r.NFe || '').trim(),
-    Titulo: String(r.Titulo || '').trim(),
+    NFe: String(r.nfe || '').trim(),
+    Titulo: String(r.titulo || '').trim(),
     Regional: listas.regionalMap[idR] || idR,
     Unidade: listas.unidadeMap[idU] || idU,
     Hospital: listas.hospitalMap[idH] || idH,
@@ -204,7 +204,7 @@ function listarRegistros(userId, page, pageSize, searchTerm) {
       if (rowUserId === validUserId) {
         var row = {};
         for (var j = 0; j < headers.length; j++) {
-          row[String(headers[j]).trim()] = allData[i][j];
+          row[String(headers[j]).trim().toLowerCase()] = allData[i][j];
         }
         todosEnriquecidos.push(enriquecerRegistro(row, listas));
       }
@@ -360,7 +360,9 @@ function excluirRegistro(id, userId) {
         if (userCol >= 0 && String(values[i][userCol]).trim() !== validUserId) {
           return { success: false, message: 'Sem permissao para excluir este registro' };
         }
+        desmesclarLinha(sheet, i + 1, headers.length);
         sheet.deleteRow(i + 1);
+        SpreadsheetApp.flush();
         invalidateAllCache();
         invalidateCacheUsuario(validUserId);
         return { success: true, message: 'Registro excluido com sucesso' };
