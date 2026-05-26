@@ -1,3 +1,11 @@
+var CAMPOS_MONETARIOS = {faturamento: true, glosa: true, perda: true};
+
+function parseMonetario(valor) {
+  if (valor === null || valor === undefined || valor === '') return 0;
+  var num = parseFloat(String(valor).replace(',', '.'));
+  return isNaN(num) ? 0 : Math.round(num * 100) / 100;
+}
+
 function validarCompetencia(comp) {
   if (!comp) return true;
   var str = String(comp).trim();
@@ -75,6 +83,8 @@ function inserirRegistro(dados, userId) {
         row.push(validUserId);
       } else if (hLower === 'data') {
         row.push(dados.Data);
+      } else if (CAMPOS_MONETARIOS[hLower]) {
+        row.push(parseMonetario(dadosNorm[hLower]));
       } else if (dadosNorm[hLower] !== undefined && dadosNorm[hLower] !== null) {
         row.push(sanitizarInput(dadosNorm[hLower]));
       } else {
@@ -315,7 +325,9 @@ function editarRegistro(id, dados, userId) {
         }
         for (var j = 0; j < headers.length; j++) {
           var header = String(headers[j]).trim().toLowerCase();
-          if (dadosNorm[header] !== undefined) {
+          if (CAMPOS_MONETARIOS[header]) {
+            newRow.push(parseMonetario(dadosNorm[header]));
+          } else if (dadosNorm[header] !== undefined) {
             newRow.push(sanitizarInput(dadosNorm[header]));
           } else {
             newRow.push(values[i][j]);

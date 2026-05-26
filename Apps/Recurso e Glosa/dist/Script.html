@@ -34,6 +34,7 @@ var cabecalhosTabela = [
 window.onload = function () {
   try {
     formOffcanvas = new bootstrap.Offcanvas(document.getElementById('formOffcanvas'));
+    iniciarMascarasMonetarias();
     USER_ID = sessionStorage.getItem('userId');
     USER_EMAIL = sessionStorage.getItem('userEmail');
     if (USER_ID) {
@@ -653,6 +654,39 @@ function formatarMoeda(valor) {
   return 'R$ ' + valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+function mascaraMonetaria(input) {
+  var cursor = input.selectionStart;
+  var lenAntes = input.value.length;
+  var digits = input.value.replace(/\D/g, '');
+  if (digits.length === 0) {
+    input.value = '';
+    return;
+  }
+  var num = parseInt(digits) / 100;
+  var formatado = num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  input.value = formatado;
+  var diff = input.value.length - lenAntes;
+  input.setSelectionRange(cursor + diff, cursor + diff);
+}
+
+function monetarioParaNumero(str) {
+  if (!str) return '0';
+  return str.replace(/\./g, '').replace(',', '.');
+}
+
+function iniciarMascarasMonetarias() {
+  ['Faturamento', 'Glosa', 'Perda'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('input', function() { mascaraMonetaria(this); });
+    el.addEventListener('keydown', function(e) {
+      if (e.key === 'Backspace' && this.value.length > 0) {
+        setTimeout(function() { mascaraMonetaria(el); }, 0);
+      }
+    });
+  });
+}
+
 function buscarRegistros() {
   clearTimeout(searchTimeout);
   searchTimeout = setTimeout(function() {
@@ -734,7 +768,7 @@ function iniciarValidacoes() {
   var faturamentoEl = document.getElementById('Faturamento');
   faturamentoEl.addEventListener('input', function () {
     var envioEl = document.getElementById('Envio');
-    var valor = parseFloat(this.value) || 0;
+    var valor = parseFloat(monetarioParaNumero(this.value)) || 0;
     var ativo = valor > 0;
     envioEl.disabled = !ativo;
     envioEl.required = ativo;
@@ -782,14 +816,14 @@ function validarFormulario() {
     }
   }
   if (camposObrigatorios.some(function(c) { return c.id === 'Glosa'; })) {
-    var glosaVal = parseFloat(document.getElementById('Glosa').value) || 0;
+    var glosaVal = parseFloat(monetarioParaNumero(document.getElementById('Glosa').value)) || 0;
     if (glosaVal <= 0) {
       showToast('Valor Glosa deve ser maior que zero', 'warning');
       document.getElementById('Glosa').focus();
       return false;
     }
   }
-  var fatVal = parseFloat(document.getElementById('Faturamento').value) || 0;
+  var fatVal = parseFloat(monetarioParaNumero(document.getElementById('Faturamento').value)) || 0;
   if (fatVal <= 0) {
     showToast('Valor Faturado deve ser maior que zero', 'warning');
     document.getElementById('Faturamento').focus();
@@ -852,14 +886,18 @@ function coletarForm() {
   if (dados.competencia && dados.competencia.length === 7) {
     dados.competencia = dados.competencia + '-01';
   }
+  ['Faturamento', 'Glosa', 'Perda'].forEach(function(id) {
+    if (dados[id] !== undefined) dados[id] = monetarioParaNumero(dados[id]);
+  });
   return dados;
 }
 
 function limparFormulario() {
   var campos = document.querySelectorAll('#formOffcanvas input, #formOffcanvas textarea, #formOffcanvas select');
   campos.forEach(function (el) { el.value = ''; });
-  document.getElementById('Faturamento').value = '0';
-  document.getElementById('Perda').value = '0';
+  document.getElementById('Faturamento').value = '0,00';
+  document.getElementById('Glosa').value = '0,00';
+  document.getElementById('Perda').value = '0,00';
   if (typeof jQuery !== 'undefined') {
     jQuery('.select-busca').trigger('change');
   }
@@ -951,11 +989,11 @@ function atualizarCamposCondicionais() {
   var naoHouveGlosa = motivo && motivo.toLowerCase().indexOf('nao houve glosa') !== -1;
   var glosaEl = document.getElementById('Glosa');
   glosaEl.disabled = naoHouveGlosa || !motivo;
-  if (naoHouveGlosa || !motivo) glosaEl.value = '0';
+  if (naoHouveGlosa || !motivo) glosaEl.value = '0,00';
 
   var faturamentoEl = document.getElementById('Faturamento');
   var envioEl = document.getElementById('Envio');
-  var fatVal = parseFloat(faturamentoEl.value) || 0;
+  var fatVal = parseFloat(monetarioParaNumero(faturamentoEl.value)) || 0;
   var ativo = fatVal > 0;
   envioEl.disabled = !ativo;
   envioEl.required = ativo;
@@ -981,9 +1019,9 @@ function editarRegistro(reg) {
     Data: dataParaInputDate(reg.Data),
     IdStatus: reg.StatusNFe || reg.IdStatus,
     IdMotivo: reg.MotivoGlosa || reg.IdMotivo,
-    Faturamento: reg.Faturamento,
-    Glosa: reg.Glosa,
-    Perda: reg.Perda,
+    Faturamento: parseFloat(reg.Faturamento).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+    Glosa: parseFloat(reg.Glosa || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+    Perda: parseFloat(reg.Perda || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
     Observacao: reg.Observacao,
     Envio: dataParaInputDate(reg.Envio)
   };
