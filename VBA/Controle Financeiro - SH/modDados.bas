@@ -1,0 +1,274 @@
+Attribute VB_Name = "modDados"
+Option Explicit
+
+Public Const PAGE_SIZE As Long = 25
+
+Private mAllData() As Variant
+Private mTotalRecords As Long
+Private mCurrentPage As Long
+Private mTotalPages As Long
+
+Public Function CarregarDadosUsuario(usuarioID As Long) As Boolean
+    Dim ws As Worksheet, tb As ListObject, dr As Range
+    Dim i As Long, n As Long
+    
+    On Error GoTo ErrHandler
+    Set ws = ThisWorkbook.Worksheets("Dados")
+    Set tb = ws.ListObjects("Dados")
+    
+    If tb.DataBodyRange Is Nothing Then
+        mTotalRecords = 0: mCurrentPage = 1: mTotalPages = 1
+        ReDim mAllData(1 To 1, 1 To 16)
+        CarregarDadosUsuario = True: Exit Function
+    End If
+    
+    Set dr = tb.DataBodyRange: n = 0
+    For i = 1 To dr.Rows.Count
+        If dr.Cells(i, 2).Value = usuarioID Then n = n + 1
+    Next i
+    
+    If n = 0 Then
+        mTotalRecords = 0: mCurrentPage = 1: mTotalPages = 1
+        ReDim mAllData(1 To 1, 1 To 16)
+        CarregarDadosUsuario = True: Exit Function
+    End If
+    
+    ReDim mAllData(1 To n, 1 To 16): n = 0
+    For i = 1 To dr.Rows.Count
+        If dr.Cells(i, 2).Value = usuarioID Then
+            n = n + 1
+            mAllData(n, 1) = ValorSeguro(dr.Cells(i, 1).Value)
+            mAllData(n, 2) = ValorSeguro(dr.Cells(i, 2).Value)
+            mAllData(n, 3) = ValorSeguro(dr.Cells(i, 3).Value)
+            mAllData(n, 4) = ValorSeguro(dr.Cells(i, 4).Value)
+            mAllData(n, 5) = ValorSeguro(dr.Cells(i, 5).Value)
+            mAllData(n, 6) = ValorSeguro(dr.Cells(i, 6).Value)
+            mAllData(n, 7) = ValorSeguro(dr.Cells(i, 7).Value)
+            mAllData(n, 8) = ValorSeguro(dr.Cells(i, 8).Value)
+            mAllData(n, 9) = ValorSeguro(dr.Cells(i, 9).Value)
+            mAllData(n, 10) = ValorSeguro(dr.Cells(i, 10).Value)
+            mAllData(n, 11) = ValorSeguro(dr.Cells(i, 11).Value)
+            mAllData(n, 12) = ValorSeguro(dr.Cells(i, 12).Value)
+            mAllData(n, 13) = ValorSeguro(dr.Cells(i, 13).Value)
+            mAllData(n, 14) = ValorSeguro(dr.Cells(i, 14).Value)
+            mAllData(n, 15) = ValorSeguro(dr.Cells(i, 15).Value)
+            mAllData(n, 16) = ValorSeguro(dr.Cells(i, 16).Value)
+        End If
+    Next i
+    
+    mTotalRecords = n: mCurrentPage = 1
+    mTotalPages = ((n - 1) \ PAGE_SIZE) + 1
+    CarregarDadosUsuario = True: Exit Function
+ErrHandler:
+    CarregarDadosUsuario = False
+End Function
+
+Public Function GetPageData() As Variant
+    Dim si As Long, ei As Long, i As Long, j As Long, n As Long
+    Dim r() As Variant
+    
+    If mTotalRecords = 0 Then
+        ReDim r(0 To 0, 0 To 15)
+        GetPageData = r: Exit Function
+    End If
+    
+    si = (mCurrentPage - 1) * PAGE_SIZE + 1
+    ei = si + PAGE_SIZE - 1
+    If ei > mTotalRecords Then ei = mTotalRecords
+    
+    n = ei - si + 1: ReDim r(0 To n - 1, 0 To 15)
+    For i = si To ei
+        j = i - si
+        r(j, 0) = mAllData(i, 1): r(j, 1) = mAllData(i, 2)
+        r(j, 2) = mAllData(i, 3): r(j, 3) = mAllData(i, 4)
+        r(j, 4) = mAllData(i, 5): r(j, 5) = mAllData(i, 6)
+        r(j, 6) = mAllData(i, 7): r(j, 7) = mAllData(i, 8)
+        r(j, 8) = mAllData(i, 9): r(j, 9) = mAllData(i, 10)
+        r(j, 10) = mAllData(i, 11): r(j, 11) = mAllData(i, 12)
+        r(j, 12) = mAllData(i, 13): r(j, 13) = mAllData(i, 14)
+        r(j, 14) = mAllData(i, 15): r(j, 15) = mAllData(i, 16)
+    Next i
+    GetPageData = r
+End Function
+
+Public Function GetPageInfo() As String
+    GetPageInfo = "Pagina " & mCurrentPage & " de " & mTotalPages & _
+                  " (" & mTotalRecords & " registros)"
+End Function
+
+Public Function GetRecordIdxAtGridRow(gridRow As Long) As Long
+    GetRecordIdxAtGridRow = (mCurrentPage - 1) * PAGE_SIZE + gridRow
+End Function
+
+Public Sub GoToPage(p As Long)
+    If p >= 1 And p <= mTotalPages Then mCurrentPage = p
+End Sub
+
+Public Sub NextPage()
+    If mCurrentPage < mTotalPages Then mCurrentPage = mCurrentPage + 1
+End Sub
+
+Public Sub PreviousPage()
+    If mCurrentPage > 1 Then mCurrentPage = mCurrentPage - 1
+End Sub
+
+Public Function GetCurrentPage() As Long: GetCurrentPage = mCurrentPage: End Function
+Public Function GetTotalPages() As Long: GetTotalPages = mTotalPages: End Function
+Public Function GetTotalRecords() As Long: GetTotalRecords = mTotalRecords: End Function
+
+Public Function GetRecordByGlobalIdx(idx As Long) As Variant
+    Dim r(1 To 16) As Variant
+    If idx >= 1 And idx <= mTotalRecords Then
+        Dim c As Long
+        For c = 1 To 16: r(c) = mAllData(idx, c): Next
+    End If
+    GetRecordByGlobalIdx = r
+End Function
+
+Public Function CarregarDimensao(aba As String, tabela As String) As Variant
+    Dim ws As Worksheet, tb As ListObject, dr As Range
+    Dim i As Long, n As Long, res() As Variant
+    
+    On Error GoTo ErrHandler
+    Set ws = ThisWorkbook.Worksheets(aba)
+    Set tb = ws.ListObjects(tabela)
+    If tb.DataBodyRange Is Nothing Then GoTo ErrHandler
+    
+    Set dr = tb.DataBodyRange: n = 0
+    For i = 1 To dr.Rows.Count
+        If dr.Cells(i, 3).Value = 1 Then n = n + 1
+    Next i
+    
+    If n = 0 Then GoTo ErrHandler
+    ReDim res(1 To n, 1 To 2): n = 0
+    For i = 1 To dr.Rows.Count
+        If dr.Cells(i, 3).Value = 1 Then
+            n = n + 1
+            res(n, 1) = dr.Cells(i, 1).Value
+            res(n, 2) = dr.Cells(i, 2).Value
+        End If
+    Next i
+    CarregarDimensao = res
+    Exit Function
+ErrHandler:
+    CarregarDimensao = Array()
+End Function
+
+Private Function GerarGUID() As String
+    Dim g As Object
+    Set g = CreateObject("Scriptlet.TypeLib")
+    GerarGUID = Left(g.Guid, 38)
+End Function
+
+Public Function AdicionarRegistro(valores As Variant) As Boolean
+    Dim ws As Worksheet, tb As ListObject, nr As ListRow
+    Dim c As Long
+    
+    On Error GoTo ErrHandler
+    Set ws = ThisWorkbook.Worksheets("Dados")
+    Set tb = ws.ListObjects("Dados")
+    
+    Set nr = tb.ListRows.Add
+    nr.Range.Cells(1, 1).Value = GerarGUID
+    For c = 2 To 16
+        nr.Range.Cells(1, c).Value = valores(c)
+    Next c
+    AdicionarRegistro = True: Exit Function
+ErrHandler:
+    AdicionarRegistro = False
+End Function
+
+Public Function EditarRegistro(pID As String, valores As Variant) As Boolean
+    Dim ws As Worksheet, tb As ListObject, f As Range, c As Long
+    On Error GoTo ErrHandler
+    Set ws = ThisWorkbook.Worksheets("Dados")
+    Set tb = ws.ListObjects("Dados")
+    If tb.DataBodyRange Is Nothing Then EditarRegistro = False: Exit Function
+    Set f = tb.ListColumns(1).DataBodyRange.Find(pID, , , xlWhole)
+    If f Is Nothing Then EditarRegistro = False: Exit Function
+    For c = 2 To 16
+        f.Offset(0, c - 1).Value = valores(c)
+    Next c
+    EditarRegistro = True: Exit Function
+ErrHandler:
+    EditarRegistro = False
+End Function
+
+Public Function ExcluirRegistro(pID As String) As Boolean
+    Dim ws As Worksheet, tb As ListObject, f As Range
+    On Error GoTo ErrHandler
+    Set ws = ThisWorkbook.Worksheets("Dados")
+    Set tb = ws.ListObjects("Dados")
+    If tb.DataBodyRange Is Nothing Then ExcluirRegistro = False: Exit Function
+    Set f = tb.ListColumns(1).DataBodyRange.Find(pID, , , xlWhole)
+    If f Is Nothing Then ExcluirRegistro = False: Exit Function
+    f.EntireRow.Delete
+    ExcluirRegistro = True: Exit Function
+ErrHandler:
+    ExcluirRegistro = False
+End Function
+
+Private Function ValorSeguro(v As Variant) As Variant
+    If IsError(v) Then ValorSeguro = "" Else ValorSeguro = v
+End Function
+
+Public Sub TestarConexao()
+    Dim msg As String: msg = ""
+    Dim ws As Worksheet, tb As ListObject, dr As Range
+    Dim i As Long, email As String
+    
+    On Error Resume Next
+    
+    ' Teste 1: Aba Usuarios
+    Set ws = ThisWorkbook.Worksheets("Usuarios")
+    If ws Is Nothing Then
+        msg = msg & "[ERRO] Aba Usuarios nao encontrada!" & vbCrLf
+    Else
+        msg = msg & "[OK] Aba Usuarios encontrada" & vbCrLf
+        Set tb = ws.ListObjects("Usuarios")
+        If tb Is Nothing Then
+            msg = msg & "[ERRO] Tabela 'Usuarios' nao encontrada na aba Usuarios" & vbCrLf
+        ElseIf tb.DataBodyRange Is Nothing Then
+            msg = msg & "[AVISO] Tabela Usuarios sem dados" & vbCrLf
+        Else
+            Set dr = tb.DataBodyRange
+            msg = msg & "[OK] Usuarios: " & dr.Rows.Count & " registros" & vbCrLf
+            msg = msg & "  Col1(ID) | Col2(Email) | Col3(Status)" & vbCrLf
+            For i = 1 To Application.WorksheetFunction.Min(dr.Rows.Count, 10)
+                msg = msg & "  " & dr.Cells(i, 1).Value & " | " & dr.Cells(i, 2).Value & " | " & dr.Cells(i, 3).Value & vbCrLf
+            Next i
+        End If
+    End If
+    
+    ' Teste 2: Aba Dados
+    Set ws = ThisWorkbook.Worksheets("Dados")
+    If ws Is Nothing Then
+        msg = msg & "[ERRO] Aba Dados nao encontrada!" & vbCrLf
+    Else
+        msg = msg & "[OK] Aba Dados encontrada" & vbCrLf
+        Set tb = ws.ListObjects("Dados")
+        If tb Is Nothing Then
+            msg = msg & "[ERRO] Tabela 'Dados' nao encontrada" & vbCrLf
+        ElseIf tb.DataBodyRange Is Nothing Then
+            msg = msg & "[AVISO] Tabela Dados sem dados" & vbCrLf
+        Else
+            Set dr = tb.DataBodyRange
+            msg = msg & "[OK] Dados: " & dr.Rows.Count & " registros, " & dr.Columns.Count & " colunas" & vbCrLf
+            msg = msg & "  Col2(IdUsuario) valores (5 primeiros):" & vbCrLf
+            For i = 1 To Application.WorksheetFunction.Min(dr.Rows.Count, 5)
+                msg = msg & "  Linha " & i & ": " & dr.Cells(i, 2).Value & vbCrLf
+            Next i
+        End If
+    End If
+    
+    ' Teste 3: ObterIdUsuario
+    msg = msg & vbCrLf & "--- Teste ObterIdUsuario ---" & vbCrLf
+    email = modAutenticacao.EmailAtual
+    msg = msg & "EmailAtual = '" & email & "'" & vbCrLf
+    msg = msg & "UsuarioAtual = " & modAutenticacao.UsuarioAtual & vbCrLf
+    If email <> "" Then
+        msg = msg & "ObterIdUsuario('" & email & "') = " & modAutenticacao.ObterIdUsuario(email) & vbCrLf
+    End If
+    
+    MsgBox msg, vbInformation, "Diagnostico Completo"
+End Sub
