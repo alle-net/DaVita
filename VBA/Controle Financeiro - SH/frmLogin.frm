@@ -110,8 +110,6 @@ Private Sub cmdLogin_Click()
         modAutenticacao.UsuarioAtual = modAutenticacao.ObterIdUsuario(e)
         modAutenticacao.EmailAtual = e
         Me.Hide
-        MsgBox "Login realizado! Usuario: " & e & " (ID: " & modAutenticacao.UsuarioAtual & ")", vbInformation, "Controle Financeiro SH"
-        Unload Me
     Else
         lblMensagem = "Email ou senha invalidos."
         txtSenha.Value = ""

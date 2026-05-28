@@ -4,6 +4,7 @@ Option Explicit
 Public Const PAGE_SIZE As Long = 25
 
 Private mAllData() As Variant
+Private mDisplayData() As Variant
 Private mTotalRecords As Long
 Private mCurrentPage As Long
 Private mTotalPages As Long
@@ -19,6 +20,7 @@ Public Function CarregarDadosUsuario(usuarioID As Long) As Boolean
     If tb.DataBodyRange Is Nothing Then
         mTotalRecords = 0: mCurrentPage = 1: mTotalPages = 1
         ReDim mAllData(1 To 1, 1 To 16)
+        mDisplayData = mAllData
         CarregarDadosUsuario = True: Exit Function
     End If
     
@@ -30,6 +32,7 @@ Public Function CarregarDadosUsuario(usuarioID As Long) As Boolean
     If n = 0 Then
         mTotalRecords = 0: mCurrentPage = 1: mTotalPages = 1
         ReDim mAllData(1 To 1, 1 To 16)
+        mDisplayData = mAllData
         CarregarDadosUsuario = True: Exit Function
     End If
     
@@ -58,6 +61,7 @@ Public Function CarregarDadosUsuario(usuarioID As Long) As Boolean
     
     mTotalRecords = n: mCurrentPage = 1
     mTotalPages = ((n - 1) \ PAGE_SIZE) + 1
+    mDisplayData = FormatarParaExibicao(mAllData)
     CarregarDadosUsuario = True: Exit Function
 ErrHandler:
     CarregarDadosUsuario = False
@@ -89,6 +93,34 @@ Public Function GetPageData() As Variant
         r(j, 14) = mAllData(i, 15): r(j, 15) = mAllData(i, 16)
     Next i
     GetPageData = r
+End Function
+
+Public Function GetPageDataFormatado() As Variant
+    Dim si As Long, ei As Long, i As Long, j As Long, n As Long
+    Dim r() As Variant
+    
+    If mTotalRecords = 0 Then
+        ReDim r(0 To 0, 0 To 15)
+        GetPageDataFormatado = r: Exit Function
+    End If
+    
+    si = (mCurrentPage - 1) * PAGE_SIZE + 1
+    ei = si + PAGE_SIZE - 1
+    If ei > mTotalRecords Then ei = mTotalRecords
+    
+    n = ei - si + 1: ReDim r(0 To n - 1, 0 To 15)
+    For i = si To ei
+        j = i - si
+        r(j, 0) = mDisplayData(i, 1): r(j, 1) = mDisplayData(i, 2)
+        r(j, 2) = mDisplayData(i, 3): r(j, 3) = mDisplayData(i, 4)
+        r(j, 4) = mDisplayData(i, 5): r(j, 5) = mDisplayData(i, 6)
+        r(j, 6) = mDisplayData(i, 7): r(j, 7) = mDisplayData(i, 8)
+        r(j, 8) = mDisplayData(i, 9): r(j, 9) = mDisplayData(i, 10)
+        r(j, 10) = mDisplayData(i, 11): r(j, 11) = mDisplayData(i, 12)
+        r(j, 12) = mDisplayData(i, 13): r(j, 13) = mDisplayData(i, 14)
+        r(j, 14) = mDisplayData(i, 15): r(j, 15) = mDisplayData(i, 16)
+    Next i
+    GetPageDataFormatado = r
 End Function
 
 Public Function GetPageInfo() As String
@@ -206,6 +238,42 @@ Public Function ExcluirRegistro(pID As String) As Boolean
     ExcluirRegistro = True: Exit Function
 ErrHandler:
     ExcluirRegistro = False
+End Function
+
+Private Function FormatarParaExibicao(arr As Variant) As Variant
+    Dim r As Long, c As Long, i As Long, j As Long
+    Dim fmt(1 To 16) As String
+    
+    fmt(1) = ""                ' ID (GUID)
+    fmt(2) = ""                ' IdUsuario
+    fmt(3) = "mmm/aaaa"        ' Competencia
+    fmt(4) = ""                ' IdHospital
+    fmt(5) = ""                ' IdRegional
+    fmt(6) = ""                ' IdUnidade
+    fmt(7) = ""                ' Titulo
+    fmt(8) = ""                ' NFe
+    fmt(9) = ""                ' IdStatus
+    fmt(10) = ""               ' IdMotivo
+    fmt(11) = "dd/mm/yyyy"     ' EnvioNFe
+    fmt(12) = "R$ #,##0.00"    ' ValorFaturamento
+    fmt(13) = "R$ #,##0.00"    ' ValorPerda
+    fmt(14) = "R$ #,##0.00"    ' ValorGlosa
+    fmt(15) = ""               ' Observacao
+    fmt(16) = "dd/mm/yyyy hh:mm"  ' Data
+    
+    r = UBound(arr, 1): c = UBound(arr, 2)
+    ReDim outArr(1 To r, 1 To c)
+    
+    For i = 1 To r
+        For j = 1 To c
+            If fmt(j) <> "" And Not IsError(arr(i, j)) And Not IsEmpty(arr(i, j)) Then
+                outArr(i, j) = Format$(arr(i, j), fmt(j))
+            Else
+                outArr(i, j) = arr(i, j)
+            End If
+        Next j
+    Next i
+    FormatarParaExibicao = outArr
 End Function
 
 Private Function ValorSeguro(v As Variant) As Variant
