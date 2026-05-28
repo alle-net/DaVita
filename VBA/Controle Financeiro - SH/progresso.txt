@@ -1,0 +1,66 @@
+PROGRESSO - Controle Financeiro SH
+====================================
+Data: 27/05/2026
+
+=== ARQUIVOS NO PROJETO ===
+
+1. modAutenticacao.bas
+   - Login com email + senha "102030"
+   - Lê emails da tabela Usuarios (Status=1)
+   - Funções: VerificarCredenciais, ObterIdUsuario, CarregarEmailsAtivos, ResetarSessao
+
+2. modDados.bas
+   - Carregar dados da tabela Dados filtrados por UsuarioAtual
+   - Paginação: 25 registros por página
+   - Navegação: PreviousPage, NextPage
+   - CRUD: AdicionarRegistro, EditarRegistro, ExcluirRegistro (com GUID)
+   - CarregarDimensao para tabelas de apoio (Usuarios, Hospitais, Regionais, etc.)
+   - Diagnóstico: TestarConexao
+
+3. frmLogin (criado manualmente)
+   - ComboBox cboEmail (caixa de combinação)
+   - TextBox txtSenha (senha com PasswordChar = *)
+   - Botão cmdLogin (Entrar)
+   - Botão cmdCancel (Cancelar)
+   - Label lblMensagem (mensagens de erro)
+   - Login funcional
+
+4. frmPrincipal (criado manualmente)
+   - lstGrid (ListBox com 16 colunas, dados carregados)
+   - cmdAnterior / cmdProximo (navegação)
+   - Pendente: adicionar lblPagina e campos de detalhe
+
+=== STATUS ATUAL ===
+
+[X] Login funcional
+[X] Grid carregando dados (com erro 380 pendente)
+[ ] lblPagina (navegação)
+[ ] Campos de detalhe (txtID, cboUsuario, txtCompetencia, etc.)
+[ ] CRUD completo
+[ ] SHA-256 + Salt
+[ ] Proteção de planilha
+
+=== PROBLEMA PENDENTE ===
+
+Erro 380 "Não foi possível definir a propriedade List" no frmPrincipal.
+Causa provável: células com erro (#N/A, #VALOR!) na planilha Dados.
+Solução aplicada: função ValorSeguro no CarregarDadosUsuario.
+Pendente: testar se corrigiu.
+
+=== PRÓXIMOS PASSOS ===
+
+1. Corrigir erro 380 no grid
+2. Adicionar lblPagina com informação de página
+3. Adicionar campos de detalhe um por um
+4. Implementar CRUD (Adicionar, Editar, Excluir, Limpar)
+5. Esconder abas (xlSheetVeryHidden)
+6. SHA-256 + Salt nas senhas
+7. Proteção UserInterfaceOnly
+
+=== OBSERVAÇÕES IMPORTANTES ===
+
+- UsuarioAtual = 4 (rhaís.menezes@davita.com) tem 2156 registros
+- Tabelas de apoio: Usuarios, Hospitais, Regionais, Unidades, StatusNFe, MotivosGlosa
+- Todas as tabelas têm coluna Status (1=ativo, 0=inativo)
+- Grid usa ListBox com ColumnCount=16
+- ColumnWidths: 0;0;80;0;0;0;120;50;0;0;80;100;100;100;130;100

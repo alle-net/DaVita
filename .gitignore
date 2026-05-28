@@ -1,8 +1,21 @@
-Antigos.xlsx
-config.json
-salvar/
+# Windows
+Thumbs.db
+Desktop.ini
+
+# VBA compiled
+*.frx
+
+# Temp
+*.tmp
+
+# Python
 venv/
 __pycache__/
 *.pyc
 .python-version
+
+# Project specific
+Antigos.xlsx
+config.json
+salvar/
 *.html
