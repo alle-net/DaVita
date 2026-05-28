@@ -173,8 +173,7 @@ Private Sub AdicionarCodigoForm(fc As Object)
     cm.AddFromString "    CarregarCombos"
     cm.AddFromString "    AtualizarUsuarioLogado"
     cm.AddFromString "    AtualizarNavegacao"
-    cm.AddFromString "    Me.Left = (Application.Width - Me.Width) / 2"
-    cm.AddFromString "    Me.Top = (Application.Height - Me.Height) / 2"
+    cm.AddFromString "    Me.StartUpPosition = 1"
     cm.AddFromString "End Sub"
     cm.AddFromString ""
     
