@@ -1,0 +1,61 @@
+INSTRUCOES DE IMPORTACAO (ATUALIZADO)
+========================================
+
+Arquivo: Controle Financeiro SH.xlsm
+
+PASSO 1 - Importar modAutenticacao
+- Abra o Excel > Controle Financeiro SH.xlsm
+- Alt+F11 (Editor VBA)
+- File > Import File > modAutenticacao.bas
+
+PASSO 2 - Importar modDados
+- File > Import File > modDados.bas
+
+PASSO 3 - Importar criarFormulario
+- File > Import File > criarFormulario.bas
+
+PASSO 4 - Executar a macro para criar frmLogin (se ainda nao existe)
+- Ainda no Editor VBA, aperte Ctrl+G (Janela Imediata)
+- Digite: CriarFrmLogin
+- Pressione Enter
+- Deve aparecer "Formulario frmLogin criado com sucesso!"
+
+PASSO 5 - Importar criarFrmPrincipal
+- File > Import File > criarFrmPrincipal.bas
+
+PASSO 6 - Executar a macro para criar frmPrincipal
+- Ctrl+G (Janela Imediata)
+- Digite: CriarFrmPrincipal
+- Pressione Enter
+- Deve aparecer "Formulario frmPrincipal criado com sucesso!"
+
+PASSO 7 - Adicionar codigo no ThisWorkbook
+- Project Explorer > duplo clique em "ThisWorkbook"
+- Cole o codigo abaixo SUBSTITUINDO tudo:
+
+---------- COPIAR ----------
+Option Explicit
+
+Private Sub Workbook_Open()
+    modAutenticacao.ResetarSessao
+    frmLogin.Show vbModal
+    If modAutenticacao.UsuarioAtual > 0 Then
+        If modDados.CarregarDadosUsuario(modAutenticacao.UsuarioAtual) Then
+            frmPrincipal.Show vbModeless
+        End If
+    End If
+End Sub
+
+Private Sub Workbook_BeforeClose(Cancel As Boolean)
+    On Error Resume Next
+    Sheets("Dados").AutoFilterMode = False
+    modAutenticacao.ResetarSessao
+End Sub
+---------- PARAR ----------
+
+PASSO 8 - Salvar e testar
+- Ctrl+S (salvar)
+- Feche e reabra o arquivo
+- Selecione o email e digite: 102030
+
+OBS: Se a macro do Passo 4 ou 6 falhar com "Project locked", feche e reabra o arquivo e tente novamente.
