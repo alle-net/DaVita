@@ -9,12 +9,19 @@ Private mTotalRecords As Long
 Private mCurrentPage As Long
 Private mTotalPages As Long
 
+Private mUsuariosDim As Variant
+Private mHospitaisDim As Variant
+Private mRegionaisDim As Variant
+Private mUnidadesDim As Variant
+Private mStatusDim As Variant
+Private mMotivosDim As Variant
+
 Public Function CarregarDadosUsuario(usuarioID As Long) As Boolean
     Dim ws As Worksheet, tb As ListObject, dr As Range
     Dim i As Long, n As Long
     
     On Error GoTo ErrHandler
-    Set ws = ThisWorkbook.Worksheets("Dados")
+    Set ws = ThisWorkbook.Worksheets("Dado")
     Set tb = ws.ListObjects("Dados")
     
     If tb.DataBodyRange Is Nothing Then
@@ -24,9 +31,11 @@ Public Function CarregarDadosUsuario(usuarioID As Long) As Boolean
         CarregarDadosUsuario = True: Exit Function
     End If
     
-    Set dr = tb.DataBodyRange: n = 0
-    For i = 1 To dr.Rows.Count
-        If dr.Cells(i, 2).Value = usuarioID Then n = n + 1
+    Dim rawData As Variant
+    rawData = tb.DataBodyRange.Value
+    n = 0
+    For i = 1 To UBound(rawData, 1)
+        If rawData(i, 2) = usuarioID Then n = n + 1
     Next i
     
     If n = 0 Then
@@ -37,34 +46,46 @@ Public Function CarregarDadosUsuario(usuarioID As Long) As Boolean
     End If
     
     ReDim mAllData(1 To n, 1 To 16): n = 0
-    For i = 1 To dr.Rows.Count
-        If dr.Cells(i, 2).Value = usuarioID Then
+    For i = 1 To UBound(rawData, 1)
+        If rawData(i, 2) = usuarioID Then
             n = n + 1
-            mAllData(n, 1) = ValorSeguro(dr.Cells(i, 1).Value)
-            mAllData(n, 2) = ValorSeguro(dr.Cells(i, 2).Value)
-            mAllData(n, 3) = ValorSeguro(dr.Cells(i, 3).Value)
-            mAllData(n, 4) = ValorSeguro(dr.Cells(i, 4).Value)
-            mAllData(n, 5) = ValorSeguro(dr.Cells(i, 5).Value)
-            mAllData(n, 6) = ValorSeguro(dr.Cells(i, 6).Value)
-            mAllData(n, 7) = ValorSeguro(dr.Cells(i, 7).Value)
-            mAllData(n, 8) = ValorSeguro(dr.Cells(i, 8).Value)
-            mAllData(n, 9) = ValorSeguro(dr.Cells(i, 9).Value)
-            mAllData(n, 10) = ValorSeguro(dr.Cells(i, 10).Value)
-            mAllData(n, 11) = ValorSeguro(dr.Cells(i, 11).Value)
-            mAllData(n, 12) = ValorSeguro(dr.Cells(i, 12).Value)
-            mAllData(n, 13) = ValorSeguro(dr.Cells(i, 13).Value)
-            mAllData(n, 14) = ValorSeguro(dr.Cells(i, 14).Value)
-            mAllData(n, 15) = ValorSeguro(dr.Cells(i, 15).Value)
-            mAllData(n, 16) = ValorSeguro(dr.Cells(i, 16).Value)
+            Dim c As Long
+            For c = 1 To 16
+                mAllData(n, c) = ValorSeguro(rawData(i, c))
+            Next c
         End If
     Next i
     
     mTotalRecords = n: mCurrentPage = 1
     mTotalPages = ((n - 1) \ PAGE_SIZE) + 1
+    CarregarMapasDimensoes
     mDisplayData = FormatarParaExibicao(mAllData)
     CarregarDadosUsuario = True: Exit Function
 ErrHandler:
     CarregarDadosUsuario = False
+End Function
+
+Private Sub CarregarMapasDimensoes()
+    mUsuariosDim = CarregarDimensao("dUsuarios", "dUsuario")
+    mHospitaisDim = CarregarDimensao("Hospitais", "Hospitais")
+    mRegionaisDim = CarregarDimensao("Regionais", "Regionais")
+    mUnidadesDim = CarregarDimensao("Unidades", "Unidades")
+    mStatusDim = CarregarDimensao("StatusNFe", "StatusNFe")
+    mMotivosDim = CarregarDimensao("MotivosGlosa", "MotivosGlosa")
+End Sub
+
+Private Function ObterDescricaoDimensao(id As Variant, mapa As Variant) As Variant
+    Dim i As Long
+    If IsEmpty(id) Or IsNull(id) Then Exit Function
+    If Not IsArray(mapa) Then Exit Function
+    On Error Resume Next
+    For i = LBound(mapa, 1) To UBound(mapa, 1)
+        If CStr(mapa(i, 1)) = CStr(id) Then
+            ObterDescricaoDimensao = mapa(i, 2)
+            Exit Function
+        End If
+    Next i
+    On Error GoTo 0
 End Function
 
 Public Function GetPageData() As Variant
@@ -72,8 +93,7 @@ Public Function GetPageData() As Variant
     Dim r() As Variant
     
     If mTotalRecords = 0 Then
-        ReDim r(0 To 0, 0 To 15)
-        GetPageData = r: Exit Function
+        GetPageData = Array(): Exit Function
     End If
     
     si = (mCurrentPage - 1) * PAGE_SIZE + 1
@@ -100,8 +120,7 @@ Public Function GetPageDataFormatado() As Variant
     Dim r() As Variant
     
     If mTotalRecords = 0 Then
-        ReDim r(0 To 0, 0 To 15)
-        GetPageDataFormatado = r: Exit Function
+        GetPageDataFormatado = Array(): Exit Function
     End If
     
     si = (mCurrentPage - 1) * PAGE_SIZE + 1
@@ -197,11 +216,18 @@ Public Function AdicionarRegistro(valores As Variant) As Boolean
     Dim c As Long
     
     On Error GoTo ErrHandler
-    Set ws = ThisWorkbook.Worksheets("Dados")
+    Set ws = ThisWorkbook.Worksheets("Dado")
     Set tb = ws.ListObjects("Dados")
     
     Set nr = tb.ListRows.Add
-    nr.Range.Cells(1, 1).Value = GerarGUID
+    ' Gerar ID curto a partir do GUID e garantir unicidade
+    Dim newId As String, attempt As Long
+    For attempt = 1 To 5
+        newId = GerarGUIDShort()
+        If tb.DataBodyRange Is Nothing Then Exit For
+        If tb.ListColumns(1).DataBodyRange.Find(newId, , , xlWhole) Is Nothing Then Exit For
+    Next attempt
+    nr.Range.Cells(1, 1).Value = newId
     For c = 2 To 16
         nr.Range.Cells(1, c).Value = valores(c)
     Next c
@@ -210,10 +236,73 @@ ErrHandler:
     AdicionarRegistro = False
 End Function
 
+' === ID curto (Base62) helpers ===
+Private Function GerarGUIDShort() As String
+    Dim g As String
+    g = GerarGUID
+    g = Replace(g, "{", ""): g = Replace(g, "}", ""): g = Replace(g, "-", "")
+    Dim b() As Byte
+    b = HexStringToBytes(g)
+    GerarGUIDShort = Base62Encode(b)
+    If Len(GerarGUIDShort) > 22 Then GerarGUIDShort = Left(GerarGUIDShort, 22)
+End Function
+
+Private Function HexStringToBytes(hexStr As String) As Byte()
+    Dim n As Long, i As Long, b() As Byte
+    n = Len(hexStr) \ 2
+    ReDim b(0 To n - 1)
+    For i = 0 To n - 1
+        b(i) = CLng("&H" & Mid$(hexStr, i * 2 + 1, 2))
+    Next i
+    HexStringToBytes = b
+End Function
+
+Private Function Base62Encode(bytes() As Byte) As String
+    Dim alphabet As String: alphabet = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+    Dim arr() As Byte, i As Long, j As Long
+    arr = bytes
+    Dim result As String: result = ""
+    Dim nonZero As Boolean
+
+    Do
+        nonZero = False
+        Dim carry As Long: carry = 0
+        For i = LBound(arr) To UBound(arr)
+            Dim val As Long
+            val = carry * 256 + arr(i)
+            arr(i) = (val \ 62) And 255
+            carry = val Mod 62
+            If arr(i) <> 0 Then nonZero = True
+        Next i
+        result = Mid$(alphabet, carry + 1, 1) & result
+        ' Trim leading zeros
+        Dim firstNonZero As Long: firstNonZero = LBound(arr)
+        Do While firstNonZero <= UBound(arr) And arr(firstNonZero) = 0
+            firstNonZero = firstNonZero + 1
+        Loop
+        If firstNonZero > LBound(arr) Then
+            If firstNonZero > UBound(arr) Then
+                ReDim arr(0 To 0): arr(0) = 0
+            Else
+                Dim tmp() As Byte
+                ReDim tmp(0 To UBound(arr) - firstNonZero)
+                For j = firstNonZero To UBound(arr)
+                    tmp(j - firstNonZero) = arr(j)
+                Next j
+                arr = tmp
+            End If
+        End If
+        If UBound(arr) = 0 And arr(0) = 0 Then Exit Do
+    Loop While True
+
+    If result = "" Then result = "0"
+    Base62Encode = result
+End Function
+
 Public Function EditarRegistro(pID As String, valores As Variant) As Boolean
     Dim ws As Worksheet, tb As ListObject, f As Range, c As Long
     On Error GoTo ErrHandler
-    Set ws = ThisWorkbook.Worksheets("Dados")
+    Set ws = ThisWorkbook.Worksheets("Dado")
     Set tb = ws.ListObjects("Dados")
     If tb.DataBodyRange Is Nothing Then EditarRegistro = False: Exit Function
     Set f = tb.ListColumns(1).DataBodyRange.Find(pID, , , xlWhole)
@@ -229,7 +318,7 @@ End Function
 Public Function ExcluirRegistro(pID As String) As Boolean
     Dim ws As Worksheet, tb As ListObject, f As Range
     On Error GoTo ErrHandler
-    Set ws = ThisWorkbook.Worksheets("Dados")
+    Set ws = ThisWorkbook.Worksheets("Dado")
     Set tb = ws.ListObjects("Dados")
     If tb.DataBodyRange Is Nothing Then ExcluirRegistro = False: Exit Function
     Set f = tb.ListColumns(1).DataBodyRange.Find(pID, , , xlWhole)
@@ -244,6 +333,7 @@ Private Function FormatarParaExibicao(arr As Variant) As Variant
     Dim r As Long, c As Long, i As Long, j As Long
     Dim fmt(1 To 16) As String
     
+    ' === Definição de formatos por coluna para exibição no ListBox ===
     fmt(1) = ""                ' ID (GUID)
     fmt(2) = ""                ' IdUsuario
     fmt(3) = "mmm/aaaa"        ' Competencia
@@ -266,11 +356,36 @@ Private Function FormatarParaExibicao(arr As Variant) As Variant
     
     For i = 1 To r
         For j = 1 To c
-            If fmt(j) <> "" And Not IsError(arr(i, j)) And Not IsEmpty(arr(i, j)) Then
-                outArr(i, j) = Format$(arr(i, j), fmt(j))
-            Else
-                outArr(i, j) = arr(i, j)
-            End If
+            Select Case j
+                Case 2
+                    outArr(i, j) = ObterDescricaoDimensao(arr(i, j), mUsuariosDim)
+                    If outArr(i, j) = "" Then outArr(i, j) = arr(i, j)
+                Case 4
+                    outArr(i, j) = ObterDescricaoDimensao(arr(i, j), mHospitaisDim)
+                    If outArr(i, j) = "" Then outArr(i, j) = arr(i, j)
+                Case 5
+                    outArr(i, j) = ObterDescricaoDimensao(arr(i, j), mRegionaisDim)
+                    If outArr(i, j) = "" Then outArr(i, j) = arr(i, j)
+                Case 6
+                    outArr(i, j) = ObterDescricaoDimensao(arr(i, j), mUnidadesDim)
+                    If outArr(i, j) = "" Then outArr(i, j) = arr(i, j)
+                Case 9
+                    outArr(i, j) = ObterDescricaoDimensao(arr(i, j), mStatusDim)
+                    If outArr(i, j) = "" Then outArr(i, j) = arr(i, j)
+                Case 10
+                    outArr(i, j) = ObterDescricaoDimensao(arr(i, j), mMotivosDim)
+                    If outArr(i, j) = "" Then outArr(i, j) = arr(i, j)
+                Case Else
+                    If j >= LBound(fmt) And j <= UBound(fmt) Then
+                        If fmt(j) <> "" And Not IsError(arr(i, j)) And Not IsEmpty(arr(i, j)) Then
+                            outArr(i, j) = Format$(arr(i, j), fmt(j))
+                        Else
+                            outArr(i, j) = arr(i, j)
+                        End If
+                    Else
+                        outArr(i, j) = arr(i, j)
+                    End If
+            End Select
         Next j
     Next i
     FormatarParaExibicao = outArr
@@ -288,14 +403,14 @@ Public Sub TestarConexao()
     On Error Resume Next
     
     ' Teste 1: Aba Usuarios
-    Set ws = ThisWorkbook.Worksheets("Usuarios")
+    Set ws = ThisWorkbook.Worksheets("dUsuarios")
     If ws Is Nothing Then
-        msg = msg & "[ERRO] Aba Usuarios nao encontrada!" & vbCrLf
+        msg = msg & "[ERRO] Aba dUsuarios nao encontrada!" & vbCrLf
     Else
-        msg = msg & "[OK] Aba Usuarios encontrada" & vbCrLf
-        Set tb = ws.ListObjects("Usuarios")
+        msg = msg & "[OK] Aba dUsuarios encontrada" & vbCrLf
+        Set tb = ws.ListObjects("dUsuario")
         If tb Is Nothing Then
-            msg = msg & "[ERRO] Tabela 'Usuarios' nao encontrada na aba Usuarios" & vbCrLf
+            msg = msg & "[ERRO] Tabela 'dUsuario' nao encontrada na aba dUsuarios" & vbCrLf
         ElseIf tb.DataBodyRange Is Nothing Then
             msg = msg & "[AVISO] Tabela Usuarios sem dados" & vbCrLf
         Else
@@ -309,7 +424,7 @@ Public Sub TestarConexao()
     End If
     
     ' Teste 2: Aba Dados
-    Set ws = ThisWorkbook.Worksheets("Dados")
+    Set ws = ThisWorkbook.Worksheets("Dado")
     If ws Is Nothing Then
         msg = msg & "[ERRO] Aba Dados nao encontrada!" & vbCrLf
     Else

@@ -1,79 +1,205 @@
+================================================================================
 PROGRESSO - Controle Financeiro SH
-====================================
-Data: 27/05/2026
+================================================================================
+Data: 29/05/2026 - Sessao 1 (Refatoracao completa)
 
-=== ARQUIVOS NO PROJETO ===
+================================================================================
+HISTORICO DA SESSAO - DIA 29/05/2026
+================================================================================
 
-1. modAutenticacao.bas
-   - Login com email + senha "102030"
-   - Lê emails da tabela Usuarios (Status=1)
-   - Funções: VerificarCredenciais, ObterIdUsuario, CarregarEmailsAtivos, ResetarSessao
+1. DIAGNOSTICO INICIAL DO PROJETO
+   - Projeto existente com: modAutenticacao.bas, modDados.bas, frmLogin.frm,
+     criarFormulario.bas, criarFrmPrincipal.bas, frmPrincipal (gerado via macro)
+   - frmLogin manual funcional (criado diretamente no editor VBA)
+   - Modulos criarFormulario e criarFrmPrincipal geravam forms via codigo
+   - Bug grave: criarFrmPrincipal.bas tinha escaping incorreto de aspas (\")
+   - Bug grave: frmPrincipal nao tinha cboStatus nem cboMotivo
+   - Bug grave: v(9)=0 e v(10)=0 fixos no CRUD
 
-2. modDados.bas
-   - Carregar dados da tabela Dados filtrados por UsuarioAtual
-   - Paginação: 25 registros por página
-   - Navegação: PreviousPage, NextPage
-   - CRUD: AdicionarRegistro, EditarRegistro, ExcluirRegistro (com GUID)
-   - CarregarDimensao para tabelas de apoio (Usuarios, Hospitais, Regionais, etc.)
-   - Diagnóstico: TestarConexao
-   - NOVO: mDisplayData + GetPageDataFormatado + FormatarParaExibicao
-   - Formatação por coluna: Competencia (mmm/aaaa), moedas (R$ #,##0.00), datas (dd/mm/yyyy)
+2. DECISAO ARQUITETURAL - NOVA HIERARQUIA DE FORMS
+   frmLogin (modal) --> frmPrincipal (modeless)
+                            |--> frmEdicao (modal) - Add/Edit
+                            |--> MsgBox Exclusao (Yes/No)
 
-3. criarFormulario.bas
-   - Gera frmLogin programaticamente (VBE)
-   - Código embutido com eventos (Initialize, Login, Cancel, QueryClose)
+3. METODOLOGIA DE TRABALHO CONFIRMADA:
+   1. Usuario faz a solicitacao
+   2. Agente apresenta e explica as solucoes sem alterar nada
+   3. Agente analisa minuciosamente conflitos com codigo existente
+   4. Projeto componente a componente
+   5. Usuario autoriza a alteracao
+   6. A cada alteracao bem sucedida, progresso.txt e atualizado
 
-4. criarFrmPrincipal.bas (NOVO)
-   - Gera frmPrincipal programaticamente (VBE)
-   - Grid 16 colunas, navegação, campos de detalhe, CRUD completo
-   - Código embutido com eventos (Initialize, Nav, GridClick, CRUD, QueryClose)
+4. Ajuste nos nomes das abas/tabelas (CORRIGIDO):
+   Aba antiga      Nova aba        Tabela antiga   Nova tabela
+   Usuarios  -->   dUsuarios       Usuarios   -->  dUsuario
+   Dados     -->   Dado            Dados      -->  Dados (mantido)
 
-5. frmLogin (criado manualmente)
-   - ComboBox cboEmail (caixa de combinação)
-   - TextBox txtSenha (senha com PasswordChar = *)
-   - Botão cmdLogin (Entrar)
-   - Botão cmdCancel (Cancelar)
-   - Label lblMensagem (mensagens de erro)
-   - Login funcional
+   Arquivos alterados:
+   - modAutenticacao.bas: linhas 15,16,33,34 (Worksheets/ListObjects)
+   - modDados.bas: linhas 24,69,219,305,321,406,411,427
+     (Worksheets/ListObjects/CarregarDimensao)
 
-6. frmPrincipal (gerado via macro CriarFrmPrincipal)
-   - lstGrid (ListBox com 16 colunas, dados formatados)
-   - lblPagina (info de navegação)
-   - cmdAnterior / cmdProximo (navegação com páginas)
-   - Campos: Competencia, Titulo, NFe, EnvioNFe, Hospital, Regional, Unidade
-   - Campos: ValorFaturamento, ValorPerda, ValorGlosa, Observacao, Data
-   - Botões: Adicionar, Editar, Excluir, Limpar
-   - QueryClose bloqueado
+5. ARQUIVOS REMOVIDOS PARA _old/ (descartados):
+   - criarFrmPrincipal.bas (codigo bugado com escaping \" e ComboBoxes faltando)
+   - criarFormulario.bas (desatualizado em relacao ao frmLogin manual)
+   - Documento Tecnico.txt (arquitetura desatualizada)
+   - Instrucoes_Importacao.txt (desatualizado)
+   - generate_button_icons.py (utilitario nao essencial)
 
-=== STATUS ATUAL ===
+6. ARQUIVOS MANTIDOS (preservados e funcionais):
+   - modAutenticacao.bas - autenticacao com nomes corrigidos
+   - modDados.bas - CRUD, paginacao 25/pagina, formatacao por coluna
+   - frmLogin.frm - manual (ref. para o manual criado no editor VBA)
+   - imagens/ - Logo.png, icon_add/edit/remove.bmp
 
-[X] Login funcional
-[X] Grid com formatação por coluna (dual-array mAllData/mDisplayData)
-[X] lblPagina (navegação)
-[X] Campos de detalhe implementados
-[X] CRUD completo (Adicionar, Editar, Excluir, Limpar)
-[ ] SHA-256 + Salt
-[ ] Proteção de planilha
+7. NOVO FORMULARIO frmLogin (criado manualmente pelo usuario no editor VBA):
+   - cmbBoxEmail (ComboBox) - carrega emails ativos da tabela dUsuario (OK)
+   - txBoxSenha (TextBox) - senha com PasswordChar = *
+   - cmdButtonEntrar - valida credenciais via modAutenticacao
+   - cmdButtonCancelar - fecha a pasta de trabalho (ThisWorkbook.Close False)
+   - lblMensagem (Label) - exibe mensagens de erro em vermelho
+   - BorderStyle=0 definido (mas barra/titulo ainda aparece - usuario 
+     pediu para esquecer o assunto)
 
-=== PROBLEMA PENDENTE ===
+8. CODIGO ATUAL DO frmLogin (fornecido ao usuario):
+```
+Option Explicit
 
-Erro 380 resolvido com:
-- FormatarParaExibicao com IsError + IsEmpty
-- GetPageDataFormatado retorna strings formatadas em vez de variants mistas
-- lstGrid.List só recebe dados com UBound >= 0
+Private Sub UserForm_Initialize()
+    CarregarEmails
+    Me.Left = 300
+    Me.Top = 200
+    txBoxSenha.SetFocus
+End Sub
 
-=== PRÓXIMOS PASSOS ===
+Private Sub CarregarEmails()
+    Dim em() As String, i As Long
+    em = modAutenticacao.CarregarEmailsAtivos
+    cmbBoxEmail.Clear
+    If (Not em) = -1 Then Exit Sub
+    For i = LBound(em) To UBound(em)
+        cmbBoxEmail.AddItem em(i)
+    Next i
+    If cmbBoxEmail.ListCount > 0 Then cmbBoxEmail.ListIndex = 0
+End Sub
 
-1. Testar frmPrincipal no Excel (executar CriarFrmPrincipal)
-2. Verificar se a formatação de moeda e data aparece corretamente no grid
-3. Esconder abas (xlSheetVeryHidden)
-4. SHA-256 + Salt nas senhas
-5. Proteção UserInterfaceOnly
+Private Sub cmbBoxEmail_Change()
+    lblMensagem = ""
+End Sub
 
-=== OBSERVAÇÕES IMPORTANTES ===
+Private Sub txBoxSenha_Change()
+    lblMensagem = ""
+End Sub
 
-- UsuarioAtual = 4 (rhaís.menezes@davita.com) tem 2156 registros
-- Tabelas de apoio: Usuarios, Hospitais, Regionais, Unidades, StatusNFe, MotivosGlosa
-- Todas as tabelas têm coluna Status (1=ativo, 0=inativo)
-- Grid usa ListBox com ColumnCount=16
-- ColumnWidths: 0;0;80;0;0;0;120;50;0;0;80;100;100;100;130;100
+Private Sub cmdButtonEntrar_Click()
+    Dim e As String, s As String
+    e = Trim(cmbBoxEmail.Value)
+    s = Trim(txBoxSenha.Value)
+    lblMensagem = ""
+    
+    If e = "" Then
+        lblMensagem = "Selecione um email."
+        cmbBoxEmail.SetFocus
+        Exit Sub
+    End If
+    
+    If s = "" Then
+        lblMensagem = "Digite a senha."
+        txBoxSenha.SetFocus
+        Exit Sub
+    End If
+    
+    If modAutenticacao.VerificarCredenciais(e, s) Then
+        modAutenticacao.UsuarioAtual = modAutenticacao.ObterIdUsuario(e)
+        modAutenticacao.EmailAtual = e
+        txBoxSenha.Value = ""
+        Me.Hide
+    Else
+        lblMensagem = "Email ou senha invalidos."
+        txBoxSenha.Value = ""
+        txBoxSenha.SetFocus
+    End If
+End Sub
+
+Private Sub cmdButtonCancelar_Click()
+    ThisWorkbook.Close False
+End Sub
+
+Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
+    If CloseMode = 0 Then Cancel = 1: ThisWorkbook.Close False
+End Sub
+```
+
+9. CODIGO DO ThisWorkbook:
+```
+Private Sub Workbook_Open()
+    modAutenticacao.ResetarSessao
+    frmLogin.Show vbModal
+End Sub
+
+Private Sub Workbook_BeforeClose(Cancel As Boolean)
+    On Error Resume Next
+    Sheets("Dado").AutoFilterMode = False
+    modAutenticacao.ResetarSessao
+End Sub
+```
+
+10. PENDENCIAS IDENTIFICADAS:
+    - Ajustar BorderStyle=0 no frmLogin (pendente, usuario desistiu)
+    - frmPrincipal: NAO tera campos de detalhe (movidos para frmEdicao)
+    - frmPrincipal tera: Grid (ListBox 16 colunas) + Navegacao + Botoes
+    - frmEdicao: todos os campos + ComboBoxes (Hospital, Regional, etc.)
+    - Arquitetura futura: Power Query conectando a arquivo central Dimensoes.xlsx
+    - Abas de dimensao ficarao ocultas (xlVeryHidden)
+    - Unica aba visivel: "Form" (bloqueada)
+    - SHA-256 + Salt nas senhas
+    - Protecao UserInterfaceOnly
+    - Cada analista tera seu proprio arquivo .xlsm local
+    - Arquivo central de dimensoes na rede (leitura, sem escrita)
+
+11. TESTES REALIZADOS:
+    - ComboBox carrega emails ativos: OK
+    - Login com email + senha 102030: OK (codigo funcional)
+    - lblMensagem adicionada ao formulario: OK (resolveu erro de compilacao)
+
+================================================================================
+ESTRUTURA ATUAL DO PROJETO
+================================================================================
+
+D:\Repositorios\DaVita\VBA\Controle Financeiro - SH\
+|
+|-- Controle Financeiro SH.xlsm   (arquivo principal)
+|-- modAutenticacao.bas           (autenticacao)
+|-- modDados.bas                  (CRUD + paginacao)
+|-- progresso.txt                 (este arquivo)
+|-- imagens/                      (icones dos botoes)
+|   |-- Logo.png
+|   |-- icon_add.bmp
+|   |-- icon_edit.bmp
+|   |-- icon_remove.bmp
+|-- _old/                         (arquivos descartados)
+|   |-- criarFrmPrincipal.bas
+|   |-- criarFormulario.bas
+|   |-- Documento Tecnico.txt
+|   |-- Instrucoes_Importacao.txt
+|   |-- generate_button_icons.py
+|-- .venv/                        (ambiente Python para geracao de icones)
+
+Dentro do .xlsm (projeto VBA):
+|-- modAutenticacao
+|-- modDados
+|-- frmLogin (manual)
+|-- ThisWorkbook
+
+================================================================================
+PROXIMA SESSAO - O QUE FAZER
+================================================================================
+
+1. Nao esquecer: usuario vai estruturar o arquivo central Dimensoes.xlsx e as
+   conexoes Power Query antes de continuarmos
+2. Ajustar BorderStyle=0 no frmLogin (se necessario)
+3. Criar frmPrincipal manualmente (grid + navegacao + botoes acao)
+4. Criar frmEdicao manualmente (campos + ComboBoxes)
+5. Conectar eventos e CRUD completo
+6. SHA-256 + Salt, protecao de planilha, ocultar abas
+================================================================================

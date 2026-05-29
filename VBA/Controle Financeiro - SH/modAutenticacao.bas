@@ -12,8 +12,8 @@ Public Function ObterIdUsuario(pEmail As String) As Long
     Dim ws As Worksheet, tb As ListObject, dr As Range
     Dim i As Long
     On Error GoTo ErrHandler
-    Set ws = ThisWorkbook.Worksheets("Usuarios")
-    Set tb = ws.ListObjects("Usuarios")
+    Set ws = ThisWorkbook.Worksheets("dUsuarios")
+    Set tb = ws.ListObjects("dUsuario")
     If tb.DataBodyRange Is Nothing Then ObterIdUsuario = 0: Exit Function
     Set dr = tb.DataBodyRange
     For i = 1 To dr.Rows.Count
@@ -30,8 +30,8 @@ Public Function CarregarEmailsAtivos() As String()
     Dim ws As Worksheet, tb As ListObject, dr As Range
     Dim i As Long, n As Long, em() As String
     On Error GoTo ErrHandler
-    Set ws = ThisWorkbook.Worksheets("Usuarios")
-    Set tb = ws.ListObjects("Usuarios")
+    Set ws = ThisWorkbook.Worksheets("dUsuarios")
+    Set tb = ws.ListObjects("dUsuario")
     If tb.DataBodyRange Is Nothing Then CarregarEmailsAtivos = em: Exit Function
     Set dr = tb.DataBodyRange: n = 0
     For i = 1 To dr.Rows.Count
