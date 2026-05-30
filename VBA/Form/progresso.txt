@@ -66,6 +66,22 @@ INTERACOES REGISTRADAS
 [30/05 - USUARIO] "certo atualize o arquivo progresso e faca o commit para o github como tela de login"
 [30/05 - AGENTE] Commit realizado: "Tela de login - frmLogin + modAutenticacao"
 
+[30/05 - USUARIO] "agora preciso tirar uma duvida como podemos fazer um campo de filtro no formulario (...) filtrar qualquer coluna na caixa de listagem?"
+[30/05 - AGENTE] Explicou filtro textual unico percorrendo todas as 16 colunas em memoria.
+
+[30/05 - USUARIO] codigo de exemplo de formatacao dual-array
+[30/05 - AGENTE] Analisou codigo do usuario e confirmou compatibilidade com a arquitetura ja existente em modDados.
+
+[30/05 - USUARIO] "enquanto isso vou criar o frmPrincipal"
+[30/05 - AGENTE] Aguardou criacao do frmPrincipal. Exportou frmPrincipal.frm e extraiu controles do .frx.
+
+[30/05 - USUARIO] Confirmou nomes dos controles: imgLogofrmPrincipal, lblTitulo, lblFaturamento, lblGlosa, lblPerda, lblFiltrar, txtBoxFiltro, cmdAdd, cmdExcluir, cmdEditar, cmdAtualizar, lstDados
+[30/05 - USUARIO] Criou controles adicionais: cmdAnterior, cmdProximo, lblPagina, lblUsuarioLogado
+
+[30/05 - AGENTE] Criou modDados.bas adaptado (tabela TabDados, filtro em memoria, subtotais). Preparou codigo do frmPrincipal (48 linhas) e atualizou ThisWorkbook. Tentou injecao via COM mas timeout - orientou colagem manual.
+
+[30/05 - USUARIO] "agora faco o commit para o github"
+
 ===============================================================================
 PROXIMA SESSAO
 ===============================================================================
