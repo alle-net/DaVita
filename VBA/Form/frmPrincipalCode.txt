@@ -24,14 +24,14 @@ End Sub
 
 Private Sub PreencherGrid()
     Dim dados As Variant
-    dados = modDados.GetPageData
+    dados = modDados.GetPageDataFormatado
     
     With lstDados
         .Clear
         If Not IsArray(dados) Then Exit Sub
         If UBound(dados, 1) < 0 Then Exit Sub
         .ColumnCount = 16
-        .ColumnWidths = "0;0;65;0;0;0;120;70;0;0;70;85;85;85;100;110"
+        .ColumnWidths = "0;0;65;0;0;0;120;70;0;0;70;85;85;85;100;0"
         .List = dados
     End With
 End Sub

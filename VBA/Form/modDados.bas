@@ -116,6 +116,27 @@ Public Function GetPageData() As Variant
     GetPageData = r
 End Function
 
+Public Function GetPageDataFormatado() As Variant
+    Dim raw As Variant
+    raw = GetPageData()
+    If Not IsArray(raw) Then
+        GetPageDataFormatado = raw
+        Exit Function
+    End If
+    Dim r As Long
+    Dim tmp As String
+    For r = 0 To UBound(raw, 1)
+        If IsDate(raw(r, 2)) Then
+            tmp = Format$(raw(r, 2), "mmm/yyyy")
+            raw(r, 2) = UCase(Left$(tmp, 1)) & Mid$(tmp, 2)
+        ElseIf IsNumeric(raw(r, 2)) Then
+            tmp = Format$(CDate(raw(r, 2)), "mmm/yyyy")
+            raw(r, 2) = UCase(Left$(tmp, 1)) & Mid$(tmp, 2)
+        End If
+    Next r
+    GetPageDataFormatado = raw
+End Function
+
 Public Function GetPageInfo() As String
     If mTotalFiltered = 0 Then
         GetPageInfo = "Pagina 0 de 0 (0 registros)"

@@ -2,10 +2,10 @@ Attribute VB_Name = "CriarControles"
 Sub CriarControlesFrmPrincipal()
 Dim frm As Object
 Set frm = ThisWorkbook.VBProject.VBComponents("frmPrincipal").Designer
-Dim ctl As Object
-For Each ctl In frm.Controls
-    ctl.Delete
-Next
+Dim i As Long
+For i = frm.Controls.Count - 1 To 0 Step -1
+    frm.Controls.Remove i
+Next i
 Dim img As Object
 Set img = frm.Controls.Add("Forms.Image.1", "imgLogofrmPrincipal")
 img.Left = 20: img.Top = 20: img.Width = 200: img.Height = 60
@@ -27,9 +27,34 @@ txt.Left = 75: txt.Top = 100: txt.Width = 300: txt.Height = 25
 Dim btn As Object
 Set btn = frm.Controls.Add("Forms.CommandButton.1", "cmdAtualizar")
 btn.Caption = "Atualizar": btn.Left = 390: btn.Top = 100: btn.Width = 90: btn.Height = 25
+Dim hdr As Object
+Set hdr = frm.Controls.Add("Forms.Label.1", "lblHdrCompetencia")
+hdr.Caption = "Competencia": hdr.Left = 20: hdr.Top = 135: hdr.Width = 65: hdr.Height = 18
+hdr.Font.Size = 8: hdr.Font.Bold = True: hdr.ForeColor = RGB(0, 118, 182)
+Set hdr = frm.Controls.Add("Forms.Label.1", "lblHdrTitulo")
+hdr.Caption = "Titulo": hdr.Left = 85: hdr.Top = 135: hdr.Width = 120: hdr.Height = 18
+hdr.Font.Size = 8: hdr.Font.Bold = True: hdr.ForeColor = RGB(0, 118, 182)
+Set hdr = frm.Controls.Add("Forms.Label.1", "lblHdrNFe")
+hdr.Caption = "NFe": hdr.Left = 205: hdr.Top = 135: hdr.Width = 70: hdr.Height = 18
+hdr.Font.Size = 8: hdr.Font.Bold = True: hdr.ForeColor = RGB(0, 118, 182)
+Set hdr = frm.Controls.Add("Forms.Label.1", "lblHdrEnvioNFe")
+hdr.Caption = "Envio NFe": hdr.Left = 275: hdr.Top = 135: hdr.Width = 70: hdr.Height = 18
+hdr.Font.Size = 8: hdr.Font.Bold = True: hdr.ForeColor = RGB(0, 118, 182)
+Set hdr = frm.Controls.Add("Forms.Label.1", "lblHdrFaturamento")
+hdr.Caption = "Faturamento": hdr.Left = 345: hdr.Top = 135: hdr.Width = 85: hdr.Height = 18
+hdr.Font.Size = 8: hdr.Font.Bold = True: hdr.ForeColor = RGB(0, 118, 182)
+Set hdr = frm.Controls.Add("Forms.Label.1", "lblHdrPerda")
+hdr.Caption = "Perda": hdr.Left = 430: hdr.Top = 135: hdr.Width = 85: hdr.Height = 18
+hdr.Font.Size = 8: hdr.Font.Bold = True: hdr.ForeColor = RGB(0, 118, 182)
+Set hdr = frm.Controls.Add("Forms.Label.1", "lblHdrGlosa")
+hdr.Caption = "Glosa": hdr.Left = 515: hdr.Top = 135: hdr.Width = 85: hdr.Height = 18
+hdr.Font.Size = 8: hdr.Font.Bold = True: hdr.ForeColor = RGB(0, 118, 182)
+Set hdr = frm.Controls.Add("Forms.Label.1", "lblHdrObservacao")
+hdr.Caption = "Observacao": hdr.Left = 600: hdr.Top = 135: hdr.Width = 100: hdr.Height = 18
+hdr.Font.Size = 8: hdr.Font.Bold = True: hdr.ForeColor = RGB(0, 118, 182)
 Dim lst As Object
 Set lst = frm.Controls.Add("Forms.ListBox.1", "lstDados")
-lst.Left = 20: lst.Top = 140: lst.Width = 1200: lst.Height = 400
+lst.Left = 20: lst.Top = 156: lst.Width = 1200: lst.Height = 370
 Set btn = frm.Controls.Add("Forms.CommandButton.1", "cmdAnterior")
 btn.Caption = "< Anterior": btn.Left = 30: btn.Top = 550: btn.Width = 90: btn.Height = 25
 Set lbl = frm.Controls.Add("Forms.Label.1", "lblPagina")
