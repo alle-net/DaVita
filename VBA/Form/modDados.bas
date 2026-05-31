@@ -4,6 +4,7 @@ Option Explicit
 Public Const PAGE_SIZE As Long = 25
 
 Private mAllData() As Variant
+Private mAllDataSearchable() As String
 Private mFilteredIdx() As Long
 Private mTotalRecords As Long
 Private mTotalFiltered As Long
@@ -66,6 +67,10 @@ Public Function CarregarDadosUsuario(usuarioID As Long) As Boolean
     mTotalPages = ((n - 1) \ PAGE_SIZE) + 1
     
     CarregarMapasDimensoes
+    ReDim mAllDataSearchable(1 To n)
+    For i = 1 To n
+        mAllDataSearchable(i) = LCase(ResolveSearchText(i))
+    Next i
     CarregarDadosUsuario = True: Exit Function
 ErrHandler:
     CarregarDadosUsuario = False
@@ -81,14 +86,12 @@ Public Sub AplicarFiltro(texto As String)
         mTotalFiltered = mTotalRecords
     Else
         n = 0
+        ReDim mFilteredIdx(1 To mTotalRecords)
         For i = 1 To mTotalRecords
-            For j = 1 To 16
-                If InStr(LCase(CStr(mAllData(i, j))), txt) > 0 Then
-                    n = n + 1
-                    mFilteredIdx(n) = i
-                    Exit For
-                End If
-            Next j
+            If InStr(mAllDataSearchable(i), txt) > 0 Then
+                n = n + 1
+                mFilteredIdx(n) = i
+            End If
         Next i
         If n = 0 Then
             mTotalFiltered = 0: ReDim mFilteredIdx(1 To 1)
@@ -134,7 +137,13 @@ Public Function GetPageDataFormatado() As Variant
     End If
     
     Dim n As Long, i As Long
+    On Error Resume Next
     n = UBound(raw, 1) + 1
+    On Error GoTo 0
+    If n = 0 Then
+        GetPageDataFormatado = Array()
+        Exit Function
+    End If
     Dim res() As Variant
     ReDim res(0 To n - 1, 0 To 12)
     
@@ -284,6 +293,26 @@ Private Function ObterDescricaoDimensao(id As Variant, mapa As Variant) As Varia
         End If
     Next i
     On Error GoTo 0
+End Function
+
+Private Function ResolveSearchText(rowIdx As Long) As String
+    Dim parts(1 To 16) As String, v As Variant, c As Long
+    For c = 1 To 16
+        v = mAllData(rowIdx, c)
+        Dim tmp As String
+        Select Case c
+            Case 3:  If IsDate(v) Then tmp = Format$(v, "mmm/yyyy"): parts(c) = UCase(Left$(tmp, 1)) & Mid$(tmp, 2) Else parts(c) = v
+            Case 4:  parts(c) = ObterDescricaoDimensao(v, mHospitaisDim)
+            Case 5:  parts(c) = ObterDescricaoDimensao(v, mRegionaisDim)
+            Case 6:  parts(c) = ObterDescricaoDimensao(v, mUnidadesDim)
+            Case 9:  parts(c) = ObterDescricaoDimensao(v, mStatusDim)
+            Case 10: parts(c) = ObterDescricaoDimensao(v, mMotivosDim)
+            Case 11: If IsDate(v) Then parts(c) = Format$(v, "dd/mm/yyyy") Else parts(c) = v
+            Case 12, 13, 14: If IsNumeric(v) Then parts(c) = Format$(CDbl(v), "0.00") Else parts(c) = v
+            Case Else: parts(c) = v
+        End Select
+    Next c
+    ResolveSearchText = Join(parts, " ")
 End Function
 
 Private Function ValorSeguro(v As Variant) As Variant

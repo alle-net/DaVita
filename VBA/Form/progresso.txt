@@ -1,7 +1,7 @@
 ===============================================================================
 PROGRESSO - Form
 ===============================================================================
-Data: 30/05/2026
+Data: 31/05/2026
 
 ===============================================================================
 HISTORICO DA SESSAO
@@ -10,7 +10,7 @@ HISTORICO DA SESSAO
 1. SINCRONIZACAO LOCAL COM GITHUB
    - Repositorio local sincronizado com o origin/master
    - git pull executado com sucesso
-   - Commit atual: 6d65eee "Inicial"
+   - Commit atual: 7ba5154 "frmPrincipal com layout do usuario + codigo completo"
    - Pastas locais e remotas estao alinhadas
 
 ===============================================================================
@@ -93,50 +93,48 @@ INTERACOES REGISTRADAS
 [30/05 - USUARIO] "retorne ao projeto salvo no github"
 [30/05 - USUARIO] "guardes as informacoes no arquivo de progresso e tentaremos de novo amanha"
 
+[31/05 - USUARIO] "vamos continuar (...) de uma forma mais organizada (...) quero ver o progresso" 
+[31/05 - AGENTE] Leu progresso.txt, analisou estado atual. Identificou que frmPrincipal ja tinha controles criados manualmente.
+
+[31/05 - USUARIO] "me faca um resumo do que fizemos ate agora (...) quero saber exatamente de ponto a ponto"
+[31/05 - AGENTE] Criou resumo estruturado: layout do usuario preservado, frmPrincipal importado com FRX, modDados com 13 colunas formatadas, LISTBOX (sem MSCOMCTL.OCX), paginacao (PAGE_SIZE=25), filtro, subtotais, QueryClose corrigido.
+
+[31/05 - USUARIO] Revisou objetivos: preservar layout manual, nao usar CriarControles.bas para nao resetar o FRX, usar ListBox sem dependencias externas, resolver IDs das tabelas dimensao.
+
+[31/05 - USUARIO] "para terminar por hoje vamo corrigir o erro no campo de busca (...) erro em tempo de execucao 9 subscrito fora do intervalo (...) ReDim res(0 To n - 1, 0 To 12) esta em amarelo"
+[31/05 - AGENTE] Corrigiu GetPageDataFormatado: validacao de array vazio (On Error Resume Next n = UBound) antes do ReDim.
+
+[31/05 - USUARIO] "o erro ainda aparece (...) AplicarFiltro (...) mFilteredIdx(n) = i esta amarelo"
+[31/05 - AGENTE] Corrigiu AplicarFiltro: adicionou ReDim mFilteredIdx(1 To mTotalRecords) antes do loop na branch de filtro ativo (txt <> ""), pois o array nao era redimensionado.
+
+[31/05 - USUARIO] "o filtro nao esta funcionando como deveria se eu escrever rj ele deveria filtrar todas as regionais rj - mg"
+[31/05 - AGENTE] Diagnosticou que AplicarFiltro buscava em mAllData (dados crus com IDs numericos), nao nos textos resolvidos. Criou mAllDataSearchable() As String e funcao ResolveSearchText que pre-resolve todas as dimensoes e formata datas/valores. AplicarFiltro agora busca em mAllDataSearchable.
+
+[31/05 - USUARIO] "ainda nao esta funcionando parece que so le a primeira letra"
+[31/05 - AGENTE] Descobriu que ResolveSearchText usava indices de coluna errados (Case 3 = Hospital, mas deveria ser Case 4). Corrigiu mapeamento: Case 4=Hospital, 5=Regional, 6=Unidade, 9=StatusNFe, 10=MotivoGlosa.
+
+[31/05 - USUARIO] "certo agora so falta corrigir o filtro de competencia que nao esta funcionando (...) mmm/aaaa com primeira letra maiuscula"
+[31/05 - AGENTE] Adicionou Case 3 em ResolveSearchText para formatar Competencia como "Jan/2026" (mesmo formato exibido no grid).
+
+[31/05 - USUARIO] "Perfeito faca o commit e atualize o arquivo progresso.txt"
+
 --- ESTADO ATUAL DOS ARQUIVOS ---
-- Form.xlsm: contem frmLogin, modAutenticacao, modDados? (pendente), frmPrincipal vazio/parcial? (pendente)
-- frmPrincipal.frm: arquivo limpo (sem FRX, sem controles)
-- frmPrincipalCode.txt: codigo completo do frmPrincipal (pronto para colar)
-- CriarControles.bas: macro de setup (remover o Modulo1 antigo, importar este, executar)
-- modDados.bas: modulo de dados adaptado para TabDados (pronto para importar)
+- modDados.bas: 318 linhas, completo com:
+  - CarregarDadosUsuario com filtro por usuarioID + mapas de dimensao + mAllDataSearchable
+  - AplicarFiltro com busca textual em dados pre-resolvidos
+  - GetPageDataFormatado com 13 colunas (Competencia MMM/AAAA, Regional, Unidade, Hospital, Titulo, NFe, StatusNFe, DataEnvioNFe dd/mm/yyyy, MotivoGlosa, ValorFaturamento R$, ValorGlosa R$, ValorPerda R$, Observacao)
+  - Subtotais (Faturamento, Glosa, Perda) nas colunas 12/13/14 de mAllData
+  - Paginacao (PAGE_SIZE=25)
+  - Dimensoes: mUsuariosDim, mHospitaisDim, mRegionaisDim, mUnidadesDim, mStatusDim, mMotivosDim (apenas Status=1)
+- frmPrincipal.frm: formulario com FRX valido (controles manual), codigo completo
+- frmPrincipalCode.txt: codigo de referencia do frmPrincipal
+- CriarControles.bas: mantido como referencia (nao usar para nao resetar FRX)
 
-===============================================================================
 PROXIMA SESSAO - COMO RETOMAR
-===============================================================================
-1. Ler TODO o progresso.txt para entender o contexto
-
-2. Abrir Form.xlsm, ALT+F11 (VBA)
-
-3. Se frmPrincipal NAO existir no VBA:
-   a. Menu Arquivo > Importar Arquivo > selecionar frmPrincipal.frm (vazio)
-   b. Importar CriarControles.bas
-   c. Executar F5 (cursor dentro do Sub) para gerar controles
-   d. Remover modulo CriarControles
-
-4. Importar modDados.bas (Arquivo > Importar)
-
-5. Abrir frmPrincipal, colar conteudo de frmPrincipalCode.txt
-
-6. Abrir EstaPastaDeTrabalho, colar codigo de ThisWorkbook (Workbook_Open)
-
-7. Salvar (CTRL+S), fechar e reabrir Form.xlsm para testar
-
-8. log com email da dUsuario, senha "102030"
-
-PROXIMOS PASSOS (apos frmPrincipal funcionando):
-- frmEdicao (Add/Edit com ComboBoxes)
-- CRUD completo
-- Formatacao dual-array no grid
-- SHA-256 + Salt
-- Ocultar abas de dimensao
-
-ARQUIVOS DISPONIVEIS EM C:\Repositorios\DaVita\VBA\Form\:
-- Form.xlsm - pasta de trabalho
-- modAutenticacao.bas - autenticacao (ja exportado)
-- modDados.bas - CRUD + paginacao + filtro + subtotais
-- frmPrincipal.frm - formulario vazio (importar)
-- frmPrincipalCode.txt - codigo do frmPrincipal (colar)
-- CriarControles.bas - macro para criar controles automaticamente
-- icones/ - icones dos botoes
-- progresso.txt - este arquivo
+1. Abrir Form.xlsm, ALT+F11
+2. Importar modDados.bas se nao estiver no VBA (Arquivo > Importar)
+3. Verificar se frmPrincipal esta importado com FRX + codigo
+4. Testar login (email dUsuario, senha "102030")
+5. Testar filtro (digitar "rj", "jan", "mg", etc.)
+6. Proximo passo: frmEdicao (Add/Edit com ComboBoxes das dimensoes)
 ===============================================================================
