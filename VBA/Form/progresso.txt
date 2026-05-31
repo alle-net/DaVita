@@ -81,11 +81,62 @@ INTERACOES REGISTRADAS
 [30/05 - AGENTE] Criou modDados.bas adaptado (tabela TabDados, filtro em memoria, subtotais). Preparou codigo do frmPrincipal (48 linhas) e atualizou ThisWorkbook. Tentou injecao via COM mas timeout - orientou colagem manual.
 
 [30/05 - USUARIO] "agora faco o commit para o github"
+[30/05 - AGENTE] Commit 3869b4a "frmPrincipal + modDados - grid, filtro, subtotais, navegacao"
+
+[30/05 - USUARIO] "vou voltar mais tarde" / "estou de volta"
+[30/05 - USUARIO] Labels de subtotais: criou lblTituloFat, lblTituloGlosa, lblTituloPerda
+[30/05 - AGENTE] Atualizou frmPrincipalCode.txt com titulos em azul e valores so com "R$"
+
+[30/05 - USUARIO] Tentou colar codigos manualmente mas erro 800a0011 (FRX corrompido)
+[30/05 - AGENTE] Criou frmPrincipal.frm limpo (sem FRX). Criou CriarControles.bas (macro para gerar controles automaticamente). Modulo apresentou erro de compilacao.
+
+[30/05 - USUARIO] "retorne ao projeto salvo no github"
+[30/05 - USUARIO] "guardes as informacoes no arquivo de progresso e tentaremos de novo amanha"
+
+--- ESTADO ATUAL DOS ARQUIVOS ---
+- Form.xlsm: contem frmLogin, modAutenticacao, modDados? (pendente), frmPrincipal vazio/parcial? (pendente)
+- frmPrincipal.frm: arquivo limpo (sem FRX, sem controles)
+- frmPrincipalCode.txt: codigo completo do frmPrincipal (pronto para colar)
+- CriarControles.bas: macro de setup (remover o Modulo1 antigo, importar este, executar)
+- modDados.bas: modulo de dados adaptado para TabDados (pronto para importar)
 
 ===============================================================================
-PROXIMA SESSAO
+PROXIMA SESSAO - COMO RETOMAR
 ===============================================================================
-- Ler este arquivo do inicio ao fim para retomar exatamente de onde parou
-- Usuario vai preparar a pasta de trabalho Excel para os formularios
-- Aguardando instrucoes
+1. Ler TODO o progresso.txt para entender o contexto
+
+2. Abrir Form.xlsm, ALT+F11 (VBA)
+
+3. Se frmPrincipal NAO existir no VBA:
+   a. Menu Arquivo > Importar Arquivo > selecionar frmPrincipal.frm (vazio)
+   b. Importar CriarControles.bas
+   c. Executar F5 (cursor dentro do Sub) para gerar controles
+   d. Remover modulo CriarControles
+
+4. Importar modDados.bas (Arquivo > Importar)
+
+5. Abrir frmPrincipal, colar conteudo de frmPrincipalCode.txt
+
+6. Abrir EstaPastaDeTrabalho, colar codigo de ThisWorkbook (Workbook_Open)
+
+7. Salvar (CTRL+S), fechar e reabrir Form.xlsm para testar
+
+8. log com email da dUsuario, senha "102030"
+
+PROXIMOS PASSOS (apos frmPrincipal funcionando):
+- frmEdicao (Add/Edit com ComboBoxes)
+- CRUD completo
+- Formatacao dual-array no grid
+- SHA-256 + Salt
+- Ocultar abas de dimensao
+
+ARQUIVOS DISPONIVEIS EM C:\Repositorios\DaVita\VBA\Form\:
+- Form.xlsm - pasta de trabalho
+- modAutenticacao.bas - autenticacao (ja exportado)
+- modDados.bas - CRUD + paginacao + filtro + subtotais
+- frmPrincipal.frm - formulario vazio (importar)
+- frmPrincipalCode.txt - codigo do frmPrincipal (colar)
+- CriarControles.bas - macro para criar controles automaticamente
+- icones/ - icones dos botoes
+- progresso.txt - este arquivo
 ===============================================================================
