@@ -31,26 +31,41 @@ Dim hdr As Object
 Set hdr = frm.Controls.Add("Forms.Label.1", "lblHdrCompetencia")
 hdr.Caption = "Competencia": hdr.Left = 20: hdr.Top = 135: hdr.Width = 65: hdr.Height = 18
 hdr.Font.Size = 8: hdr.Font.Bold = True: hdr.ForeColor = RGB(0, 118, 182)
+Set hdr = frm.Controls.Add("Forms.Label.1", "lblHdrRegional")
+hdr.Caption = "Regional": hdr.Left = 85: hdr.Top = 135: hdr.Width = 100: hdr.Height = 18
+hdr.Font.Size = 8: hdr.Font.Bold = True: hdr.ForeColor = RGB(0, 118, 182)
+Set hdr = frm.Controls.Add("Forms.Label.1", "lblHdrUnidade")
+hdr.Caption = "Unidade": hdr.Left = 185: hdr.Top = 135: hdr.Width = 100: hdr.Height = 18
+hdr.Font.Size = 8: hdr.Font.Bold = True: hdr.ForeColor = RGB(0, 118, 182)
+Set hdr = frm.Controls.Add("Forms.Label.1", "lblHdrHospital")
+hdr.Caption = "Hospital": hdr.Left = 285: hdr.Top = 135: hdr.Width = 100: hdr.Height = 18
+hdr.Font.Size = 8: hdr.Font.Bold = True: hdr.ForeColor = RGB(0, 118, 182)
 Set hdr = frm.Controls.Add("Forms.Label.1", "lblHdrTitulo")
-hdr.Caption = "Titulo": hdr.Left = 85: hdr.Top = 135: hdr.Width = 120: hdr.Height = 18
+hdr.Caption = "Titulo": hdr.Left = 385: hdr.Top = 135: hdr.Width = 100: hdr.Height = 18
 hdr.Font.Size = 8: hdr.Font.Bold = True: hdr.ForeColor = RGB(0, 118, 182)
 Set hdr = frm.Controls.Add("Forms.Label.1", "lblHdrNFe")
-hdr.Caption = "NFe": hdr.Left = 205: hdr.Top = 135: hdr.Width = 70: hdr.Height = 18
+hdr.Caption = "NFe": hdr.Left = 485: hdr.Top = 135: hdr.Width = 60: hdr.Height = 18
 hdr.Font.Size = 8: hdr.Font.Bold = True: hdr.ForeColor = RGB(0, 118, 182)
-Set hdr = frm.Controls.Add("Forms.Label.1", "lblHdrEnvioNFe")
-hdr.Caption = "Envio NFe": hdr.Left = 275: hdr.Top = 135: hdr.Width = 70: hdr.Height = 18
+Set hdr = frm.Controls.Add("Forms.Label.1", "lblHdrStatusNFe")
+hdr.Caption = "Status NFe": hdr.Left = 545: hdr.Top = 135: hdr.Width = 80: hdr.Height = 18
+hdr.Font.Size = 8: hdr.Font.Bold = True: hdr.ForeColor = RGB(0, 118, 182)
+Set hdr = frm.Controls.Add("Forms.Label.1", "lblHdrDataEnvio")
+hdr.Caption = "Data Envio": hdr.Left = 625: hdr.Top = 135: hdr.Width = 80: hdr.Height = 18
+hdr.Font.Size = 8: hdr.Font.Bold = True: hdr.ForeColor = RGB(0, 118, 182)
+Set hdr = frm.Controls.Add("Forms.Label.1", "lblHdrMotivoGlosa")
+hdr.Caption = "Motivo Glosa": hdr.Left = 705: hdr.Top = 135: hdr.Width = 100: hdr.Height = 18
 hdr.Font.Size = 8: hdr.Font.Bold = True: hdr.ForeColor = RGB(0, 118, 182)
 Set hdr = frm.Controls.Add("Forms.Label.1", "lblHdrFaturamento")
-hdr.Caption = "Faturamento": hdr.Left = 345: hdr.Top = 135: hdr.Width = 85: hdr.Height = 18
-hdr.Font.Size = 8: hdr.Font.Bold = True: hdr.ForeColor = RGB(0, 118, 182)
-Set hdr = frm.Controls.Add("Forms.Label.1", "lblHdrPerda")
-hdr.Caption = "Perda": hdr.Left = 430: hdr.Top = 135: hdr.Width = 85: hdr.Height = 18
+hdr.Caption = "Valor Fat.": hdr.Left = 805: hdr.Top = 135: hdr.Width = 80: hdr.Height = 18
 hdr.Font.Size = 8: hdr.Font.Bold = True: hdr.ForeColor = RGB(0, 118, 182)
 Set hdr = frm.Controls.Add("Forms.Label.1", "lblHdrGlosa")
-hdr.Caption = "Glosa": hdr.Left = 515: hdr.Top = 135: hdr.Width = 85: hdr.Height = 18
+hdr.Caption = "Valor Glosa": hdr.Left = 885: hdr.Top = 135: hdr.Width = 80: hdr.Height = 18
+hdr.Font.Size = 8: hdr.Font.Bold = True: hdr.ForeColor = RGB(0, 118, 182)
+Set hdr = frm.Controls.Add("Forms.Label.1", "lblHdrPerda")
+hdr.Caption = "Valor Perda": hdr.Left = 965: hdr.Top = 135: hdr.Width = 80: hdr.Height = 18
 hdr.Font.Size = 8: hdr.Font.Bold = True: hdr.ForeColor = RGB(0, 118, 182)
 Set hdr = frm.Controls.Add("Forms.Label.1", "lblHdrObservacao")
-hdr.Caption = "Observacao": hdr.Left = 600: hdr.Top = 135: hdr.Width = 100: hdr.Height = 18
+hdr.Caption = "Observacao": hdr.Left = 1045: hdr.Top = 135: hdr.Width = 100: hdr.Height = 18
 hdr.Font.Size = 8: hdr.Font.Bold = True: hdr.ForeColor = RGB(0, 118, 182)
 Dim lst As Object
 Set lst = frm.Controls.Add("Forms.ListBox.1", "lstDados")
