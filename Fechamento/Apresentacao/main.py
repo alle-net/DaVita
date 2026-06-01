@@ -41,6 +41,15 @@ def clicar_excel(driver):
     return False
 
 def load_config():
+    if not os.path.exists("config.json"):
+        import shutil
+        if os.path.exists("config_example.json"):
+            shutil.copy("config_example.json", "config.json")
+            print("config.json criado a partir de config_example.json.")
+            print("EDITe config.json com seus dados (usuario, senha) antes de executar novamente.")
+        else:
+            print("ERRO: Nenhum arquivo de configuracao encontrado (config.json ou config_example.json)")
+        exit(1)
     with open("config.json", "r", encoding="utf-8") as f:
         return json.load(f)
 
