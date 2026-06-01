@@ -4,7 +4,7 @@ Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} frmPrincipal
    ClientHeight    =   11730
    ClientLeft      =   120
    ClientTop       =   465
-   ClientWidth     =   24615
+   ClientWidth     =   24660
    OleObjectBlob   =   "frmPrincipal.frx":0000
    StartUpPosition =   1  'CenterOwner
 End
@@ -15,6 +15,10 @@ Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 
 Option Explicit
+
+Private Sub lblHdrFaturamento_Click()
+
+End Sub
 
 Private Sub UserForm_Initialize()
     lblTitulo.ForeColor = RGB(0, 118, 182)
@@ -45,7 +49,7 @@ Private Sub PreencherGrid()
         If Not IsArray(dados) Then Exit Sub
         If UBound(dados, 1) < 0 Then Exit Sub
         .ColumnCount = 13
-        .ColumnWidths = "65;80;80;220;90;80;110;80;100;80;80;80;80"
+        .ColumnWidths = "65;80;80;180;90;80;110;80;100;80;80;80;80"
         .List = dados
     End With
 End Sub
