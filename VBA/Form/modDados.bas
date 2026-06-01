@@ -194,18 +194,18 @@ Public Function GetPageDataFormatado() As Variant
         
         ' 9: ValorFaturamento (raw col 12)
         v = raw(i, 11)
-        If IsNumeric(v) Then res(i, 9) = Format$(CDbl(v), "R$ #,##0.00") Else res(i, 9) = v
+        If IsNumeric(v) Then res(i, 9) = Format$(CDbl(v), "#,##0.00") Else res(i, 9) = v
         
         ' 10: ValorGlosa (raw col 14)
         v = raw(i, 13)
-        If IsNumeric(v) Then res(i, 10) = Format$(CDbl(v), "R$ #,##0.00") Else res(i, 10) = v
+        If IsNumeric(v) Then res(i, 10) = Format$(CDbl(v), "#,##0.00") Else res(i, 10) = v
         
         ' 11: ValorPerda (raw col 13)
         v = raw(i, 12)
-        If IsNumeric(v) Then res(i, 11) = Format$(CDbl(v), "R$ #,##0.00") Else res(i, 11) = v
+        If IsNumeric(v) Then res(i, 11) = Format$(CDbl(v), "#,##0.00") Else res(i, 11) = v
         
-        ' 12: Observacao (raw col 15)
-        res(i, 12) = raw(i, 14)
+        ' 12: Observacao (raw col 15) - limitada a 80 caracteres
+        res(i, 12) = Left$(raw(i, 14), 80)
     Next i
     GetPageDataFormatado = res
 End Function

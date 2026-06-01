@@ -13,6 +13,7 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
+
 Option Explicit
 
 Private Sub UserForm_Initialize()
@@ -44,7 +45,7 @@ Private Sub PreencherGrid()
         If Not IsArray(dados) Then Exit Sub
         If UBound(dados, 1) < 0 Then Exit Sub
         .ColumnCount = 13
-        .ColumnWidths = "65;80;80;250;90;60;120;80;80;80;80;80;80"
+        .ColumnWidths = "65;80;80;220;90;80;110;80;100;80;80;80;80"
         .List = dados
     End With
 End Sub
