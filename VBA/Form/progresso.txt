@@ -151,4 +151,54 @@ PROXIMA SESSAO - COMO RETOMAR
 4. Testar login (email dUsuario, senha "102030")
 5. Se labels desalinhados, executar Call AjustarHeaders no Immediate Window
 6. Proximo passo: frmEdicao (Add/Edit com ComboBoxes das dimensoes)
+
+[01/06 - USUARIO] Solicitou criacao do botao Adicionar com frmEdicao
+[01/06 - AGENTE] Apresentou plano: hash ID, auto-incremento, GUID. Usuario escolheu GUID.
+
+DECISOES TOMADAS:
+- ID: GUID formato UUID v4, gerado 100% VBA puro (Rnd+Hex), sem API externa, sem Declare
+- Cada analista tem propria copia do Form.xlsm → sem risco de colisao entre GUIDs (probabilidade ~1 em 2^122)
+- Coluna 16 da TabDados (Data): gravar Now como "dd/mm/aaaa HH:MM:ss" na insercao
+- Campos valor (Faturamento, Glosa, Perda): entrada ATM (digitar sem separadores, 2 ultimos digitos = centavos)
+
+PLANO IMPLEMENTACAO frmEdicao:
+1. Criar frmEdicao manualmente no VBA (usuario)
+2. Agente implementa em modDados.bas: GerarGUID(), InserirRegistro(), CarregarDadosCombo()
+3. Agente implementa code-behind do frmEdicao
+4. Agente atualiza cmdAdd_Click no frmPrincipal
+
+TABELAS DIMENSAO PARA POPULAR COMBOBOXES:
+| Aba | Tabela | ID | Descricao | Status |
+| dHospital | dHospitais | Col 1 | Col 2 | Col 3=1 |
+| dRegional | dRegionais | Col 1 | Col 2 | Col 3=1 |
+| dUnidades | dUnidade | Col 1 | Col 2 | Col 3=1 |
+| dStatusNFe | dStatusNFEs | Col 1 | Col 2 | Col 3=1 |
+| dMotivosGlosas | dMotivosGlosa | Col 1 | Col 2 | Col 3=1 |
+| dUsuarios | dUsuario | Col 1 | Col 2 | Col 3=1 |
+
+CONTROLES DO frmEdicao:
+| Nome | Tipo | Obs |
+| cboCompetencia | ComboBox Style=0 | Digitar "mmm/aaaa" |
+| cboRegional | ComboBox Style=2 | Exibir nome, gravar ID |
+| cboUnidade | ComboBox Style=2 | Exibir nome, gravar ID |
+| cboHospital | ComboBox Style=2 | Exibir nome, gravar ID |
+| txtTitulo | TextBox | |
+| txtNFe | TextBox | |
+| cboStatusNFe | ComboBox Style=2 | Exibir nome, gravar ID |
+| cboMotivoGlosa | ComboBox Style=2 | Exibir nome, gravar ID |
+| txtDataEnvio | TextBox | |
+| txtFaturamento | TextBox | ATM input |
+| txtGlosa | TextBox | ATM input |
+| txtPerda | TextBox | ATM input |
+| txtObservacao | TextBox | Multiline, MaxLength 80 |
+| lblFaturamentoFormat | Label | Exibe "R$ 0,00" |
+| lblGlosaFormat | Label | Exibe "R$ 0,00" |
+| lblPerdaFormat | Label | Exibe "R$ 0,00" |
+| cmdSalvar | CommandButton | |
+| cmdCancelar | CommandButton | |
+
+PROXIMA SESSAO:
+1. Usuario cria frmEdicao manualmente com os controles acima
+2. Informar nomes ao agente
+3. Agente implementa codigo completo (modDados + code-behind + cmdAdd)
 ===============================================================================
