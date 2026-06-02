@@ -197,8 +197,28 @@ CONTROLES DO frmEdicao:
 | cmdSalvar | CommandButton | |
 | cmdCancelar | CommandButton | |
 
+[02/06 - USUARIO] "leia o arquivo progresso principalmente a parte do botao add"
+[02/06 - AGENTE] Leu progresso.txt, modDados.bas, frmPrincipalCode.txt. Explicou que um unico form (frmRegistro) pode servir para Add e Edit.
+
+[02/06 - USUARIO] Confirmou nomes dos controles do frmRegistro, inclusive txtCompetencia como TextBox em formato dd/mm/aaaa (grava primeiro dia do mes)
+[02/06 - USUARIO] Preferiu abrir form via Sub Mostrar(ModoEdit, GUID) ao inves de variavel publica
+
+[02/06 - AGENTE] Implementou:
+- modDados.bas: GerarGUID(), ObterListaDimensao(), InserirRegistro(), AtualizarRegistro(), ExcluirRegistro(), ObterRegistroPorGUID()
+- frmRegistroCode.txt: code-behind completo (Mostrar, PopularCombos, CarregarParaEdicao, ATM input, ValidarCampos, cmdGravar, cmdCancelar)
+- frmPrincipalCode.txt: cmdAdd abre frmRegistro modo Add, cmdEditar abre modo Edit com GUID, cmdExcluir exclui direto
+
+ESTADO ATUAL DOS ARQUIVOS:
+- modDados.bas: +6 funcoes CRUD (GerarGUID, Inserir, Atualizar, Excluir, Obter, ListaDimensao)
+- frmRegistroCode.txt: code-behind completo do frmRegistro
+- frmPrincipalCode.txt: cmdAdd, cmdEditar, cmdExcluir com codigo real
+- criado frmRegistro manualmente com controles pelo usuario
+- GerarGUID: UUID v4, Rnd+Hex puro VBA
+- ATM input nos 3 campos valor (Faturamento, Perda, Glosa)
+
 PROXIMA SESSAO:
-1. Usuario cria frmEdicao manualmente com os controles acima
-2. Informar nomes ao agente
-3. Agente implementa codigo completo (modDados + code-behind + cmdAdd)
+1. Colar codigo frmRegistroCode.txt no VBA
+2. Atualizar frmPrincipalCode.txt
+3. Atualizar modDados.bas
+4. Testar Add/Edit/Excluir
 ===============================================================================

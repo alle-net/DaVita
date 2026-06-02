@@ -318,3 +318,124 @@ End Function
 Private Function ValorSeguro(v As Variant) As Variant
     If IsError(v) Then ValorSeguro = "" Else ValorSeguro = v
 End Function
+
+' ===== NOVAS FUNCOES - CRUD =====
+
+Public Function GerarGUID() As String
+    Dim i As Long, r As Long, res As String
+    Randomize
+    For i = 1 To 8
+        r = Int(16 * Rnd): res = res & Hex$(r)
+    Next i
+    res = res & "-"
+    For i = 1 To 4
+        r = Int(16 * Rnd): res = res & Hex$(r)
+    Next i
+    res = res & "-4"
+    For i = 1 To 3
+        r = Int(16 * Rnd): res = res & Hex$(r)
+    Next i
+    res = res & "-"
+    r = Int(4 * Rnd) + 8: res = res & Hex$(r)
+    For i = 1 To 3
+        r = Int(16 * Rnd): res = res & Hex$(r)
+    Next i
+    res = res & "-"
+    For i = 1 To 12
+        r = Int(16 * Rnd): res = res & Hex$(r)
+    Next i
+    GerarGUID = LCase(res)
+End Function
+
+Public Function ObterListaDimensao(aba As String, tabela As String) As Variant
+    Dim ws As Worksheet, tb As ListObject, dr As Range
+    Dim i As Long, n As Long, res() As Variant
+    On Error GoTo ErrHandler
+    Set ws = ThisWorkbook.Worksheets(aba)
+    Set tb = ws.ListObjects(tabela)
+    If tb.DataBodyRange Is Nothing Then GoTo ErrHandler
+    Set dr = tb.DataBodyRange: n = 0
+    For i = 1 To dr.Rows.Count
+        If dr.Cells(i, 3).Value = 1 Then n = n + 1
+    Next i
+    If n = 0 Then GoTo ErrHandler
+    ReDim res(1 To n, 1 To 2): n = 0
+    For i = 1 To dr.Rows.Count
+        If dr.Cells(i, 3).Value = 1 Then
+            n = n + 1
+            res(n, 1) = dr.Cells(i, 1).Value
+            res(n, 2) = dr.Cells(i, 2).Value
+        End If
+    Next i
+    ObterListaDimensao = res
+    Exit Function
+ErrHandler:
+    ObterListaDimensao = Array()
+End Function
+
+Public Function InserirRegistro(dados As Variant) As Boolean
+    Dim ws As Worksheet, tb As ListObject, newRow As ListRow
+    Dim c As Long
+    On Error GoTo ErrHandler
+    Set ws = ThisWorkbook.Worksheets("Dados")
+    Set tb = ws.ListObjects("TabDados")
+    Set newRow = tb.ListRows.Add
+    For c = 1 To 16
+        newRow.Range.Cells(1, c).Value = dados(c)
+    Next c
+    InserirRegistro = True
+    Exit Function
+ErrHandler:
+    InserirRegistro = False
+End Function
+
+Public Function AtualizarRegistro(guid As String, dados As Variant) As Boolean
+    Dim ws As Worksheet, tb As ListObject, i As Long, c As Long
+    On Error GoTo ErrHandler
+    Set ws = ThisWorkbook.Worksheets("Dados")
+    Set tb = ws.ListObjects("TabDados")
+    For i = 1 To tb.ListRows.Count
+        If CStr(tb.DataBodyRange.Cells(i, 1).Value) = guid Then
+            For c = 2 To 16
+                tb.DataBodyRange.Cells(i, c).Value = dados(c)
+            Next c
+            AtualizarRegistro = True
+            Exit Function
+        End If
+    Next i
+ErrHandler:
+    AtualizarRegistro = False
+End Function
+
+Public Function ExcluirRegistro(guid As String) As Boolean
+    Dim ws As Worksheet, tb As ListObject, i As Long
+    On Error GoTo ErrHandler
+    Set ws = ThisWorkbook.Worksheets("Dados")
+    Set tb = ws.ListObjects("TabDados")
+    For i = 1 To tb.ListRows.Count
+        If CStr(tb.DataBodyRange.Cells(i, 1).Value) = guid Then
+            tb.ListRows(i).Delete
+            ExcluirRegistro = True
+            Exit Function
+        End If
+    Next i
+ErrHandler:
+    ExcluirRegistro = False
+End Function
+
+Public Function ObterRegistroPorGUID(guid As String) As Variant
+    Dim ws As Worksheet, tb As ListObject, i As Long, c As Long
+    Dim res(1 To 16) As Variant
+    Set ws = ThisWorkbook.Worksheets("Dados")
+    Set tb = ws.ListObjects("TabDados")
+    For i = 1 To tb.ListRows.Count
+        If CStr(tb.DataBodyRange.Cells(i, 1).Value) = guid Then
+            For c = 1 To 16
+                res(c) = tb.DataBodyRange.Cells(i, c).Value
+            Next c
+            ObterRegistroPorGUID = res
+            Exit Function
+        End If
+    Next i
+    ObterRegistroPorGUID = Array()
+End Function

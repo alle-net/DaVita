@@ -79,7 +79,15 @@ Private Sub cmdAtualizar_Click()
 End Sub
 
 Private Sub cmdAdd_Click()
-    MsgBox "Implementar frmEdicao (Add)", vbInformation, "Adicionar"
+    Dim frm As frmRegistro
+    Set frm = New frmRegistro
+    frm.Mostrar False
+    If modDados.CarregarDadosUsuario(modAutenticacao.UsuarioAtual) Then
+        txtBoxFiltro.Value = ""
+        PreencherGrid
+        AtualizarNavegacao
+        AtualizarSubtotais
+    End If
 End Sub
 
 Private Sub cmdEditar_Click()
@@ -87,7 +95,18 @@ Private Sub cmdEditar_Click()
         MsgBox "Selecione um registro.", vbExclamation, "Editar"
         Exit Sub
     End If
-    MsgBox "Implementar frmEdicao (Edit)", vbInformation, "Editar"
+    Dim rawPage As Variant, guid As String
+    rawPage = modDados.GetPageData
+    If Not IsArray(rawPage) Then Exit Sub
+    guid = rawPage(lstDados.ListIndex, 0)
+    Dim frm As frmRegistro
+    Set frm = New frmRegistro
+    frm.Mostrar True, guid
+    If modDados.CarregarDadosUsuario(modAutenticacao.UsuarioAtual) Then
+        PreencherGrid
+        AtualizarNavegacao
+        AtualizarSubtotais
+    End If
 End Sub
 
 Private Sub cmdExcluir_Click()
@@ -95,8 +114,21 @@ Private Sub cmdExcluir_Click()
         MsgBox "Selecione um registro.", vbExclamation, "Excluir"
         Exit Sub
     End If
+    Dim rawPage As Variant, guid As String
+    rawPage = modDados.GetPageData
+    If Not IsArray(rawPage) Then Exit Sub
+    guid = rawPage(lstDados.ListIndex, 0)
     If MsgBox("Deseja excluir este registro?", vbQuestion + vbYesNo, "Excluir") = vbYes Then
-        MsgBox "Implementar exclusao", vbInformation, "Excluir"
+        If modDados.ExcluirRegistro(guid) Then
+            If modDados.CarregarDadosUsuario(modAutenticacao.UsuarioAtual) Then
+                txtBoxFiltro.Value = ""
+                PreencherGrid
+                AtualizarNavegacao
+                AtualizarSubtotais
+            End If
+        Else
+            MsgBox "Erro ao excluir registro.", vbCritical, "Erro"
+        End If
     End If
 End Sub
 
