@@ -51,6 +51,10 @@ Public Sub Mostrar(Optional ModoEdit As Boolean = False, Optional GUID As String
     txtUsuario.Locked = True
     txtUsuario.BackColor = &H8000000F
 
+    Application.ScreenUpdating = False
+    ThisWorkbook.RefreshAll
+    Application.ScreenUpdating = True
+
     Call PopularCombos
 
     If mModoEdicao Then
@@ -420,6 +424,50 @@ End Sub
 
 Private Sub cmdCancelar_Click()
     Unload Me
+End Sub
+
+Private Sub cmdAtualizar_Click()
+    Dim oldRegional As Variant, oldUnidade As Variant, oldHospital As Variant
+    Dim oldStatus As Variant, oldMotivo As Variant
+    Dim oldCompetencia As String, oldDataNFe As String
+    Dim oldTitulo As String, oldNFe As String
+    Dim oldFaturamento As String, oldGlosa As String, oldPerda As String
+    Dim oldObservacao As String
+
+    If cboRegional.ListIndex >= 0 Then oldRegional = cboRegional.List(cboRegional.ListIndex, 0)
+    If cboUnidade.ListIndex >= 0 Then oldUnidade = cboUnidade.List(cboUnidade.ListIndex, 0)
+    If cboHospital.ListIndex >= 0 Then oldHospital = cboHospital.List(cboHospital.ListIndex, 0)
+    If cboStatusNFe.ListIndex >= 0 Then oldStatus = cboStatusNFe.List(cboStatusNFe.ListIndex, 0)
+    If cboMotivoGlosa.ListIndex >= 0 Then oldMotivo = cboMotivoGlosa.List(cboMotivoGlosa.ListIndex, 0)
+
+    oldCompetencia = txtCompetencia.Value
+    oldDataNFe = txtDataNFe.Value
+    oldTitulo = txtTitulo.Value
+    oldNFe = txtNFe.Value
+    oldFaturamento = txtFaturamento.Value
+    oldGlosa = txtGlosa.Value
+    oldPerda = txtPerda.Value
+    oldObservacao = txtObservacao.Value
+
+    Application.ScreenUpdating = False
+    ThisWorkbook.RefreshAll
+    Call PopularCombos
+    Application.ScreenUpdating = True
+
+    If Not IsEmpty(oldRegional) Then SelecionarComboPorID cboRegional, oldRegional
+    If Not IsEmpty(oldUnidade) Then SelecionarComboPorID cboUnidade, oldUnidade
+    If Not IsEmpty(oldHospital) Then SelecionarComboPorID cboHospital, oldHospital
+    If Not IsEmpty(oldStatus) Then SelecionarComboPorID cboStatusNFe, oldStatus
+    If Not IsEmpty(oldMotivo) Then SelecionarComboPorID cboMotivoGlosa, oldMotivo
+
+    txtCompetencia.Value = oldCompetencia
+    txtDataNFe.Value = oldDataNFe
+    txtTitulo.Value = oldTitulo
+    txtNFe.Value = oldNFe
+    txtFaturamento.Value = oldFaturamento
+    txtGlosa.Value = oldGlosa
+    txtPerda.Value = oldPerda
+    txtObservacao.Value = oldObservacao
 End Sub
 
 Private Sub cboRegional_KeyUp(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)

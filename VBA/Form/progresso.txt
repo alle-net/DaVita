@@ -228,6 +228,8 @@ ESTADO ATUAL DOS ARQUIVOS:
 [02/06 - AGENTE] RefreshAll ja estava no Mostrar (executa ao abrir o form). Removeu cmdAtualizar do frmRegistroCode.txt - nao ha mais botoes Atualizar em nenhum form.
 [02/06 - USUARIO] "remova tambem os lbltituloFat, ltbtituloglosa e lbltituloperda do codigo vou exclui-los"
 [02/06 - AGENTE] Removeu referencias a lblTituloFat, lblTituloGlosa, lblTituloPerda do frmPrincipalCode.txt.
+[02/06 - USUARIO] Planilha Dimensoes foi alterada mas listas nao atualizaram - Power Query assincrono
+[02/06 - AGENTE] Adicionou Application.CalculateUntilAsyncQueriesDone apos RefreshAll no Mostrar e no cmdAtualizar (recolocado com save/restore). Agora o VBA espera as queries terminarem antes de popular as ComboBoxes.
 
 ESTADO ATUAL DOS ARQUIVOS:
 - modDados.bas: +6 funcoes CRUD (GerarGUID, Inserir, Atualizar, Excluir, Obter, ListaDimensao)

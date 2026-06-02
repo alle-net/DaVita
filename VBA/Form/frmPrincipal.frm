@@ -81,15 +81,6 @@ Private Sub cmdProximo_Click()
     AtualizarNavegacao
 End Sub
 
-Private Sub cmdAtualizar_Click()
-    If modDados.CarregarDadosUsuario(modAutenticacao.UsuarioAtual) Then
-        txtBoxFiltro.Value = ""
-        PreencherGrid
-        AtualizarNavegacao
-        AtualizarSubtotais
-    End If
-End Sub
-
 Private Sub cmdAdd_Click()
     Dim frm As frmRegistro
     Set frm = New frmRegistro
