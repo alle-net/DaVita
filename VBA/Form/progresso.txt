@@ -218,19 +218,23 @@ ESTADO ATUAL DOS ARQUIVOS:
 
 [02/06 - USUARIO] "antes vamos ajustar uma coisa no frmRegistos preciso que os campos de data o usuario apenas digite os numeros a formatacao de data seja colocada automaticamente"
 [02/06 - AGENTE] Adicionou mascara automatica dd/mm/aaaa via _Change em txtCompetencia e txtDataNFe no frmRegistroCode.txt. Usuario digita apenas numeros, as barras sao inseridas automaticamente. Protegeu atribuicoes em CarregarParaEdicao com mUpdating.
+[02/06 - USUARIO] Exportou frmPrincipal e frmRegistro do VBA Editor para salvar layout manual dos labels
+[02/06 - AGENTE] Commit 5bec6c4 - Mascara data + export layout forms
+[02/06 - USUARIO] "agora vamos colocar uma funcao no botao atualizar esse botao deve fazer um refresh na planilha para atualizar as dimensoes que estao ocultas na pasta de trabalho e garantir que elas aparecam nas caixa de listagem para novos registros"
+[02/06 - AGENTE] Adicionou ThisWorkbook.RefreshAll no cmdAtualizar_Click do frmPrincipalCode.txt para atualizar Power Queries/conexoes das abas ocultas antes de recarregar os dados.
 
 ESTADO ATUAL DOS ARQUIVOS:
 - modDados.bas: +6 funcoes CRUD (GerarGUID, Inserir, Atualizar, Excluir, Obter, ListaDimensao)
 - frmRegistroCode.txt: code-behind completo do frmRegistro + mascara de data automatica
-- frmPrincipalCode.txt: cmdAdd, cmdEditar, cmdExcluir com codigo real
+- frmPrincipalCode.txt: cmdAdd, cmdEditar, cmdExcluir com codigo real + cmdAtualizar com RefreshAll
 - criado frmRegistro manualmente com controles pelo usuario
 - GerarGUID: UUID v4, Rnd+Hex puro VBA
 - ATM input nos 3 campos valor (Faturamento, Perda, Glosa)
 - Mascara automatica dd/mm/aaaa nos campos txtCompetencia e txtDataNFe
+- Exportado frmPrincipal.frm + frmRegistro.frm com layout manual preservado
+- RefreshAll no cmdAtualizar para atualizar abas de dimensao ocultas
 
 PROXIMA SESSAO:
-1. Colar codigo frmRegistroCode.txt no VBA
-2. Atualizar frmPrincipalCode.txt
-3. Atualizar modDados.bas
-4. Testar Add/Edit/Excluir
+1. Recarregar frmPrincipalCode.txt (cmdAtualizar com RefreshAll)
+2. Testar Add/Edit/Excluir
 ===============================================================================
