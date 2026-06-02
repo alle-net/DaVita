@@ -188,12 +188,13 @@ Private Sub txtTitulo_Exit(ByVal Cancel As MSForms.ReturnBoolean)
 End Sub
 
 Private Sub txtCompetencia_Exit(ByVal Cancel As MSForms.ReturnBoolean)
+    lblMensagem.Caption = ""
     If Not mModoEdicao And (Trim(txtCompetencia.Value) = "" Or Not IsDate(txtCompetencia.Value)) Then
         Cancel = True: txtCompetencia.SetFocus
     End If
     If IsDate(txtCompetencia.Value) Then
         If CDate(txtCompetencia.Value) > Date Then
-            MsgBox "Competencia nao pode ser maior que a data atual.", vbExclamation
+            lblMensagem.Caption = "Competencia nao pode ser maior que a data atual."
             Cancel = True: txtCompetencia.SetFocus
         End If
     End If
@@ -224,11 +225,12 @@ Private Sub cboStatusNFe_Exit(ByVal Cancel As MSForms.ReturnBoolean)
 End Sub
 
 Private Sub txtDataNFe_Exit(ByVal Cancel As MSForms.ReturnBoolean)
+    lblMensagem.Caption = ""
     If Trim(txtDataNFe.Value) <> "" Then
         If Not IsDate(txtDataNFe.Value) Then
             Cancel = True: txtDataNFe.SetFocus
         ElseIf CDate(txtDataNFe.Value) > Date Then
-            MsgBox "Data nao pode ser maior que a data atual.", vbExclamation
+            lblMensagem.Caption = "Data nao pode ser maior que a data atual."
             Cancel = True: txtDataNFe.SetFocus
         End If
     End If
@@ -244,7 +246,7 @@ Private Sub CarregarParaEdicao()
     Dim reg As Variant
     reg = modDados.ObterRegistroPorGUID(mEditGUID)
     If Not IsArray(reg) Then
-        MsgBox "Registro nao encontrado.", vbExclamation, "Erro"
+        lblMensagem.Caption = "Registro nao encontrado."
         Unload Me
         Exit Sub
     End If
@@ -389,45 +391,46 @@ Private Sub txtGlosa_Change()
 End Sub
 
 Private Function ValidarCampos() As Boolean
+    lblMensagem.Caption = ""
     If Trim(txtTitulo.Value) = "" Then
-        MsgBox "Titulo e obrigatorio.", vbExclamation: txtTitulo.SetFocus: Exit Function
+        lblMensagem.Caption = "Titulo e obrigatorio.": txtTitulo.SetFocus: Exit Function
     End If
     If Trim(txtCompetencia.Value) = "" Or Not IsDate(txtCompetencia.Value) Then
-        MsgBox "Competencia deve ser uma data valida (dd/mm/aaaa).", vbExclamation: txtCompetencia.SetFocus: Exit Function
+        lblMensagem.Caption = "Competencia deve ser uma data valida (dd/mm/aaaa).": txtCompetencia.SetFocus: Exit Function
     End If
     If cboHospital.ListIndex = -1 Then
-        MsgBox "Hospital e obrigatorio.", vbExclamation: cboHospital.SetFocus: Exit Function
+        lblMensagem.Caption = "Hospital e obrigatorio.": cboHospital.SetFocus: Exit Function
     End If
     If cboRegional.ListIndex = -1 Then
-        MsgBox "Regional e obrigatorio.", vbExclamation: cboRegional.SetFocus: Exit Function
+        lblMensagem.Caption = "Regional e obrigatorio.": cboRegional.SetFocus: Exit Function
     End If
     If cboUnidade.ListIndex = -1 Then
-        MsgBox "Unidade e obrigatoria.", vbExclamation: cboUnidade.SetFocus: Exit Function
+        lblMensagem.Caption = "Unidade e obrigatoria.": cboUnidade.SetFocus: Exit Function
     End If
     If cboStatusNFe.ListIndex = -1 Then
-        MsgBox "Status NFe e obrigatorio.", vbExclamation: cboStatusNFe.SetFocus: Exit Function
+        lblMensagem.Caption = "Status NFe e obrigatorio.": cboStatusNFe.SetFocus: Exit Function
     End If
     If Trim(txtNFe.Value) <> "" And (Trim(txtDataNFe.Value) = "" Or Not IsDate(txtDataNFe.Value)) Then
-        MsgBox "Data da NFe e obrigatoria quando NFe for preenchida.", vbExclamation: txtDataNFe.SetFocus: Exit Function
+        lblMensagem.Caption = "Data da NFe e obrigatoria quando NFe for preenchida.": txtDataNFe.SetFocus: Exit Function
     End If
     If Trim(txtFaturamento.Value) = "" Or Not IsNumeric(GetDigits(txtFaturamento.Value)) Then
-        MsgBox "Faturamento e obrigatorio.", vbExclamation: txtFaturamento.SetFocus: Exit Function
+        lblMensagem.Caption = "Faturamento e obrigatorio.": txtFaturamento.SetFocus: Exit Function
     End If
     If CDbl(GetDigits(txtFaturamento.Value)) / 100 <= 0 Then
-        MsgBox "Faturamento deve ser maior que zero.", vbExclamation: txtFaturamento.SetFocus: Exit Function
+        lblMensagem.Caption = "Faturamento deve ser maior que zero.": txtFaturamento.SetFocus: Exit Function
     End If
     If IsDate(txtCompetencia.Value) And CDate(txtCompetencia.Value) > Date Then
-        MsgBox "Competencia nao pode ser maior que a data atual.", vbExclamation: txtCompetencia.SetFocus: Exit Function
+        lblMensagem.Caption = "Competencia nao pode ser maior que a data atual.": txtCompetencia.SetFocus: Exit Function
     End If
     If Trim(txtDataNFe.Value) <> "" And IsDate(txtDataNFe.Value) Then
         If CDate(txtDataNFe.Value) > Date Then
-            MsgBox "Data NFe nao pode ser maior que a data atual.", vbExclamation: txtDataNFe.SetFocus: Exit Function
+            lblMensagem.Caption = "Data NFe nao pode ser maior que a data atual.": txtDataNFe.SetFocus: Exit Function
         End If
     End If
     If cboMotivoGlosa.ListIndex >= 0 Then
         If UCase(Trim(cboMotivoGlosa.List(cboMotivoGlosa.ListIndex, 1))) <> "NAO HOUVE GLOSA" Then
             If Trim(txtGlosa.Value) = "" Or Not IsNumeric(GetDigits(txtGlosa.Value)) Or CDbl(GetDigits(txtGlosa.Value)) / 100 <= 0 Then
-                MsgBox "Glosa deve ser maior que zero quando o motivo for diferente de NAO HOUVE GLOSA.", vbExclamation: txtGlosa.SetFocus: Exit Function
+                lblMensagem.Caption = "Glosa deve ser maior que zero quando o motivo for diferente de NAO HOUVE GLOSA.": txtGlosa.SetFocus: Exit Function
             End If
         End If
     End If
@@ -497,7 +500,7 @@ Private Sub cmdGravar_Click()
     If ok Then
         Unload Me
     Else
-        MsgBox "Erro ao salvar registro.", vbCritical, "Erro"
+        lblMensagem.Caption = "Erro ao salvar registro."
     End If
 End Sub
 
