@@ -230,6 +230,10 @@ ESTADO ATUAL DOS ARQUIVOS:
 [02/06 - AGENTE] Removeu referencias a lblTituloFat, lblTituloGlosa, lblTituloPerda do frmPrincipalCode.txt.
 [02/06 - USUARIO] Planilha Dimensoes foi alterada mas listas nao atualizaram - Power Query assincrono
 [02/06 - AGENTE] Adicionou Application.CalculateUntilAsyncQueriesDone apos RefreshAll no Mostrar e no cmdAtualizar (recolocado com save/restore). Agora o VBA espera as queries terminarem antes de popular as ComboBoxes.
+[02/06 - USUARIO] "funcionou mas confesso que nao gostei do resultado pois a cada vez que o usuario vai adcionar ou editar demora muito"
+[02/06 - AGENTE] Removeu auto RefreshAll do Mostrar - fica apenas sob demanda no cmdAtualizar.
+[02/06 - USUARIO] "nao consigo acessar o botao atualizar ate que eu preencha tudo"
+[02/06 - AGENTE] Adicionou cmdAtualizar.TakeFocusOnClick = False no Mostrar. Agora clicar no botao nao aciona os _Exit dos campos - usuario pode atualizar sem preencher nada.
 
 ESTADO ATUAL DOS ARQUIVOS:
 - modDados.bas: +6 funcoes CRUD (GerarGUID, Inserir, Atualizar, Excluir, Obter, ListaDimensao)

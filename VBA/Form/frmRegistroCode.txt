@@ -49,6 +49,7 @@ Public Sub Mostrar(Optional ModoEdit As Boolean = False, Optional GUID As String
     End If
 
     Call ConfigurarTabOrder
+    cmdAtualizar.TakeFocusOnClick = False
     Me.Show
 End Sub
 
