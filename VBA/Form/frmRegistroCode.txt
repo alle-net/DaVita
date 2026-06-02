@@ -53,7 +53,7 @@ Public Sub Mostrar(Optional ModoEdit As Boolean = False, Optional GUID As String
     cmdCancelar.TakeFocusOnClick = False
 
     If Not mModoEdicao Then
-        SelecionarComboPorTexto cboStatusNFe, "PENDENTE DE EMISSAO"
+        RepopularStatus False
         SelecionarComboPorTexto cboMotivoGlosa, "NAO HOUVE GLOSA"
     End If
 
@@ -274,6 +274,48 @@ Private Sub CarregarParaEdicao()
     txtObservacao.Value = reg(15)
 End Sub
 
+Private Sub RepopularStatus(Optional showEmitida As Boolean = False)
+    Dim i As Long, n As Long, id As Variant
+    If Not IsArray(mListaStatus) Then Exit Sub
+    On Error Resume Next
+    n = UBound(mListaStatus, 1)
+    If Err.Number <> 0 Or n = 0 Then Exit Sub
+    On Error GoTo 0
+
+    id = Empty
+    If cboStatusNFe.ListIndex >= 0 Then id = cboStatusNFe.List(cboStatusNFe.ListIndex, 0)
+
+    cboStatusNFe.Clear
+    cboStatusNFe.ColumnCount = 2
+    cboStatusNFe.ColumnWidths = "0;120"
+    For i = 1 To n
+        If showEmitida Or UCase(Trim(mListaStatus(i, 2))) <> "EMITIDA" Then
+            cboStatusNFe.AddItem mListaStatus(i, 1)
+            cboStatusNFe.List(cboStatusNFe.ListCount - 1, 1) = mListaStatus(i, 2)
+        End If
+    Next i
+
+    If Not IsEmpty(id) Then
+        SelecionarComboPorID cboStatusNFe, id
+    Else
+        SelecionarComboPorTexto cboStatusNFe, "PENDENTE DE EMISSAO"
+    End If
+End Sub
+
+Private Sub txtNFe_Change()
+    If mUpdating Then Exit Sub
+    If Trim(txtNFe.Value) <> "" Then
+        RepopularStatus True
+        SelecionarComboPorTexto cboStatusNFe, "EMITIDA"
+        txtDataNFe.Locked = True
+        txtDataNFe.BackColor = &H8000000F
+    Else
+        RepopularStatus False
+        txtDataNFe.Locked = False
+        txtDataNFe.BackColor = &H80000005
+    End If
+End Sub
+
 Private Sub SelecionarComboPorID(cbo As ComboBox, id As Variant)
     Dim i As Long
     For i = 0 To cbo.ListCount - 1
@@ -365,6 +407,9 @@ Private Function ValidarCampos() As Boolean
     If cboStatusNFe.ListIndex = -1 Then
         MsgBox "Status NFe e obrigatorio.", vbExclamation: cboStatusNFe.SetFocus: Exit Function
     End If
+    If Trim(txtNFe.Value) <> "" And (Trim(txtDataNFe.Value) = "" Or Not IsDate(txtDataNFe.Value)) Then
+        MsgBox "Data da NFe e obrigatoria quando NFe for preenchida.", vbExclamation: txtDataNFe.SetFocus: Exit Function
+    End If
     If Trim(txtFaturamento.Value) = "" Or Not IsNumeric(GetDigits(txtFaturamento.Value)) Then
         MsgBox "Faturamento e obrigatorio.", vbExclamation: txtFaturamento.SetFocus: Exit Function
     End If
@@ -377,6 +422,13 @@ Private Function ValidarCampos() As Boolean
     If Trim(txtDataNFe.Value) <> "" And IsDate(txtDataNFe.Value) Then
         If CDate(txtDataNFe.Value) > Date Then
             MsgBox "Data NFe nao pode ser maior que a data atual.", vbExclamation: txtDataNFe.SetFocus: Exit Function
+        End If
+    End If
+    If cboMotivoGlosa.ListIndex >= 0 Then
+        If UCase(Trim(cboMotivoGlosa.List(cboMotivoGlosa.ListIndex, 1))) <> "NAO HOUVE GLOSA" Then
+            If Trim(txtGlosa.Value) = "" Or Not IsNumeric(GetDigits(txtGlosa.Value)) Or CDbl(GetDigits(txtGlosa.Value)) / 100 <= 0 Then
+                MsgBox "Glosa deve ser maior que zero quando o motivo for diferente de NAO HOUVE GLOSA.", vbExclamation: txtGlosa.SetFocus: Exit Function
+            End If
         End If
     End If
     ValidarCampos = True
@@ -481,13 +533,15 @@ Private Sub cmdAtualizar_Click()
     If Not IsEmpty(oldRegional) Then SelecionarComboPorID cboRegional, oldRegional
     If Not IsEmpty(oldUnidade) Then SelecionarComboPorID cboUnidade, oldUnidade
     If Not IsEmpty(oldHospital) Then SelecionarComboPorID cboHospital, oldHospital
-    If Not IsEmpty(oldStatus) Then SelecionarComboPorID cboStatusNFe, oldStatus
     If Not IsEmpty(oldMotivo) Then SelecionarComboPorID cboMotivoGlosa, oldMotivo
 
     txtCompetencia.Value = oldCompetencia
     txtDataNFe.Value = oldDataNFe
     txtTitulo.Value = oldTitulo
     txtNFe.Value = oldNFe
+
+    If Not IsEmpty(oldStatus) Then SelecionarComboPorID cboStatusNFe, oldStatus
+
     txtFaturamento.Value = oldFaturamento
     txtGlosa.Value = oldGlosa
     txtPerda.Value = oldPerda
