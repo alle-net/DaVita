@@ -43,6 +43,9 @@ Public Sub Mostrar(Optional ModoEdit As Boolean = False, Optional GUID As String
         Call CarregarParaEdicao
     Else
         Me.Caption = "Adicionar Registro"
+        txtFaturamento.Value = "0"
+        txtPerda.Value = "0"
+        txtGlosa.Value = "0"
     End If
 
     Call ConfigurarTabOrder
@@ -134,6 +137,48 @@ Private Sub ConfigurarTabOrder()
     txtObservacao.TabIndex = 12
     cmdGravar.TabIndex = 13
     cmdCancelar.TabIndex = 14
+End Sub
+
+Private Sub txtTitulo_Exit(ByVal Cancel As MSForms.ReturnBoolean)
+    If Not mModoEdicao And Trim(txtTitulo.Value) = "" Then
+        Cancel = True: txtTitulo.SetFocus
+    End If
+End Sub
+
+Private Sub txtCompetencia_Exit(ByVal Cancel As MSForms.ReturnBoolean)
+    If Not mModoEdicao And (Trim(txtCompetencia.Value) = "" Or Not IsDate(txtCompetencia.Value)) Then
+        Cancel = True: txtCompetencia.SetFocus
+    End If
+End Sub
+
+Private Sub cboRegional_Exit(ByVal Cancel As MSForms.ReturnBoolean)
+    If Not mModoEdicao And cboRegional.ListIndex = -1 Then
+        Cancel = True: cboRegional.SetFocus
+    End If
+End Sub
+
+Private Sub cboUnidade_Exit(ByVal Cancel As MSForms.ReturnBoolean)
+    If Not mModoEdicao And cboUnidade.ListIndex = -1 Then
+        Cancel = True: cboUnidade.SetFocus
+    End If
+End Sub
+
+Private Sub cboHospital_Exit(ByVal Cancel As MSForms.ReturnBoolean)
+    If Not mModoEdicao And cboHospital.ListIndex = -1 Then
+        Cancel = True: cboHospital.SetFocus
+    End If
+End Sub
+
+Private Sub cboStatusNFe_Exit(ByVal Cancel As MSForms.ReturnBoolean)
+    If Not mModoEdicao And cboStatusNFe.ListIndex = -1 Then
+        Cancel = True: cboStatusNFe.SetFocus
+    End If
+End Sub
+
+Private Sub txtFaturamento_Exit(ByVal Cancel As MSForms.ReturnBoolean)
+    If Not mModoEdicao And (Trim(txtFaturamento.Value) = "" Or Not IsNumeric(GetDigits(txtFaturamento.Value))) Then
+        Cancel = True: txtFaturamento.SetFocus
+    End If
 End Sub
 
 Private Sub CarregarParaEdicao()
