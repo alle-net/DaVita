@@ -17,9 +17,6 @@ Option Explicit
 
 Private Sub UserForm_Initialize()
     lblUsuarioLogado.Caption = "Usuario: " & modAutenticacao.EmailAtual
-    lblTituloFat.ForeColor = RGB(0, 118, 182)
-    lblTituloGlosa.ForeColor = RGB(0, 118, 182)
-    lblTituloPerda.ForeColor = RGB(0, 118, 182)
     lblFaturamento.ForeColor = RGB(0, 118, 182)
     lblFaturamento.Font.Bold = True
     lblGlosa.ForeColor = RGB(0, 118, 182)
@@ -98,13 +95,13 @@ Private Sub cmdEditar_Click()
         MsgBox "Selecione um registro.", vbExclamation, "Editar"
         Exit Sub
     End If
-    Dim rawPage As Variant, GUID As String
+    Dim rawPage As Variant, guid As String
     rawPage = modDados.GetPageData
     If Not IsArray(rawPage) Then Exit Sub
-    GUID = rawPage(lstDados.ListIndex, 0)
+    guid = rawPage(lstDados.ListIndex, 0)
     Dim frm As frmRegistro
     Set frm = New frmRegistro
-    frm.Mostrar True, GUID
+    frm.Mostrar True, guid
     If modDados.CarregarDadosUsuario(modAutenticacao.UsuarioAtual) Then
         PreencherGrid
         AtualizarNavegacao
@@ -117,12 +114,12 @@ Private Sub cmdExcluir_Click()
         MsgBox "Selecione um registro.", vbExclamation, "Excluir"
         Exit Sub
     End If
-    Dim rawPage As Variant, GUID As String
+    Dim rawPage As Variant, guid As String
     rawPage = modDados.GetPageData
     If Not IsArray(rawPage) Then Exit Sub
-    GUID = rawPage(lstDados.ListIndex, 0)
+    guid = rawPage(lstDados.ListIndex, 0)
     If MsgBox("Deseja excluir este registro?", vbQuestion + vbYesNo, "Excluir") = vbYes Then
-        If modDados.ExcluirRegistro(GUID) Then
+        If modDados.ExcluirRegistro(guid) Then
             If modDados.CarregarDadosUsuario(modAutenticacao.UsuarioAtual) Then
                 txtBoxFiltro.Value = ""
                 PreencherGrid
