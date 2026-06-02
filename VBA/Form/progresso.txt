@@ -216,6 +216,18 @@ ESTADO ATUAL DOS ARQUIVOS:
 - GerarGUID: UUID v4, Rnd+Hex puro VBA
 - ATM input nos 3 campos valor (Faturamento, Perda, Glosa)
 
+[02/06 - USUARIO] "antes vamos ajustar uma coisa no frmRegistos preciso que os campos de data o usuario apenas digite os numeros a formatacao de data seja colocada automaticamente"
+[02/06 - AGENTE] Adicionou mascara automatica dd/mm/aaaa via _Change em txtCompetencia e txtDataNFe no frmRegistroCode.txt. Usuario digita apenas numeros, as barras sao inseridas automaticamente. Protegeu atribuicoes em CarregarParaEdicao com mUpdating.
+
+ESTADO ATUAL DOS ARQUIVOS:
+- modDados.bas: +6 funcoes CRUD (GerarGUID, Inserir, Atualizar, Excluir, Obter, ListaDimensao)
+- frmRegistroCode.txt: code-behind completo do frmRegistro + mascara de data automatica
+- frmPrincipalCode.txt: cmdAdd, cmdEditar, cmdExcluir com codigo real
+- criado frmRegistro manualmente com controles pelo usuario
+- GerarGUID: UUID v4, Rnd+Hex puro VBA
+- ATM input nos 3 campos valor (Faturamento, Perda, Glosa)
+- Mascara automatica dd/mm/aaaa nos campos txtCompetencia e txtDataNFe
+
 PROXIMA SESSAO:
 1. Colar codigo frmRegistroCode.txt no VBA
 2. Atualizar frmPrincipalCode.txt

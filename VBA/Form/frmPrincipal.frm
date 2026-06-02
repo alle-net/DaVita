@@ -1,7 +1,7 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} frmPrincipal 
    Caption         =   "Registros"
-   ClientHeight    =   11730
+   ClientHeight    =   10470
    ClientLeft      =   120
    ClientTop       =   465
    ClientWidth     =   24660
@@ -13,17 +13,9 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
-
 Option Explicit
 
-Private Sub lblHdrFaturamento_Click()
-
-End Sub
-
 Private Sub UserForm_Initialize()
-    lblTitulo.ForeColor = RGB(0, 118, 182)
-    lblTitulo.Font.Size = 18
-    lblTitulo.Font.Bold = True
     lblUsuarioLogado.Caption = "Usuario: " & modAutenticacao.EmailAtual
     lblTituloFat.ForeColor = RGB(0, 118, 182)
     lblTituloGlosa.ForeColor = RGB(0, 118, 182)
@@ -41,15 +33,17 @@ Private Sub UserForm_Initialize()
         AtualizarSubtotais
     End If
 End Sub
+
 Private Sub PreencherGrid()
     Dim dados As Variant
     dados = modDados.GetPageDataFormatado
+    
     With lstDados
         .Clear
         If Not IsArray(dados) Then Exit Sub
         If UBound(dados, 1) < 0 Then Exit Sub
         .ColumnCount = 13
-        .ColumnWidths = "65;80;80;180;90;80;110;80;100;80;80;80;80"
+        .ColumnWidths = "65;80;80;250;90;60;120;80;80;80;80;80;80"
         .List = dados
     End With
 End Sub
@@ -97,7 +91,15 @@ Private Sub cmdAtualizar_Click()
 End Sub
 
 Private Sub cmdAdd_Click()
-    MsgBox "Implementar frmEdicao (Add)", vbInformation, "Adicionar"
+    Dim frm As frmRegistro
+    Set frm = New frmRegistro
+    frm.Mostrar False
+    If modDados.CarregarDadosUsuario(modAutenticacao.UsuarioAtual) Then
+        txtBoxFiltro.Value = ""
+        PreencherGrid
+        AtualizarNavegacao
+        AtualizarSubtotais
+    End If
 End Sub
 
 Private Sub cmdEditar_Click()
@@ -105,7 +107,18 @@ Private Sub cmdEditar_Click()
         MsgBox "Selecione um registro.", vbExclamation, "Editar"
         Exit Sub
     End If
-    MsgBox "Implementar frmEdicao (Edit)", vbInformation, "Editar"
+    Dim rawPage As Variant, GUID As String
+    rawPage = modDados.GetPageData
+    If Not IsArray(rawPage) Then Exit Sub
+    GUID = rawPage(lstDados.ListIndex, 0)
+    Dim frm As frmRegistro
+    Set frm = New frmRegistro
+    frm.Mostrar True, GUID
+    If modDados.CarregarDadosUsuario(modAutenticacao.UsuarioAtual) Then
+        PreencherGrid
+        AtualizarNavegacao
+        AtualizarSubtotais
+    End If
 End Sub
 
 Private Sub cmdExcluir_Click()
@@ -113,8 +126,21 @@ Private Sub cmdExcluir_Click()
         MsgBox "Selecione um registro.", vbExclamation, "Excluir"
         Exit Sub
     End If
+    Dim rawPage As Variant, GUID As String
+    rawPage = modDados.GetPageData
+    If Not IsArray(rawPage) Then Exit Sub
+    GUID = rawPage(lstDados.ListIndex, 0)
     If MsgBox("Deseja excluir este registro?", vbQuestion + vbYesNo, "Excluir") = vbYes Then
-        MsgBox "Implementar exclusao", vbInformation, "Excluir"
+        If modDados.ExcluirRegistro(GUID) Then
+            If modDados.CarregarDadosUsuario(modAutenticacao.UsuarioAtual) Then
+                txtBoxFiltro.Value = ""
+                PreencherGrid
+                AtualizarNavegacao
+                AtualizarSubtotais
+            End If
+        Else
+            MsgBox "Erro ao excluir registro.", vbCritical, "Erro"
+        End If
     End If
 End Sub
 
