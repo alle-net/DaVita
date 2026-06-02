@@ -109,15 +109,10 @@ Private Sub FiltrarCombo(cbo As ComboBox, lista As Variant)
             End If
         Next i
     End If
-    cbo.SetFocus
-    If Len(txt) > 0 Then
-        On Error Resume Next
-        cbo.SelText = txt
-        If Err.Number <> 0 Then cbo.Text = txt
-        On Error GoTo 0
-        cbo.SelStart = Len(txt)
-        cbo.DropDown
-    End If
+    On Error Resume Next
+    cbo.Value = txt
+    On Error GoTo 0
+    cbo.DropDown
     mFiltrandoCombo = False
 End Sub
 
@@ -309,31 +304,31 @@ Private Sub cmdCancelar_Click()
     Unload Me
 End Sub
 
-Private Sub cboRegional_Change()
+Private Sub cboRegional_KeyUp(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)
     If mFiltrandoCombo Then Exit Sub
     If cboRegional.ListIndex >= 0 Then Exit Sub
     FiltrarCombo cboRegional, mListaRegional
 End Sub
 
-Private Sub cboUnidade_Change()
+Private Sub cboUnidade_KeyUp(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)
     If mFiltrandoCombo Then Exit Sub
     If cboUnidade.ListIndex >= 0 Then Exit Sub
     FiltrarCombo cboUnidade, mListaUnidade
 End Sub
 
-Private Sub cboHospital_Change()
+Private Sub cboHospital_KeyUp(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)
     If mFiltrandoCombo Then Exit Sub
     If cboHospital.ListIndex >= 0 Then Exit Sub
     FiltrarCombo cboHospital, mListaHospital
 End Sub
 
-Private Sub cboStatusNFe_Change()
+Private Sub cboStatusNFe_KeyUp(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)
     If mFiltrandoCombo Then Exit Sub
     If cboStatusNFe.ListIndex >= 0 Then Exit Sub
     FiltrarCombo cboStatusNFe, mListaStatus
 End Sub
 
-Private Sub cboMotivoGlosa_Change()
+Private Sub cboMotivoGlosa_KeyUp(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)
     If mFiltrandoCombo Then Exit Sub
     If cboMotivoGlosa.ListIndex >= 0 Then Exit Sub
     FiltrarCombo cboMotivoGlosa, mListaMotivo
