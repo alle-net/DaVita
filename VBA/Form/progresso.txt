@@ -223,17 +223,17 @@ ESTADO ATUAL DOS ARQUIVOS:
 [02/06 - USUARIO] "agora vamos colocar uma funcao no botao atualizar esse botao deve fazer um refresh na planilha para atualizar as dimensoes que estao ocultas na pasta de trabalho e garantir que elas aparecam nas caixa de listagem para novos registros"
 [02/06 - AGENTE] Adicionou ThisWorkbook.RefreshAll no cmdAtualizar_Click do frmPrincipalCode.txt para atualizar Power Queries/conexoes das abas ocultas antes de recarregar os dados.
 [02/06 - USUARIO] "acho que esse botao atualizar esta no formulario errado deveria estar no formulario de registro concorda?"
-[02/06 - AGENTE] Removeu cmdAtualizar do frmPrincipal. Adicionou cmdAtualizar no frmRegistro com salvamento/restauracao de todos os campos. Usuario clica em Atualizar sem perder dados preenchidos - as ComboBoxes sao repovoadas e a selecao anterior e restaurada por ID.
+[02/06 - AGENTE] Removeu cmdAtualizar do frmPrincipal. Adicionou cmdAtualizar no frmRegistro com salvamento/restauracao de todos os campos.
+[02/06 - USUARIO] "deixa eu entender talvez fosse melhor toda vez que o usuario abrisse o formulario de adicao/edicao as tabelas fossem atualizadas assim iriamos dispensar o uso do botao atualizar"
+[02/06 - AGENTE] RefreshAll ja estava no Mostrar (executa ao abrir o form). Removeu cmdAtualizar do frmRegistroCode.txt - nao ha mais botoes Atualizar em nenhum form.
 
 ESTADO ATUAL DOS ARQUIVOS:
 - modDados.bas: +6 funcoes CRUD (GerarGUID, Inserir, Atualizar, Excluir, Obter, ListaDimensao)
-- frmRegistroCode.txt: code-behind completo + mascara data + RefreshAll no Mostrar + cmdAtualizar com save/restore
+- frmRegistroCode.txt: code-behind completo + mascara data + RefreshAll automatico no Mostrar
 - frmPrincipalCode.txt: cmdAdd, cmdEditar, cmdExcluir (sem cmdAtualizar)
 - Exportado frmPrincipal.frm + frmRegistro.frm com layout manual preservado
 
 PROXIMA SESSAO:
-1. Apagar botao cmdAtualizar do frmPrincipal no VBA Editor
-2. Adicionar botao cmdAtualizar no frmRegistro no VBA Editor
-3. Colar frmRegistroCode.txt e frmPrincipalCode.txt
-4. Testar Add/Edit/Excluir
+1. Colar frmRegistroCode.txt e frmPrincipalCode.txt no VBA
+2. Testar Add/Edit/Excluir
 ===============================================================================
