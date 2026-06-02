@@ -60,23 +60,7 @@ Public Function CarregarDadosUsuario(usuarioID As Long) As Boolean
     
     mTotalRecords = n
     ReDim mFilteredIdx(1 To n)
-    For i = 1 To n: mFilteredIdx(i) = i: Next i
-    
-    ' Sort newest first by Data (col 16) - bubble sort
-    Dim si As Long, sj As Long, st As Long
-    Dim sd1 As Date, sd2 As Date
-    For si = 1 To n - 1
-        For sj = si + 1 To n
-            If IsDate(mAllData(mFilteredIdx(si), 16)) Then sd1 = CDate(mAllData(mFilteredIdx(si), 16)) Else sd1 = DateSerial(2000, 1, 1)
-            If IsDate(mAllData(mFilteredIdx(sj), 16)) Then sd2 = CDate(mAllData(mFilteredIdx(sj), 16)) Else sd2 = DateSerial(2000, 1, 1)
-            If sd1 < sd2 Then
-                st = mFilteredIdx(si)
-                mFilteredIdx(si) = mFilteredIdx(sj)
-                mFilteredIdx(sj) = st
-            End If
-        Next sj
-    Next si
-    
+    For i = 1 To n: mFilteredIdx(i) = n - i + 1: Next i
     mTotalFiltered = n
     
     mCurrentPage = 1
