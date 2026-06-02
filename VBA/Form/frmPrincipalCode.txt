@@ -2,9 +2,6 @@ Option Explicit
 
 Private Sub UserForm_Initialize()
     lblUsuarioLogado.Caption = "Usuario: " & modAutenticacao.EmailAtual
-    lblTituloFat.ForeColor = RGB(0, 118, 182)
-    lblTituloGlosa.ForeColor = RGB(0, 118, 182)
-    lblTituloPerda.ForeColor = RGB(0, 118, 182)
     lblFaturamento.ForeColor = RGB(0, 118, 182)
     lblFaturamento.Font.Bold = True
     lblGlosa.ForeColor = RGB(0, 118, 182)
