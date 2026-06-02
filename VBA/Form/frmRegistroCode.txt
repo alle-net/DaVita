@@ -313,6 +313,7 @@ Private Sub txtNFe_Change()
         txtDataNFe.BackColor = &H80000005
     Else
         RepopularStatus False
+        txtDataNFe.Value = ""
         txtDataNFe.Locked = True
         txtDataNFe.BackColor = &H8000000F
     End If
