@@ -309,12 +309,8 @@ Private Sub txtNFe_Change()
     If Trim(txtNFe.Value) <> "" Then
         RepopularStatus True
         SelecionarComboPorTexto cboStatusNFe, "EMITIDA"
-        txtDataNFe.Locked = True
-        txtDataNFe.BackColor = &H8000000F
     Else
         RepopularStatus False
-        txtDataNFe.Locked = False
-        txtDataNFe.BackColor = &H80000005
     End If
 End Sub
 
