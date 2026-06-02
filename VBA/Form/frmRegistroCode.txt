@@ -73,6 +73,7 @@ Private Sub PopularCombo(cbo As ComboBox, aba As String, tabela As String)
     If cbo Is cboMotivoGlosa Then mListaMotivo = dados
     
     cbo.Style = fmStyleDropDownCombo
+    cbo.MatchEntry = fmMatchEntryNone
     cbo.ColumnCount = 2
     cbo.ColumnWidths = "0;120"
     For i = 1 To n
@@ -94,6 +95,7 @@ Private Sub FiltrarCombo(cbo As ComboBox, lista As Variant)
     cbo.ColumnCount = 2
     cbo.ColumnWidths = "0;120"
     cbo.Style = fmStyleDropDownCombo
+    cbo.MatchEntry = fmMatchEntryNone
     If txt = "" Then
         For i = 1 To n
             cbo.AddItem lista(i, 1)
