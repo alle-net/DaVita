@@ -95,13 +95,13 @@ Private Sub cmdEditar_Click()
         MsgBox "Selecione um registro.", vbExclamation, "Editar"
         Exit Sub
     End If
-    Dim rawPage As Variant, guid As String
+    Dim rawPage As Variant, GUID As String
     rawPage = modDados.GetPageData
     If Not IsArray(rawPage) Then Exit Sub
-    guid = rawPage(lstDados.ListIndex, 0)
+    GUID = rawPage(lstDados.ListIndex, 0)
     Dim frm As frmRegistro
     Set frm = New frmRegistro
-    frm.Mostrar True, guid
+    frm.Mostrar True, GUID
     If modDados.CarregarDadosUsuario(modAutenticacao.UsuarioAtual) Then
         PreencherGrid
         AtualizarNavegacao
@@ -114,12 +114,12 @@ Private Sub cmdExcluir_Click()
         MsgBox "Selecione um registro.", vbExclamation, "Excluir"
         Exit Sub
     End If
-    Dim rawPage As Variant, guid As String
+    Dim rawPage As Variant, GUID As String
     rawPage = modDados.GetPageData
     If Not IsArray(rawPage) Then Exit Sub
-    guid = rawPage(lstDados.ListIndex, 0)
+    GUID = rawPage(lstDados.ListIndex, 0)
     If MsgBox("Deseja excluir este registro?", vbQuestion + vbYesNo, "Excluir") = vbYes Then
-        If modDados.ExcluirRegistro(guid) Then
+        If modDados.ExcluirRegistro(GUID) Then
             If modDados.CarregarDadosUsuario(modAutenticacao.UsuarioAtual) Then
                 txtBoxFiltro.Value = ""
                 PreencherGrid

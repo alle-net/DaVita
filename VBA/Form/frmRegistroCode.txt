@@ -50,6 +50,13 @@ Public Sub Mostrar(Optional ModoEdit As Boolean = False, Optional GUID As String
 
     Call ConfigurarTabOrder
     cmdAtualizar.TakeFocusOnClick = False
+    cmdCancelar.TakeFocusOnClick = False
+
+    If Not mModoEdicao Then
+        SelecionarComboPorTexto cboStatusNFe, "PENDENTE DE EMISSAO"
+        SelecionarComboPorTexto cboMotivoGlosa, "NAO HOUVE GLOSA"
+    End If
+
     Me.Show
 End Sub
 
@@ -184,6 +191,12 @@ Private Sub txtCompetencia_Exit(ByVal Cancel As MSForms.ReturnBoolean)
     If Not mModoEdicao And (Trim(txtCompetencia.Value) = "" Or Not IsDate(txtCompetencia.Value)) Then
         Cancel = True: txtCompetencia.SetFocus
     End If
+    If IsDate(txtCompetencia.Value) Then
+        If CDate(txtCompetencia.Value) > Date Then
+            MsgBox "Competencia nao pode ser maior que a data atual.", vbExclamation
+            Cancel = True: txtCompetencia.SetFocus
+        End If
+    End If
 End Sub
 
 Private Sub cboRegional_Exit(ByVal Cancel As MSForms.ReturnBoolean)
@@ -207,6 +220,17 @@ End Sub
 Private Sub cboStatusNFe_Exit(ByVal Cancel As MSForms.ReturnBoolean)
     If Not mModoEdicao And cboStatusNFe.ListIndex = -1 Then
         Cancel = True: cboStatusNFe.SetFocus
+    End If
+End Sub
+
+Private Sub txtDataNFe_Exit(ByVal Cancel As MSForms.ReturnBoolean)
+    If Trim(txtDataNFe.Value) <> "" Then
+        If Not IsDate(txtDataNFe.Value) Then
+            Cancel = True: txtDataNFe.SetFocus
+        ElseIf CDate(txtDataNFe.Value) > Date Then
+            MsgBox "Data nao pode ser maior que a data atual.", vbExclamation
+            Cancel = True: txtDataNFe.SetFocus
+        End If
     End If
 End Sub
 
@@ -254,6 +278,16 @@ Private Sub SelecionarComboPorID(cbo As ComboBox, id As Variant)
     Dim i As Long
     For i = 0 To cbo.ListCount - 1
         If CStr(cbo.List(i, 0)) = CStr(id) Then
+            cbo.ListIndex = i
+            Exit For
+        End If
+    Next i
+End Sub
+
+Private Sub SelecionarComboPorTexto(cbo As ComboBox, texto As String)
+    Dim i As Long
+    For i = 0 To cbo.ListCount - 1
+        If UCase(Trim(cbo.List(i, 1))) = UCase(Trim(texto)) Then
             cbo.ListIndex = i
             Exit For
         End If
@@ -333,6 +367,17 @@ Private Function ValidarCampos() As Boolean
     End If
     If Trim(txtFaturamento.Value) = "" Or Not IsNumeric(GetDigits(txtFaturamento.Value)) Then
         MsgBox "Faturamento e obrigatorio.", vbExclamation: txtFaturamento.SetFocus: Exit Function
+    End If
+    If CDbl(GetDigits(txtFaturamento.Value)) / 100 <= 0 Then
+        MsgBox "Faturamento deve ser maior que zero.", vbExclamation: txtFaturamento.SetFocus: Exit Function
+    End If
+    If IsDate(txtCompetencia.Value) And CDate(txtCompetencia.Value) > Date Then
+        MsgBox "Competencia nao pode ser maior que a data atual.", vbExclamation: txtCompetencia.SetFocus: Exit Function
+    End If
+    If Trim(txtDataNFe.Value) <> "" And IsDate(txtDataNFe.Value) Then
+        If CDate(txtDataNFe.Value) > Date Then
+            MsgBox "Data NFe nao pode ser maior que a data atual.", vbExclamation: txtDataNFe.SetFocus: Exit Function
+        End If
     End If
     ValidarCampos = True
 End Function

@@ -235,10 +235,18 @@ ESTADO ATUAL DOS ARQUIVOS:
 [02/06 - USUARIO] "nao consigo acessar o botao atualizar ate que eu preencha tudo"
 [02/06 - AGENTE] Adicionou cmdAtualizar.TakeFocusOnClick = False no Mostrar. Agora clicar no botao nao aciona os _Exit dos campos - usuario pode atualizar sem preencher nada.
 
+[02/06 - USUARIO] Solicitou: 1) TakeFocusOnClick no Cancelar, 2) validar data <= hoje, 3) Status padrao "PENDENTE DE EMISSAO", 4) Motivo padrao "NAO HOUVE GLOSA", 5) Faturamento > 0
+[02/06 - AGENTE] Implementou:
+- cmdCancelar.TakeFocusOnClick = False
+- SelecionarComboPorTexto() para selecionar ComboBox por nome
+- Status padrao "PENDENTE DE EMISSAO" e Motivo "NAO HOUVE GLOSA" ao adicionar
+- Validacao data <= hoje em txtCompetencia_Exit, txtDataNFe_Exit e ValidarCampos
+- Validacao Faturamento > 0 em ValidarCampos
+
 ESTADO ATUAL DOS ARQUIVOS:
 - modDados.bas: +6 funcoes CRUD (GerarGUID, Inserir, Atualizar, Excluir, Obter, ListaDimensao)
-- frmRegistroCode.txt: code-behind completo + mascara data + RefreshAll automatico no Mostrar
-- frmPrincipalCode.txt: cmdAdd, cmdEditar, cmdExcluir (sem cmdAtualizar)
+- frmRegistroCode.txt: code-behind + mascara data + defaults Status/Motivo + validacoes data/valor
+- frmPrincipalCode.txt: cmdAdd, cmdEditar, cmdExcluir
 - Exportado frmPrincipal.frm + frmRegistro.frm com layout manual preservado
 
 PROXIMA SESSAO:
