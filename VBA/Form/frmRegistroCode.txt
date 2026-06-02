@@ -45,6 +45,7 @@ Public Sub Mostrar(Optional ModoEdit As Boolean = False, Optional GUID As String
         Me.Caption = "Adicionar Registro"
     End If
 
+    Call ConfigurarTabOrder
     Me.Show
 End Sub
 
@@ -114,6 +115,25 @@ Private Sub FiltrarCombo(cbo As ComboBox, lista As Variant)
     On Error GoTo 0
     cbo.DropDown
     mFiltrandoCombo = False
+End Sub
+
+Private Sub ConfigurarTabOrder()
+    txtUsuario.TabStop = False
+    txtTitulo.TabIndex = 0
+    txtCompetencia.TabIndex = 1
+    cboRegional.TabIndex = 2
+    cboUnidade.TabIndex = 3
+    cboHospital.TabIndex = 4
+    txtNFe.TabIndex = 5
+    cboStatusNFe.TabIndex = 6
+    txtDataNFe.TabIndex = 7
+    txtFaturamento.TabIndex = 8
+    txtPerda.TabIndex = 9
+    cboMotivoGlosa.TabIndex = 10
+    txtGlosa.TabIndex = 11
+    txtObservacao.TabIndex = 12
+    cmdGravar.TabIndex = 13
+    cmdCancelar.TabIndex = 14
 End Sub
 
 Private Sub CarregarParaEdicao()
