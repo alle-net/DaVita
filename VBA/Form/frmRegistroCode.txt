@@ -36,6 +36,10 @@ Public Sub Mostrar(Optional ModoEdit As Boolean = False, Optional GUID As String
     txtUsuario.Locked = True
     txtUsuario.BackColor = &H8000000F
 
+    Application.ScreenUpdating = False
+    ThisWorkbook.RefreshAll
+    Application.ScreenUpdating = True
+
     Call PopularCombos
 
     If mModoEdicao Then

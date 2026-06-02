@@ -67,15 +67,12 @@ Private Sub cmdProximo_Click()
 End Sub
 
 Private Sub cmdAtualizar_Click()
-    Application.ScreenUpdating = False
-    ThisWorkbook.RefreshAll
     If modDados.CarregarDadosUsuario(modAutenticacao.UsuarioAtual) Then
         txtBoxFiltro.Value = ""
         PreencherGrid
         AtualizarNavegacao
         AtualizarSubtotais
     End If
-    Application.ScreenUpdating = True
 End Sub
 
 Private Sub cmdAdd_Click()
