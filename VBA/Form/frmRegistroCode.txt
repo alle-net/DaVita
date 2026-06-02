@@ -3,6 +3,12 @@ Option Explicit
 Private mModoEdicao As Boolean
 Private mEditGUID As String
 Private mUpdating As Boolean
+Private mFiltrandoCombo As Boolean
+Private mListaRegional As Variant
+Private mListaUnidade As Variant
+Private mListaHospital As Variant
+Private mListaStatus As Variant
+Private mListaMotivo As Variant
 
 Private Function MesNumero(mes As String) As Integer
     Select Case UCase(Left$(mes, 3))
@@ -59,6 +65,13 @@ Private Sub PopularCombo(cbo As ComboBox, aba As String, tabela As String)
     If Err.Number <> 0 Then Exit Sub
     On Error GoTo 0
     If n = 0 Then Exit Sub
+    
+    If cbo Is cboRegional Then mListaRegional = dados
+    If cbo Is cboUnidade Then mListaUnidade = dados
+    If cbo Is cboHospital Then mListaHospital = dados
+    If cbo Is cboStatusNFe Then mListaStatus = dados
+    If cbo Is cboMotivoGlosa Then mListaMotivo = dados
+    
     cbo.Style = fmStyleDropDownCombo
     cbo.ColumnCount = 2
     cbo.ColumnWidths = "0;120"
@@ -66,6 +79,44 @@ Private Sub PopularCombo(cbo As ComboBox, aba As String, tabela As String)
         cbo.AddItem dados(i, 1)
         cbo.List(cbo.ListCount - 1, 1) = dados(i, 2)
     Next i
+End Sub
+
+Private Sub FiltrarCombo(cbo As ComboBox, lista As Variant)
+    Dim txt As String, i As Long, n As Long
+    txt = cbo.Text
+    If Not IsArray(lista) Then Exit Sub
+    On Error Resume Next
+    n = UBound(lista, 1)
+    If Err.Number <> 0 Or n = 0 Then Exit Sub
+    On Error GoTo 0
+    mFiltrandoCombo = True
+    cbo.Clear
+    cbo.ColumnCount = 2
+    cbo.ColumnWidths = "0;120"
+    cbo.Style = fmStyleDropDownCombo
+    If txt = "" Then
+        For i = 1 To n
+            cbo.AddItem lista(i, 1)
+            cbo.List(cbo.ListCount - 1, 1) = lista(i, 2)
+        Next i
+    Else
+        For i = 1 To n
+            If InStr(1, LCase(CStr(lista(i, 2))), LCase(txt), vbTextCompare) > 0 Then
+                cbo.AddItem lista(i, 1)
+                cbo.List(cbo.ListCount - 1, 1) = lista(i, 2)
+            End If
+        Next i
+    End If
+    cbo.SetFocus
+    If Len(txt) > 0 Then
+        On Error Resume Next
+        cbo.SelText = txt
+        If Err.Number <> 0 Then cbo.Text = txt
+        On Error GoTo 0
+        cbo.SelStart = Len(txt)
+        cbo.DropDown
+    End If
+    mFiltrandoCombo = False
 End Sub
 
 Private Sub CarregarParaEdicao()
@@ -254,4 +305,34 @@ End Sub
 
 Private Sub cmdCancelar_Click()
     Unload Me
+End Sub
+
+Private Sub cboRegional_Change()
+    If mFiltrandoCombo Then Exit Sub
+    If cboRegional.ListIndex >= 0 Then Exit Sub
+    FiltrarCombo cboRegional, mListaRegional
+End Sub
+
+Private Sub cboUnidade_Change()
+    If mFiltrandoCombo Then Exit Sub
+    If cboUnidade.ListIndex >= 0 Then Exit Sub
+    FiltrarCombo cboUnidade, mListaUnidade
+End Sub
+
+Private Sub cboHospital_Change()
+    If mFiltrandoCombo Then Exit Sub
+    If cboHospital.ListIndex >= 0 Then Exit Sub
+    FiltrarCombo cboHospital, mListaHospital
+End Sub
+
+Private Sub cboStatusNFe_Change()
+    If mFiltrandoCombo Then Exit Sub
+    If cboStatusNFe.ListIndex >= 0 Then Exit Sub
+    FiltrarCombo cboStatusNFe, mListaStatus
+End Sub
+
+Private Sub cboMotivoGlosa_Change()
+    If mFiltrandoCombo Then Exit Sub
+    If cboMotivoGlosa.ListIndex >= 0 Then Exit Sub
+    FiltrarCombo cboMotivoGlosa, mListaMotivo
 End Sub
