@@ -14,6 +14,7 @@ Private Sub UserForm_Initialize()
         AtualizarNavegacao
         AtualizarSubtotais
     End If
+    AtualizarBotoesAcao
 End Sub
 
 Private Sub PreencherGrid()
@@ -28,6 +29,7 @@ Private Sub PreencherGrid()
         .ColumnWidths = "65;80;80;250;90;60;120;80;80;80;80;80;80"
         .List = dados
     End With
+    AtualizarBotoesAcao
 End Sub
 
 Private Sub AtualizarNavegacao()
@@ -61,6 +63,17 @@ Private Sub cmdProximo_Click()
     modDados.NextPage
     PreencherGrid
     AtualizarNavegacao
+End Sub
+
+Private Sub lstDados_Click()
+    AtualizarBotoesAcao
+End Sub
+
+Private Sub AtualizarBotoesAcao()
+    Dim selecionou As Boolean
+    selecionou = (lstDados.ListIndex >= 0)
+    cmdEditar.Enabled = selecionou
+    cmdExcluir.Enabled = selecionou
 End Sub
 
 Private Sub cmdAdd_Click()

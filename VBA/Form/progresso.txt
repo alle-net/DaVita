@@ -249,6 +249,21 @@ ESTADO ATUAL DOS ARQUIVOS:
 - frmPrincipalCode.txt: cmdAdd, cmdEditar, cmdExcluir
 - Exportado frmPrincipal.frm + frmRegistro.frm com layout manual preservado
 
+[03/06 - USUARIO] "preciso de 2 alteracoes: 1) quando NFe preenchido foco vai para DataNFe, 2) campos pintados voltam ao branco quando preenchidos"
+[03/06 - AGENTE]
+- txtNFe_Change: SetFocus para txtDataNFe quando NFe fica preenchido (transicao detectada via txtDataNFe.Locked)
+- txtNFe.BackColor resetado no Change
+- txtCompetencia_Change, txtDataNFe_Change, txtFaturamento_Change, txtPerda_Change, txtGlosa_Change: BackColor = &H80000005 no inicio
+- txtTitulo_Change: novo evento, BackColor = &H80000005
+- cboRegional_Change, cboUnidade_Change, cboHospital_Change, cboStatusNFe_Change: BackColor = &H80000005 (com guard mFiltrandoCombo)
+[03/06 - AGENTE] Alteracoes no frmRegistroCode.txt:
+- Removidos _Exit handlers que travavam o usuario (txtTitulo, cboRegional, cboUnidade, cboHospital, cboStatusNFe)
+- Modificados txtCompetencia_Exit e txtDataNFe_Exit: validam sem Cancel=True, pintam de rosa se invalido
+- Modificado txtFaturamento_Exit: mesmo comportamento
+- Criado ResetarFundoCampos(): limpa rosa de todos os campos
+- ValidarCampos: chama ResetarFundoCampos no inicio + pinta cada campo invalido de rosa RGB(255,204,204) antes de Exit Function
+- Corrigido bug de CDate("") em _Exit e ValidarCampos (VBA nao faz short-circuit no And), usando If aninhados
+
 PROXIMA SESSAO:
 1. Colar frmRegistroCode.txt e frmPrincipalCode.txt no VBA
 2. Testar Add/Edit/Excluir

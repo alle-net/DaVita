@@ -149,6 +149,7 @@ End Sub
 
 Private Sub txtCompetencia_Change()
     If mUpdating Then Exit Sub
+    txtCompetencia.BackColor = &H80000005
     mUpdating = True
     Dim raw As String: raw = GetDigits(txtCompetencia.Value)
     If Len(raw) = 0 Then
@@ -166,6 +167,7 @@ End Sub
 
 Private Sub txtDataNFe_Change()
     If mUpdating Then Exit Sub
+    txtDataNFe.BackColor = &H80000005
     mUpdating = True
     Dim raw As String: raw = GetDigits(txtDataNFe.Value)
     If Len(raw) = 0 Then
@@ -181,64 +183,39 @@ Private Sub txtDataNFe_Change()
     mUpdating = False
 End Sub
 
-Private Sub txtTitulo_Exit(ByVal Cancel As MSForms.ReturnBoolean)
-    If Not mModoEdicao And Trim(txtTitulo.Value) = "" Then
-        Cancel = True: txtTitulo.SetFocus
-    End If
-End Sub
-
 Private Sub txtCompetencia_Exit(ByVal Cancel As MSForms.ReturnBoolean)
-    lblMensagem.Caption = ""
-    If Not mModoEdicao And (Trim(txtCompetencia.Value) = "" Or Not IsDate(txtCompetencia.Value)) Then
-        Cancel = True: txtCompetencia.SetFocus
-    End If
-    If IsDate(txtCompetencia.Value) Then
-        If CDate(txtCompetencia.Value) > Date Then
-            lblMensagem.Caption = "Competencia nao pode ser maior que a data atual."
-            Cancel = True: txtCompetencia.SetFocus
-        End If
-    End If
-End Sub
-
-Private Sub cboRegional_Exit(ByVal Cancel As MSForms.ReturnBoolean)
-    If Not mModoEdicao And cboRegional.ListIndex = -1 Then
-        Cancel = True: cboRegional.SetFocus
-    End If
-End Sub
-
-Private Sub cboUnidade_Exit(ByVal Cancel As MSForms.ReturnBoolean)
-    If Not mModoEdicao And cboUnidade.ListIndex = -1 Then
-        Cancel = True: cboUnidade.SetFocus
-    End If
-End Sub
-
-Private Sub cboHospital_Exit(ByVal Cancel As MSForms.ReturnBoolean)
-    If Not mModoEdicao And cboHospital.ListIndex = -1 Then
-        Cancel = True: cboHospital.SetFocus
-    End If
-End Sub
-
-Private Sub cboStatusNFe_Exit(ByVal Cancel As MSForms.ReturnBoolean)
-    If Not mModoEdicao And cboStatusNFe.ListIndex = -1 Then
-        Cancel = True: cboStatusNFe.SetFocus
+    If Trim(txtCompetencia.Value) = "" Then
+        txtCompetencia.BackColor = &H80000005
+    ElseIf Not IsDate(txtCompetencia.Value) Then
+        lblMensagem.Caption = "Competencia deve ser uma data valida."
+        txtCompetencia.BackColor = RGB(255, 204, 204)
+    ElseIf CDate(txtCompetencia.Value) > Date Then
+        lblMensagem.Caption = "Competencia nao pode ser maior que a data atual."
+        txtCompetencia.BackColor = RGB(255, 204, 204)
+    Else
+        txtCompetencia.BackColor = &H80000005
     End If
 End Sub
 
 Private Sub txtDataNFe_Exit(ByVal Cancel As MSForms.ReturnBoolean)
-    lblMensagem.Caption = ""
-    If Trim(txtDataNFe.Value) <> "" Then
-        If Not IsDate(txtDataNFe.Value) Then
-            Cancel = True: txtDataNFe.SetFocus
-        ElseIf CDate(txtDataNFe.Value) > Date Then
-            lblMensagem.Caption = "Data nao pode ser maior que a data atual."
-            Cancel = True: txtDataNFe.SetFocus
-        End If
+    If Trim(txtDataNFe.Value) = "" Then
+        txtDataNFe.BackColor = &H80000005
+    ElseIf Not IsDate(txtDataNFe.Value) Then
+        lblMensagem.Caption = "Data da NFe deve ser uma data valida."
+        txtDataNFe.BackColor = RGB(255, 204, 204)
+    ElseIf CDate(txtDataNFe.Value) > Date Then
+        lblMensagem.Caption = "Data nao pode ser maior que a data atual."
+        txtDataNFe.BackColor = RGB(255, 204, 204)
+    Else
+        txtDataNFe.BackColor = &H80000005
     End If
 End Sub
 
 Private Sub txtFaturamento_Exit(ByVal Cancel As MSForms.ReturnBoolean)
-    If Not mModoEdicao And (Trim(txtFaturamento.Value) = "" Or Not IsNumeric(GetDigits(txtFaturamento.Value))) Then
-        Cancel = True: txtFaturamento.SetFocus
+    If Trim(txtFaturamento.Value) = "" Or Not IsNumeric(GetDigits(txtFaturamento.Value)) Then
+        txtFaturamento.BackColor = RGB(255, 204, 204)
+    Else
+        txtFaturamento.BackColor = &H80000005
     End If
 End Sub
 
@@ -306,16 +283,21 @@ End Sub
 
 Private Sub txtNFe_Change()
     If mUpdating Then Exit Sub
+    txtNFe.BackColor = &H80000005
     If Trim(txtNFe.Value) <> "" Then
         RepopularStatus True
         SelecionarComboPorTexto cboStatusNFe, "EMITIDA"
         txtDataNFe.Locked = False
         txtDataNFe.BackColor = &H80000005
+        txtDataNFe.TabIndex = 6
+        cboStatusNFe.TabIndex = 7
     Else
         RepopularStatus False
         txtDataNFe.Value = ""
         txtDataNFe.Locked = True
         txtDataNFe.BackColor = &H8000000F
+        cboStatusNFe.TabIndex = 6
+        txtDataNFe.TabIndex = 7
     End If
 End Sub
 
@@ -354,6 +336,7 @@ End Function
 
 Private Sub txtFaturamento_Change()
     If mUpdating Then Exit Sub
+    txtFaturamento.BackColor = &H80000005
     mUpdating = True
     Dim raw As String: raw = GetDigits(txtFaturamento.Value)
     If Len(raw) = 0 Then
@@ -367,6 +350,7 @@ End Sub
 
 Private Sub txtPerda_Change()
     If mUpdating Then Exit Sub
+    txtPerda.BackColor = &H80000005
     mUpdating = True
     Dim raw As String: raw = GetDigits(txtPerda.Value)
     If Len(raw) = 0 Then
@@ -380,6 +364,7 @@ End Sub
 
 Private Sub txtGlosa_Change()
     If mUpdating Then Exit Sub
+    txtGlosa.BackColor = &H80000005
     mUpdating = True
     Dim raw As String: raw = GetDigits(txtGlosa.Value)
     If Len(raw) = 0 Then
@@ -391,52 +376,133 @@ Private Sub txtGlosa_Change()
     mUpdating = False
 End Sub
 
+Private Sub txtTitulo_Change()
+    txtTitulo.BackColor = &H80000005
+End Sub
+
+Private Sub cboRegional_Change()
+    If mFiltrandoCombo Then Exit Sub
+    cboRegional.BackColor = &H80000005
+End Sub
+
+Private Sub cboUnidade_Change()
+    If mFiltrandoCombo Then Exit Sub
+    cboUnidade.BackColor = &H80000005
+End Sub
+
+Private Sub cboHospital_Change()
+    If mFiltrandoCombo Then Exit Sub
+    cboHospital.BackColor = &H80000005
+End Sub
+
+Private Sub cboStatusNFe_Change()
+    If mFiltrandoCombo Then Exit Sub
+    cboStatusNFe.BackColor = &H80000005
+End Sub
+
 Private Function ValidarCampos() As Boolean
     lblMensagem.Caption = ""
+    ResetarFundoCampos
+
+    Dim ok As Boolean: ok = True
+
     If Trim(txtTitulo.Value) = "" Then
-        lblMensagem.Caption = "Titulo e obrigatorio.": txtTitulo.SetFocus: Exit Function
+        txtTitulo.BackColor = RGB(255, 204, 204): ok = False
     End If
     If Trim(txtCompetencia.Value) = "" Or Not IsDate(txtCompetencia.Value) Then
-        lblMensagem.Caption = "Competencia deve ser uma data valida (dd/mm/aaaa).": txtCompetencia.SetFocus: Exit Function
+        txtCompetencia.BackColor = RGB(255, 204, 204): ok = False
     End If
     If cboHospital.ListIndex = -1 Then
-        lblMensagem.Caption = "Hospital e obrigatorio.": cboHospital.SetFocus: Exit Function
+        cboHospital.BackColor = RGB(255, 204, 204): ok = False
     End If
     If cboRegional.ListIndex = -1 Then
-        lblMensagem.Caption = "Regional e obrigatorio.": cboRegional.SetFocus: Exit Function
+        cboRegional.BackColor = RGB(255, 204, 204): ok = False
     End If
     If cboUnidade.ListIndex = -1 Then
-        lblMensagem.Caption = "Unidade e obrigatoria.": cboUnidade.SetFocus: Exit Function
+        cboUnidade.BackColor = RGB(255, 204, 204): ok = False
     End If
     If cboStatusNFe.ListIndex = -1 Then
-        lblMensagem.Caption = "Status NFe e obrigatorio.": cboStatusNFe.SetFocus: Exit Function
+        cboStatusNFe.BackColor = RGB(255, 204, 204): ok = False
     End If
     If Trim(txtNFe.Value) <> "" And (Trim(txtDataNFe.Value) = "" Or Not IsDate(txtDataNFe.Value)) Then
-        lblMensagem.Caption = "Data da NFe e obrigatoria quando NFe for preenchida.": txtDataNFe.SetFocus: Exit Function
+        txtDataNFe.BackColor = RGB(255, 204, 204): ok = False
     End If
     If Trim(txtFaturamento.Value) = "" Or Not IsNumeric(GetDigits(txtFaturamento.Value)) Then
-        lblMensagem.Caption = "Faturamento e obrigatorio.": txtFaturamento.SetFocus: Exit Function
+        txtFaturamento.BackColor = RGB(255, 204, 204): ok = False
+    ElseIf CDbl(GetDigits(txtFaturamento.Value)) / 100 <= 0 Then
+        txtFaturamento.BackColor = RGB(255, 204, 204): ok = False
     End If
-    If CDbl(GetDigits(txtFaturamento.Value)) / 100 <= 0 Then
-        lblMensagem.Caption = "Faturamento deve ser maior que zero.": txtFaturamento.SetFocus: Exit Function
-    End If
-    If IsDate(txtCompetencia.Value) And CDate(txtCompetencia.Value) > Date Then
-        lblMensagem.Caption = "Competencia nao pode ser maior que a data atual.": txtCompetencia.SetFocus: Exit Function
+    If IsDate(txtCompetencia.Value) Then
+        If CDate(txtCompetencia.Value) > Date Then
+            txtCompetencia.BackColor = RGB(255, 204, 204): ok = False
+        End If
     End If
     If Trim(txtDataNFe.Value) <> "" And IsDate(txtDataNFe.Value) Then
         If CDate(txtDataNFe.Value) > Date Then
-            lblMensagem.Caption = "Data NFe nao pode ser maior que a data atual.": txtDataNFe.SetFocus: Exit Function
+            txtDataNFe.BackColor = RGB(255, 204, 204): ok = False
         End If
     End If
     If cboMotivoGlosa.ListIndex >= 0 Then
         If UCase(Trim(cboMotivoGlosa.List(cboMotivoGlosa.ListIndex, 1))) <> "NAO HOUVE GLOSA" Then
             If Trim(txtGlosa.Value) = "" Or Not IsNumeric(GetDigits(txtGlosa.Value)) Or CDbl(GetDigits(txtGlosa.Value)) / 100 <= 0 Then
-                lblMensagem.Caption = "Glosa deve ser maior que zero quando o motivo for diferente de NAO HOUVE GLOSA.": txtGlosa.SetFocus: Exit Function
+                txtGlosa.BackColor = RGB(255, 204, 204): ok = False
             End If
         End If
     End If
+
+    If Not ok Then
+        If Trim(txtTitulo.Value) = "" Then
+            lblMensagem.Caption = "Titulo e obrigatorio.": txtTitulo.SetFocus
+        ElseIf Trim(txtCompetencia.Value) = "" Or Not IsDate(txtCompetencia.Value) Then
+            lblMensagem.Caption = "Competencia deve ser uma data valida (dd/mm/aaaa).": txtCompetencia.SetFocus
+        ElseIf cboHospital.ListIndex = -1 Then
+            lblMensagem.Caption = "Hospital e obrigatorio.": cboHospital.SetFocus
+        ElseIf cboRegional.ListIndex = -1 Then
+            lblMensagem.Caption = "Regional e obrigatorio.": cboRegional.SetFocus
+        ElseIf cboUnidade.ListIndex = -1 Then
+            lblMensagem.Caption = "Unidade e obrigatoria.": cboUnidade.SetFocus
+        ElseIf cboStatusNFe.ListIndex = -1 Then
+            lblMensagem.Caption = "Status NFe e obrigatorio.": cboStatusNFe.SetFocus
+        ElseIf Trim(txtNFe.Value) <> "" And (Trim(txtDataNFe.Value) = "" Or Not IsDate(txtDataNFe.Value)) Then
+            lblMensagem.Caption = "Data da NFe e obrigatoria quando NFe for preenchida.": txtDataNFe.SetFocus
+        ElseIf Trim(txtFaturamento.Value) = "" Or Not IsNumeric(GetDigits(txtFaturamento.Value)) Then
+            lblMensagem.Caption = "Faturamento e obrigatorio.": txtFaturamento.SetFocus
+        ElseIf CDbl(GetDigits(txtFaturamento.Value)) / 100 <= 0 Then
+            lblMensagem.Caption = "Faturamento deve ser maior que zero.": txtFaturamento.SetFocus
+        ElseIf IsDate(txtCompetencia.Value) Then
+            If CDate(txtCompetencia.Value) > Date Then
+                lblMensagem.Caption = "Competencia nao pode ser maior que a data atual.": txtCompetencia.SetFocus
+            End If
+        ElseIf Trim(txtDataNFe.Value) <> "" And IsDate(txtDataNFe.Value) Then
+            If CDate(txtDataNFe.Value) > Date Then
+                lblMensagem.Caption = "Data NFe nao pode ser maior que a data atual.": txtDataNFe.SetFocus
+            End If
+        ElseIf cboMotivoGlosa.ListIndex >= 0 Then
+            If UCase(Trim(cboMotivoGlosa.List(cboMotivoGlosa.ListIndex, 1))) <> "NAO HOUVE GLOSA" Then
+                If Trim(txtGlosa.Value) = "" Or Not IsNumeric(GetDigits(txtGlosa.Value)) Or CDbl(GetDigits(txtGlosa.Value)) / 100 <= 0 Then
+                    lblMensagem.Caption = "Glosa deve ser maior que zero quando o motivo for diferente de NAO HOUVE GLOSA.": txtGlosa.SetFocus
+                End If
+            End If
+        End If
+        ValidarCampos = False
+        Exit Function
+    End If
+
     ValidarCampos = True
 End Function
+
+Private Sub ResetarFundoCampos()
+    txtTitulo.BackColor = &H80000005
+    txtCompetencia.BackColor = &H80000005
+    cboHospital.BackColor = &H80000005
+    cboRegional.BackColor = &H80000005
+    cboUnidade.BackColor = &H80000005
+    cboStatusNFe.BackColor = &H80000005
+    txtDataNFe.BackColor = &H80000005
+    txtFaturamento.BackColor = &H80000005
+    txtGlosa.BackColor = &H80000005
+    txtPerda.BackColor = &H80000005
+End Sub
 
 Private Sub cmdGravar_Click()
     If Not ValidarCampos Then Exit Sub
