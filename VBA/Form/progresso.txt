@@ -264,7 +264,17 @@ ESTADO ATUAL DOS ARQUIVOS:
 - ValidarCampos: chama ResetarFundoCampos no inicio + pinta cada campo invalido de rosa RGB(255,204,204) antes de Exit Function
 - Corrigido bug de CDate("") em _Exit e ValidarCampos (VBA nao faz short-circuit no And), usando If aninhados
 
+[04/06 - USUARIO] Retomar regra NFe que foi perdida nas versoes anteriores
+[04/06 - AGENTE] Reimplementou regra completa do campo NFe via nova rotina AtualizarEstadoNFe:
+  - NFe vazio  → Status="PENDENTE DE EMISSAO", ComboBox disponivel (exceto "EMITIDA"), DataNFe limpa/inativa/nao obrigatoria
+  - NFe preenchido → Status="EMITIDA" (fixo, Locked), ComboBox inativa, DataNFe ativa/obrigatoria/SetFocus
+  - Funciona mesmo se usuario preencher e depois apagar
+  - txtNFe_Change: apenas BackColor + se vazio chama AtualizarEstadoNFe (imediato)
+  - txtNFe_Exit: chama AtualizarEstadoNFe + SetFocus dataNFe se preenchido
+  - Chamada em: txtNFe_Change, txtNFe_Exit, CarregarParaEdicao (final), Mostrar (modo add), cmdAtualizar (final)
+
 PROXIMA SESSAO:
 1. Colar frmRegistroCode.txt e frmPrincipalCode.txt no VBA
 2. Testar Add/Edit/Excluir
+3. Testar regra NFe (preencher/apagar/editar)
 ===============================================================================
