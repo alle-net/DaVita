@@ -1,5 +1,5 @@
-Objeto	Width	Height
-UserForm (fechado)	700	650
-UserForm (aberto)	1050	650
-fraPrincipal	660	620
-fraCadastro	340	620
+Objeto	                Width	        Height
+UserForm (fechado)	    700	            650
+UserForm (aberto)	    1050	        650
+fraPrincipal	        660	            620
+fraCadastro	            340	            620

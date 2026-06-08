@@ -1,6 +1,32 @@
 Option Explicit
 
+Private Declare PtrSafe Function FindWindow Lib "user32" Alias "FindWindowA" _
+    (ByVal lpClassName As String, ByVal lpWindowName As String) As LongPtr
+Private Declare PtrSafe Function SetWindowLong Lib "user32" Alias "SetWindowLongA" _
+    (ByVal hWnd As LongPtr, ByVal nIndex As Long, ByVal dwNewLong As Long) As LongPtr
+Private Declare PtrSafe Function GetWindowLong Lib "user32" Alias "GetWindowLongA" _
+    (ByVal hWnd As LongPtr, ByVal nIndex As Long) As Long
+Private Declare PtrSafe Function SetWindowPos Lib "user32" _
+    (ByVal hWnd As LongPtr, ByVal hWndInsertAfter As LongPtr, _
+     ByVal X As Long, ByVal Y As Long, ByVal cx As Long, ByVal cy As Long, _
+     ByVal wFlags As Long) As Long
+
+Private Const GWL_STYLE As Long = -16
+Private Const WS_CAPTION As Long = &HC00000
+Private Const SWP_NOMOVE As Long = &H2
+Private Const SWP_NOSIZE As Long = &H1
+Private Const SWP_NOZORDER As Long = &H4
+Private Const SWP_FRAMECHANGED As Long = &H20
+Private Const NUM_DESLOCAMENTO_Y As Long = 60   ' <-- Ajuste ate o form ficar na linha 1
+Private Const NUM_DESLOCAMENTO_X As Long = 0    ' <-- Ajuste ate o form ficar na coluna 1
+Private Const NUM_LARGURA As Long = 700         ' <-- Largura do form em pixels
+Private Const NUM_ALTURA As Long = 650          ' <-- Altura do form em pixels
+
 Private Sub UserForm_Initialize()
+    Me.StartUpPosition = 0
+    Me.Width = NUM_LARGURA
+    Me.Height = NUM_ALTURA
+    
     lblUsuarioLogado.Caption = "Usuario: " & modAutenticacao.EmailAtual
     lblFaturamento.ForeColor = RGB(0, 118, 182)
     lblFaturamento.Font.Bold = True
@@ -15,6 +41,57 @@ Private Sub UserForm_Initialize()
         AtualizarSubtotais
     End If
     AtualizarBotoesAcao
+End Sub
+
+Private Sub UserForm_Activate()
+    Static jaConfig As Boolean
+    If Not jaConfig Then
+        jaConfig = True
+        PosicionarNaCelulaA1
+        RemoverBarraTitulo
+    End If
+End Sub
+
+Private Sub PosicionarNaCelulaA1()
+    On Error Resume Next
+    
+    ActiveWindow.Zoom = 100
+    ActiveWindow.ScrollRow = 1
+    ActiveWindow.ScrollColumn = 1
+    DoEvents
+    
+    ' Metodo 1: PointsToScreenPixels (mais preciso)
+    Dim px As Double, py As Double
+    px = ActiveWindow.PointsToScreenPixelsX(ActiveSheet.Range("A1").Left)
+    py = ActiveWindow.PointsToScreenPixelsY(ActiveSheet.Range("A1").Top)
+    
+    If Err.Number = 0 And px > 0 And py > 0 Then
+        Me.Left = px - NUM_DESLOCAMENTO_X
+        Me.Top = py - NUM_DESLOCAMENTO_Y
+        Me.Width = NUM_LARGURA
+        Me.Height = NUM_ALTURA
+    Else
+        ' Metodo 2: Fallback estimado (ajuste manual se necessario)
+        Err.Clear
+        Me.Left = Application.Left + 5
+        Me.Top = Application.Top + 120
+    End If
+    
+    On Error GoTo 0
+End Sub
+
+Private Sub RemoverBarraTitulo()
+    Dim hWnd As LongPtr, estilo As Long
+    
+    hWnd = FindWindow(vbNullString, Me.Caption)
+    If hWnd = 0 Then hWnd = FindWindow("ThunderDFrame", vbNullString)
+    
+    If hWnd <> 0 Then
+        estilo = GetWindowLong(hWnd, GWL_STYLE)
+        estilo = estilo And (Not WS_CAPTION)
+        SetWindowLong hWnd, GWL_STYLE, estilo
+        SetWindowPos hWnd, 0, 0, 0, 0, 0, SWP_NOSIZE Or SWP_NOZORDER Or SWP_FRAMECHANGED Or SWP_NOMOVE
+    End If
 End Sub
 
 Private Sub PreencherGrid()

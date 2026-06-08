@@ -277,4 +277,239 @@ PROXIMA SESSAO:
 1. Colar frmRegistroCode.txt e frmPrincipalCode.txt no VBA
 2. Testar Add/Edit/Excluir
 3. Testar regra NFe (preencher/apagar/editar)
+
+[08/06 - USUARIO] "Continue if you have next steps" / Login fechava imediatamente
+[08/06 - AGENTE] Diagnosticou frmLogin: cmdEntrar_Click usava Me.Hide (apenas esconde) em vez de Unload Me. Com vbModal, o Workbook_Open ficava travado na linha amarela e nunca chegava ao frmPrincipal.Show. Corrigiu: Unload Me no cmdEntrar_Click.
+
+[08/06 - USUARIO] "muito bom mais um progresso agora vamos tentar colocar o formulario no lugar correto"
+[08/06 - AGENTE] Form estava aparecendo na linha A4 em vez de A1. Moveu PosicionarNaCelulaA1 do UserForm_Initialize para UserForm_Activate (garante que scroll/zoom ja terminaram). Adicionou constantes de ajuste:
+  - NUM_DESLOCAMENTO_Y (ajuste vertical)
+  - NUM_DESLOCAMENTO_X (ajuste horizontal)
+  - NUM_LARGURA (largura do form)
+  - NUM_ALTURA (altura do form)
+
+[08/06 - USUARIO] "encontrei o numero ideal é -60 agora preciso ajustar o left"
+[08/06 - AGENTE] Ajustou NUM_DESLOCAMENTO_Y = 60. Adicionou NUM_DESLOCAMENTO_X = 0 para o usuario ajustar o horizontal.
+
+[08/06 - USUARIO] "certo o formulario esta posicionado corretamente agora preciso de variaves para ajustar a altura e largura do mesmo"
+[08/06 - AGENTE] Criou NUM_LARGURA = 700 e NUM_ALTURA = 650 como constantes. Substituiu valores hardcoded nas 2 ocorrencias (Initialize e PosicionarNaCelulaA1). Agora o usuario ajusta altura/largura alterando apenas as constantes no topo.
+
+===============================================================================
+CODIGO COMPLETO - frmPrincipalCode.txt (08/06)
+===============================================================================
+Copiar e colar no code-behind do frmPrincipal no VBA Editor:
+
+Option Explicit
+
+Private Declare PtrSafe Function FindWindow Lib "user32" Alias "FindWindowA" _
+    (ByVal lpClassName As String, ByVal lpWindowName As String) As LongPtr
+Private Declare PtrSafe Function SetWindowLong Lib "user32" Alias "SetWindowLongA" _
+    (ByVal hWnd As LongPtr, ByVal nIndex As Long, ByVal dwNewLong As Long) As LongPtr
+Private Declare PtrSafe Function GetWindowLong Lib "user32" Alias "GetWindowLongA" _
+    (ByVal hWnd As LongPtr, ByVal nIndex As Long) As Long
+Private Declare PtrSafe Function SetWindowPos Lib "user32" _
+    (ByVal hWnd As LongPtr, ByVal hWndInsertAfter As LongPtr, _
+     ByVal X As Long, ByVal Y As Long, ByVal cx As Long, ByVal cy As Long, _
+     ByVal wFlags As Long) As Long
+
+Private Const GWL_STYLE As Long = -16
+Private Const WS_CAPTION As Long = &HC00000
+Private Const SWP_NOMOVE As Long = &H2
+Private Const SWP_NOSIZE As Long = &H1
+Private Const SWP_NOZORDER As Long = &H4
+Private Const SWP_FRAMECHANGED As Long = &H20
+Private Const NUM_DESLOCAMENTO_Y As Long = 60   ' <-- Ajuste ate o form ficar na linha 1
+Private Const NUM_DESLOCAMENTO_X As Long = 0    ' <-- Ajuste ate o form ficar na coluna 1
+Private Const NUM_LARGURA As Long = 700         ' <-- Largura do form em pixels
+Private Const NUM_ALTURA As Long = 650          ' <-- Altura do form em pixels
+
+Private Sub UserForm_Initialize()
+    Me.StartUpPosition = 0
+    Me.Width = NUM_LARGURA
+    Me.Height = NUM_ALTURA
+    
+    lblUsuarioLogado.Caption = "Usuario: " & modAutenticacao.EmailAtual
+    lblFaturamento.ForeColor = RGB(0, 118, 182)
+    lblFaturamento.Font.Bold = True
+    lblGlosa.ForeColor = RGB(0, 118, 182)
+    lblGlosa.Font.Bold = True
+    lblPerda.ForeColor = RGB(0, 118, 182)
+    lblPerda.Font.Bold = True
+    
+    If modDados.CarregarDadosUsuario(modAutenticacao.UsuarioAtual) Then
+        PreencherGrid
+        AtualizarNavegacao
+        AtualizarSubtotais
+    End If
+    AtualizarBotoesAcao
+End Sub
+
+Private Sub UserForm_Activate()
+    Static jaConfig As Boolean
+    If Not jaConfig Then
+        jaConfig = True
+        PosicionarNaCelulaA1
+        RemoverBarraTitulo
+    End If
+End Sub
+
+Private Sub PosicionarNaCelulaA1()
+    On Error Resume Next
+    
+    ActiveWindow.Zoom = 100
+    ActiveWindow.ScrollRow = 1
+    ActiveWindow.ScrollColumn = 1
+    DoEvents
+    
+    Dim px As Double, py As Double
+    px = ActiveWindow.PointsToScreenPixelsX(ActiveSheet.Range("A1").Left)
+    py = ActiveWindow.PointsToScreenPixelsY(ActiveSheet.Range("A1").Top)
+    
+    If Err.Number = 0 And px > 0 And py > 0 Then
+        Me.Left = px - NUM_DESLOCAMENTO_X
+        Me.Top = py - NUM_DESLOCAMENTO_Y
+        Me.Width = NUM_LARGURA
+        Me.Height = NUM_ALTURA
+    Else
+        Err.Clear
+        Me.Left = Application.Left + 5
+        Me.Top = Application.Top + 120
+    End If
+    
+    On Error GoTo 0
+End Sub
+
+Private Sub RemoverBarraTitulo()
+    Dim hWnd As LongPtr, estilo As Long
+    
+    hWnd = FindWindow(vbNullString, Me.Caption)
+    If hWnd = 0 Then hWnd = FindWindow("ThunderDFrame", vbNullString)
+    
+    If hWnd <> 0 Then
+        estilo = GetWindowLong(hWnd, GWL_STYLE)
+        estilo = estilo And (Not WS_CAPTION)
+        SetWindowLong hWnd, GWL_STYLE, estilo
+        SetWindowPos hWnd, 0, 0, 0, 0, 0, SWP_NOSIZE Or SWP_NOZORDER Or SWP_FRAMECHANGED Or SWP_NOMOVE
+    End If
+End Sub
+
+Private Sub PreencherGrid()
+    Dim dados As Variant
+    dados = modDados.GetPageDataFormatado
+    
+    With lstDados
+        .Clear
+        If Not IsArray(dados) Then Exit Sub
+        If UBound(dados, 1) < 0 Then Exit Sub
+        .ColumnCount = 13
+        .ColumnWidths = "65;80;80;250;90;60;120;80;80;80;80;80;80"
+        .List = dados
+    End With
+    AtualizarBotoesAcao
+End Sub
+
+Private Sub AtualizarNavegacao()
+    lblPagina.Caption = modDados.GetPageInfo
+    cmdAnterior.Enabled = (modDados.GetCurrentPage > 1)
+    cmdProximo.Enabled = (modDados.GetCurrentPage < modDados.GetTotalPages)
+End Sub
+
+Private Sub AtualizarSubtotais()
+    Dim fat As Double, perda As Double, glosa As Double
+    modDados.CalcularSubtotais fat, perda, glosa
+    lblFaturamento.Caption = "R$ " & Format$(fat, "#,##0.00")
+    lblGlosa.Caption = "R$ " & Format$(glosa, "#,##0.00")
+    lblPerda.Caption = "R$ " & Format$(perda, "#,##0.00")
+End Sub
+
+Private Sub txtBoxFiltro_Change()
+    modDados.AplicarFiltro txtBoxFiltro.Value
+    PreencherGrid
+    AtualizarNavegacao
+    AtualizarSubtotais
+End Sub
+
+Private Sub cmdAnterior_Click()
+    modDados.PreviousPage
+    PreencherGrid
+    AtualizarNavegacao
+End Sub
+
+Private Sub cmdProximo_Click()
+    modDados.NextPage
+    PreencherGrid
+    AtualizarNavegacao
+End Sub
+
+Private Sub lstDados_Click()
+    AtualizarBotoesAcao
+End Sub
+
+Private Sub AtualizarBotoesAcao()
+    Dim selecionou As Boolean
+    selecionou = (lstDados.ListIndex >= 0)
+    cmdEditar.Enabled = selecionou
+    cmdExcluir.Enabled = selecionou
+End Sub
+
+Private Sub cmdAdd_Click()
+    Dim frm As frmRegistro
+    Set frm = New frmRegistro
+    frm.Mostrar False
+    If modDados.CarregarDadosUsuario(modAutenticacao.UsuarioAtual) Then
+        txtBoxFiltro.Value = ""
+        PreencherGrid
+        AtualizarNavegacao
+        AtualizarSubtotais
+    End If
+End Sub
+
+Private Sub cmdEditar_Click()
+    If lstDados.ListIndex = -1 Then
+        MsgBox "Selecione um registro.", vbExclamation, "Editar"
+        Exit Sub
+    End If
+    Dim rawPage As Variant, guid As String
+    rawPage = modDados.GetPageData
+    If Not IsArray(rawPage) Then Exit Sub
+    guid = rawPage(lstDados.ListIndex, 0)
+    Dim frm As frmRegistro
+    Set frm = New frmRegistro
+    frm.Mostrar True, guid
+    If modDados.CarregarDadosUsuario(modAutenticacao.UsuarioAtual) Then
+        PreencherGrid
+        AtualizarNavegacao
+        AtualizarSubtotais
+    End If
+End Sub
+
+Private Sub cmdExcluir_Click()
+    If lstDados.ListIndex = -1 Then
+        MsgBox "Selecione um registro.", vbExclamation, "Excluir"
+        Exit Sub
+    End If
+    Dim rawPage As Variant, guid As String
+    rawPage = modDados.GetPageData
+    If Not IsArray(rawPage) Then Exit Sub
+    guid = rawPage(lstDados.ListIndex, 0)
+    If MsgBox("Deseja excluir este registro?", vbQuestion + vbYesNo, "Excluir") = vbYes Then
+        If modDados.ExcluirRegistro(guid) Then
+            If modDados.CarregarDadosUsuario(modAutenticacao.UsuarioAtual) Then
+                txtBoxFiltro.Value = ""
+                PreencherGrid
+                AtualizarNavegacao
+                AtualizarSubtotais
+            End If
+        Else
+            MsgBox "Erro ao excluir registro.", vbCritical, "Erro"
+        End If
+    End If
+End Sub
+
+Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
+    If CloseMode = 0 Then
+        modAutenticacao.ResetarSessao
+        Unload Me
+    End If
+End Sub
 ===============================================================================
