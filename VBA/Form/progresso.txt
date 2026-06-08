@@ -294,8 +294,30 @@ PROXIMA SESSAO:
 [08/06 - USUARIO] "certo o formulario esta posicionado corretamente agora preciso de variaves para ajustar a altura e largura do mesmo"
 [08/06 - AGENTE] Criou NUM_LARGURA = 700 e NUM_ALTURA = 650 como constantes. Substituiu valores hardcoded nas 2 ocorrencias (Initialize e PosicionarNaCelulaA1). Agora o usuario ajusta altura/largura alterando apenas as constantes no topo.
 
+[08/06 - USUARIO] Solicitou Tahoma 7/6 no listbox. Tamanho 6 definido via codigo no Initialize.
+[08/06 - USUARIO] "a ideia de fixar o formulario nao funciona (...) vamos simplificar"
+[08/06 - USUARIO] Decisao final:
+   - Form centralizado na tela (StartUpPosition = 2)
+   - NUM_LARGURA = 1050, NUM_ALTURA = 430
+   - Usuario pode mover o form (sem restricao de posicao)
+   - Sem barra de titulo (RemoveCaption mantida)
+   - PosicionarNaCelulaA1 removida
+   - NUM_DESLOCAMENTO_X/Y removidos
+   - Observacao: coluna sera removida (ColumnCount de 13 para 12) - ajuste manual
+
+ESTADO ATUAL:
+- frmPrincipalCode.txt: 1050x430, centralizado, sem barra, Tahoma 6
+- ColumnWidths e ColumnCount ajustaveis manualmente pelo usuario
+- Modulos (modAutenticacao, modDados, frmRegistro) inalterados nesta sessao
+
+PROXIMA SESSAO:
+1. Colar frmPrincipalCode.txt no VBA
+2. Ajustar ColumnWidths manualmente
+3. Remover coluna Observacao (reduzir ColumnCount para 12)
+4. Ajustar labels cabecalho conforme novo layout
+
 ===============================================================================
-CODIGO COMPLETO - frmPrincipalCode.txt (08/06)
+CODIGO COMPLETO - frmPrincipalCode.txt (08/06 - VERSAO FINAL)
 ===============================================================================
 Copiar e colar no code-behind do frmPrincipal no VBA Editor:
 
@@ -318,15 +340,18 @@ Private Const SWP_NOMOVE As Long = &H2
 Private Const SWP_NOSIZE As Long = &H1
 Private Const SWP_NOZORDER As Long = &H4
 Private Const SWP_FRAMECHANGED As Long = &H20
-Private Const NUM_DESLOCAMENTO_Y As Long = 60   ' <-- Ajuste ate o form ficar na linha 1
-Private Const NUM_DESLOCAMENTO_X As Long = 0    ' <-- Ajuste ate o form ficar na coluna 1
-Private Const NUM_LARGURA As Long = 700         ' <-- Largura do form em pixels
-Private Const NUM_ALTURA As Long = 650          ' <-- Altura do form em pixels
+Private Const NUM_LARGURA As Long = 1050        ' <-- Largura do form
+Private Const NUM_ALTURA As Long = 430          ' <-- Altura do form
 
 Private Sub UserForm_Initialize()
-    Me.StartUpPosition = 0
+    Me.StartUpPosition = 2
     Me.Width = NUM_LARGURA
     Me.Height = NUM_ALTURA
+    
+    With lstDados
+        .Font.Name = "Tahoma"
+        .Font.Size = 6
+    End With
     
     lblUsuarioLogado.Caption = "Usuario: " & modAutenticacao.EmailAtual
     lblFaturamento.ForeColor = RGB(0, 118, 182)
@@ -348,35 +373,8 @@ Private Sub UserForm_Activate()
     Static jaConfig As Boolean
     If Not jaConfig Then
         jaConfig = True
-        PosicionarNaCelulaA1
         RemoverBarraTitulo
     End If
-End Sub
-
-Private Sub PosicionarNaCelulaA1()
-    On Error Resume Next
-    
-    ActiveWindow.Zoom = 100
-    ActiveWindow.ScrollRow = 1
-    ActiveWindow.ScrollColumn = 1
-    DoEvents
-    
-    Dim px As Double, py As Double
-    px = ActiveWindow.PointsToScreenPixelsX(ActiveSheet.Range("A1").Left)
-    py = ActiveWindow.PointsToScreenPixelsY(ActiveSheet.Range("A1").Top)
-    
-    If Err.Number = 0 And px > 0 And py > 0 Then
-        Me.Left = px - NUM_DESLOCAMENTO_X
-        Me.Top = py - NUM_DESLOCAMENTO_Y
-        Me.Width = NUM_LARGURA
-        Me.Height = NUM_ALTURA
-    Else
-        Err.Clear
-        Me.Left = Application.Left + 5
-        Me.Top = Application.Top + 120
-    End If
-    
-    On Error GoTo 0
 End Sub
 
 Private Sub RemoverBarraTitulo()
@@ -512,4 +510,3 @@ Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
         Unload Me
     End If
 End Sub
-===============================================================================

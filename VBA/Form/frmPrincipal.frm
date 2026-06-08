@@ -1,10 +1,10 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} frmPrincipal 
    Caption         =   "Registros"
-   ClientHeight    =   9495.001
+   ClientHeight    =   8010
    ClientLeft      =   120
    ClientTop       =   465
-   ClientWidth     =   13755
+   ClientWidth     =   20760
    OleObjectBlob   =   "frmPrincipal.frx":0000
    StartUpPosition =   1  'CenterOwner
 End
@@ -32,17 +32,18 @@ Private Const SWP_NOMOVE As Long = &H2
 Private Const SWP_NOSIZE As Long = &H1
 Private Const SWP_NOZORDER As Long = &H4
 Private Const SWP_FRAMECHANGED As Long = &H20
-Private Const NUM_DESLOCAMENTO_Y As Long = 60   ' <-- Ajuste ate o form ficar na linha 1
-Private Const NUM_DESLOCAMENTO_X As Long = 0    ' <-- Ajuste ate o form ficar na coluna 1
-
-Private Sub Frame1_Click()
-
-End Sub
+Private Const NUM_LARGURA As Long = 1050        ' <-- Largura do form
+Private Const NUM_ALTURA As Long = 430          ' <-- Altura do form
 
 Private Sub UserForm_Initialize()
-    Me.StartUpPosition = 0
-    Me.Width = 700
-    Me.Height = 650
+    Me.StartUpPosition = 2
+    Me.Width = NUM_LARGURA
+    Me.Height = NUM_ALTURA
+    
+    With lstDados
+        .Font.Name = "Tahoma"
+        .Font.Size = 6
+    End With
     
     lblUsuarioLogado.Caption = "Usuario: " & modAutenticacao.EmailAtual
     lblFaturamento.ForeColor = RGB(0, 118, 182)
@@ -64,37 +65,8 @@ Private Sub UserForm_Activate()
     Static jaConfig As Boolean
     If Not jaConfig Then
         jaConfig = True
-        PosicionarNaCelulaA1
         RemoverBarraTitulo
     End If
-End Sub
-
-Private Sub PosicionarNaCelulaA1()
-    On Error Resume Next
-    
-    ActiveWindow.Zoom = 100
-    ActiveWindow.ScrollRow = 1
-    ActiveWindow.ScrollColumn = 1
-    DoEvents
-    
-    ' Metodo 1: PointsToScreenPixels (mais preciso)
-    Dim px As Double, py As Double
-    px = ActiveWindow.PointsToScreenPixelsX(ActiveSheet.Range("A1").Left)
-    py = ActiveWindow.PointsToScreenPixelsY(ActiveSheet.Range("A1").Top)
-    
-    If Err.Number = 0 And px > 0 And py > 0 Then
-        Me.Left = px - 5    ' deslocamento X
-        Me.Top = py - 60    ' deslocamento Y
-        Me.Width = 700
-        Me.Height = 650
-    Else
-        ' Metodo 2: Fallback estimado (ajuste manual se necessario)
-        Err.Clear
-        Me.Left = Application.Left + 5
-        Me.Top = Application.Top + 120
-    End If
-    
-    On Error GoTo 0
 End Sub
 
 Private Sub RemoverBarraTitulo()
