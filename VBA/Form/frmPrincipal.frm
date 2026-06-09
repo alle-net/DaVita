@@ -1,7 +1,7 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} frmPrincipal 
    Caption         =   "Registros"
-   ClientHeight    =   8010
+   ClientHeight    =   8235.001
    ClientLeft      =   120
    ClientTop       =   465
    ClientWidth     =   20760
@@ -15,36 +15,7 @@ Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 Option Explicit
 
-Private Declare PtrSafe Function FindWindow Lib "user32" Alias "FindWindowA" _
-    (ByVal lpClassName As String, ByVal lpWindowName As String) As LongPtr
-Private Declare PtrSafe Function SetWindowLong Lib "user32" Alias "SetWindowLongA" _
-    (ByVal hWnd As LongPtr, ByVal nIndex As Long, ByVal dwNewLong As Long) As LongPtr
-Private Declare PtrSafe Function GetWindowLong Lib "user32" Alias "GetWindowLongA" _
-    (ByVal hWnd As LongPtr, ByVal nIndex As Long) As Long
-Private Declare PtrSafe Function SetWindowPos Lib "user32" _
-    (ByVal hWnd As LongPtr, ByVal hWndInsertAfter As LongPtr, _
-     ByVal X As Long, ByVal Y As Long, ByVal cx As Long, ByVal cy As Long, _
-     ByVal wFlags As Long) As Long
-
-Private Const GWL_STYLE As Long = -16
-Private Const WS_CAPTION As Long = &HC00000
-Private Const SWP_NOMOVE As Long = &H2
-Private Const SWP_NOSIZE As Long = &H1
-Private Const SWP_NOZORDER As Long = &H4
-Private Const SWP_FRAMECHANGED As Long = &H20
-Private Const NUM_LARGURA As Long = 1050        ' <-- Largura do form
-Private Const NUM_ALTURA As Long = 430          ' <-- Altura do form
-
 Private Sub UserForm_Initialize()
-    Me.StartUpPosition = 2
-    Me.Width = NUM_LARGURA
-    Me.Height = NUM_ALTURA
-    
-    With lstDados
-        .Font.Name = "Tahoma"
-        .Font.Size = 6
-    End With
-    
     lblUsuarioLogado.Caption = "Usuario: " & modAutenticacao.EmailAtual
     lblFaturamento.ForeColor = RGB(0, 118, 182)
     lblFaturamento.Font.Bold = True
@@ -61,28 +32,6 @@ Private Sub UserForm_Initialize()
     AtualizarBotoesAcao
 End Sub
 
-Private Sub UserForm_Activate()
-    Static jaConfig As Boolean
-    If Not jaConfig Then
-        jaConfig = True
-        RemoverBarraTitulo
-    End If
-End Sub
-
-Private Sub RemoverBarraTitulo()
-    Dim hWnd As LongPtr, estilo As Long
-    
-    hWnd = FindWindow(vbNullString, Me.Caption)
-    If hWnd = 0 Then hWnd = FindWindow("ThunderDFrame", vbNullString)
-    
-    If hWnd <> 0 Then
-        estilo = GetWindowLong(hWnd, GWL_STYLE)
-        estilo = estilo And (Not WS_CAPTION)
-        SetWindowLong hWnd, GWL_STYLE, estilo
-        SetWindowPos hWnd, 0, 0, 0, 0, 0, SWP_NOSIZE Or SWP_NOZORDER Or SWP_FRAMECHANGED Or SWP_NOMOVE
-    End If
-End Sub
-
 Private Sub PreencherGrid()
     Dim dados As Variant
     dados = modDados.GetPageDataFormatado
@@ -92,7 +41,7 @@ Private Sub PreencherGrid()
         If Not IsArray(dados) Then Exit Sub
         If UBound(dados, 1) < 0 Then Exit Sub
         .ColumnCount = 13
-        .ColumnWidths = "65;80;80;250;90;60;120;80;80;80;80;80;80"
+        .ColumnWidths = "44;70;70;200;70;70;100;44;70;70;70;70;70"
         .List = dados
     End With
     AtualizarBotoesAcao
@@ -159,13 +108,13 @@ Private Sub cmdEditar_Click()
         MsgBox "Selecione um registro.", vbExclamation, "Editar"
         Exit Sub
     End If
-    Dim rawPage As Variant, guid As String
+    Dim rawPage As Variant, GUID As String
     rawPage = modDados.GetPageData
     If Not IsArray(rawPage) Then Exit Sub
-    guid = rawPage(lstDados.ListIndex, 0)
+    GUID = rawPage(lstDados.ListIndex, 0)
     Dim frm As frmRegistro
     Set frm = New frmRegistro
-    frm.Mostrar True, guid
+    frm.Mostrar True, GUID
     If modDados.CarregarDadosUsuario(modAutenticacao.UsuarioAtual) Then
         PreencherGrid
         AtualizarNavegacao
@@ -178,12 +127,12 @@ Private Sub cmdExcluir_Click()
         MsgBox "Selecione um registro.", vbExclamation, "Excluir"
         Exit Sub
     End If
-    Dim rawPage As Variant, guid As String
+    Dim rawPage As Variant, GUID As String
     rawPage = modDados.GetPageData
     If Not IsArray(rawPage) Then Exit Sub
-    guid = rawPage(lstDados.ListIndex, 0)
+    GUID = rawPage(lstDados.ListIndex, 0)
     If MsgBox("Deseja excluir este registro?", vbQuestion + vbYesNo, "Excluir") = vbYes Then
-        If modDados.ExcluirRegistro(guid) Then
+        If modDados.ExcluirRegistro(GUID) Then
             If modDados.CarregarDadosUsuario(modAutenticacao.UsuarioAtual) Then
                 txtBoxFiltro.Value = ""
                 PreencherGrid
@@ -202,5 +151,4 @@ Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
         Unload Me
     End If
 End Sub
-
 
