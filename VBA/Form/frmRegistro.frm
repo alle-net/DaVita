@@ -609,6 +609,7 @@ Private Sub cmdGravar_Click()
     End If
 
     If ok Then
+        ThisWorkbook.Save
         Unload Me
     Else
         lblMensagem.Caption = "Erro ao salvar registro."

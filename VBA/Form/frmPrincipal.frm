@@ -133,6 +133,7 @@ Private Sub cmdExcluir_Click()
     GUID = rawPage(lstDados.ListIndex, 0)
     If MsgBox("Deseja excluir este registro?", vbQuestion + vbYesNo, "Excluir") = vbYes Then
         If modDados.ExcluirRegistro(GUID) Then
+            ThisWorkbook.Save
             If modDados.CarregarDadosUsuario(modAutenticacao.UsuarioAtual) Then
                 txtBoxFiltro.Value = ""
                 PreencherGrid
@@ -148,7 +149,7 @@ End Sub
 Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
     If CloseMode = 0 Then
         modAutenticacao.ResetarSessao
-        Unload Me
+        ThisWorkbook.Close SaveChanges:=True
     End If
 End Sub
 
