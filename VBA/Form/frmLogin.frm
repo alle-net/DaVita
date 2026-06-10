@@ -47,7 +47,7 @@ Private Sub cmdEntrar_Click()
         modAutenticacao.UsuarioAtual = modAutenticacao.ObterIdUsuario(e)
         modAutenticacao.EmailAtual = e
         txtSenha.Value = ""
-        Me.Hide
+        Unload Me
     Else
         lblMensagem = "E-mail ou senha invalidos."
         txtSenha.Value = ""
@@ -57,7 +57,7 @@ End Sub
 Private Sub cmdCancelar_Click()
     If MsgBox("Deseja cancelar?", vbQuestion + vbYesNo, "Login") = vbYes Then
         modAutenticacao.ResetarSessao
-        Unload Me
+        ThisWorkbook.Close SaveChanges:=True
     End If
 End Sub
 Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)

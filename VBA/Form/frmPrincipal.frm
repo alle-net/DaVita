@@ -149,7 +149,10 @@ End Sub
 Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
     If CloseMode = 0 Then
         modAutenticacao.ResetarSessao
-        ThisWorkbook.Close SaveChanges:=True
     End If
+End Sub
+
+Private Sub UserForm_Terminate()
+    ThisWorkbook.Close SaveChanges:=True
 End Sub
 
