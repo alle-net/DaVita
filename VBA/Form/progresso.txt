@@ -152,6 +152,13 @@ PROXIMA SESSAO - COMO RETOMAR
 5. Se labels desalinhados, executar Call AjustarHeaders no Immediate Window
 6. Proximo passo: frmEdicao (Add/Edit com ComboBoxes das dimensoes)
 
+[11/06 - USUARIO] "crie um codigo hash na pasta de trabalho Base Antiga.xlsx na aba Antiga, coluna id"
+[11/06 - AGENTE] Gerou 2279 UUIDs v4 na coluna A (id) da aba Antiga em BD/Base Antiga.xlsx
+   - Formato: xxxxxxxx-xxxx-4xxx-xxxx-xxxxxxxxxxxx (mesmo padrao Google UUID)
+   - Nenhuma outra coluna ou formatacao foi alterada
+   - Validados: 2279/2279 UUIDs no formato correto, 0 invalidos, 0 vazios
+   - Arquivo: BD/Base Antiga.xlsx
+
 [01/06 - USUARIO] Solicitou criacao do botao Adicionar com frmEdicao
 [01/06 - AGENTE] Apresentou plano: hash ID, auto-incremento, GUID. Usuario escolheu GUID.
 
