@@ -42,6 +42,7 @@ Private Sub PreencherGrid()
         If UBound(dados, 1) < 0 Then Exit Sub
         .ColumnCount = 13
         .ColumnWidths = "44;70;70;200;70;70;100;44;70;70;70;70;70"
+        .IntegralHeight = False
         .List = dados
     End With
     AtualizarBotoesAcao

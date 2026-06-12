@@ -82,7 +82,7 @@ Public Sub AplicarFiltro(texto As String)
     
     If txt = "" Then
         ReDim mFilteredIdx(1 To mTotalRecords)
-        For i = 1 To mTotalRecords: mFilteredIdx(i) = i: Next i
+        For i = 1 To mTotalRecords: mFilteredIdx(i) = mTotalRecords - i + 1: Next i
         mTotalFiltered = mTotalRecords
     Else
         n = 0
