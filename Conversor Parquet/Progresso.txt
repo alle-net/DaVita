@@ -1,0 +1,78 @@
+================================================================================
+ CONVERSOR DE ARQUIVOS PARA PARQUET
+================================================================================
+ Python 3.14.2 | Windows
+================================================================================
+
+[2024-06-12] INÍCIO DO PROJETO
+────────────────────────────────────────────────────────────────────────────────
+ Decisões iniciais:
+  - Programa com interface gráfica (tkinter)
+  - Usuário coloca arquivos na pasta Downloads/Entrada
+  - Programa converte tudo para Parquet e salva em Downloads/Saida
+  - Suporte a: xlsx, xlsm, xls, csv, json, txt, xml, html, ods, parquet
+  - Tratamento especial para JSON aninhado (flatten), HTML sem tabelas, TXT
+    com detecção de delimitador
+  - Geração de executável com PyInstaller
+
+ Ambiente virtual criado: venv/
+ Dependências instaladas:
+   - pandas 3.0.3
+   - pyarrow 24.0.0
+   - openpyxl 3.1.5
+   - lxml 6.1.1
+   - xlrd 2.0.2
+   - odfpy 1.4.1
+   - numpy 2.4.6
+────────────────────────────────────────────────────────────────────────────────
+
+ESTRUTURA DO PROGRAMA
+────────────────────────────────────────────────────────────────────────────────
+ Arquivo principal: conversor_parquet.py
+ Interface: tkinter (nativo do Python)
+ Fluxo:
+   1. Programa cria pastas Entrada/Saida em Downloads
+   2. Interface mostra os arquivos encontrados na pasta Entrada
+   3. Usuário clica em "Converter Tudo"
+   4. Programa converte cada arquivo para .parquet
+   5. Salva em Saida com timestamp
+
+  Tratamentos especiais planejados:
+    - JSON: flatten com json_normalize para objetos aninhados
+    - HTML: fallback com lxml se read_html não funcionar
+    - TXT: detecção inteligente de delimitador
+    - Excel multi-planilhas: um parquet por planilha
+────────────────────────────────────────────────────────────────────────────────
+
+[2024-06-12] CRIAÇÃO DO PROGRAMA
+────────────────────────────────────────────────────────────────────────────────
+ Arquivo: conversor_parquet.py
+
+ Funcionalidades implementadas:
+   - Interface tkinter completa
+   - Criação automática da pasta Entrada em Downloads
+   - Escaneamento de arquivos (com/sem subpastas)
+   - Opções: Engine Excel, tipo de compressão
+   - Lista de arquivos com tamanho, tipo e status
+   - Conversão em lote com barra de progresso e log
+   - Pasta de saída: Downloads/Saida/Saida_YYYYMMDD_HHMMSS
+   - Tratamento adaptativo para cada formato
+
+ Formatos suportados:
+   - Excel (.xlsx, .xlsm, .xls) → multi-planilhas vira múltiplos parquets
+   - ODS (.ods)
+   - CSV (.csv) → tenta utf-8, latin-1, cp1252
+   - TXT (.txt) → detecção automática de delimitador
+   - JSON (.json) → flatten automático para objetos aninhados
+   - XML (.xml)
+   - HTML (.html, .htm) → extrai tabelas; fallback lxml
+   - Parquet (.parquet) → recompressão
+
+ Executável gerado: dist/ConversorParquet.exe
+────────────────────────────────────────────────────────────────────────────────
+
+[2024-06-12] COMMIT E PUSH PARA GITHUB
+────────────────────────────────────────────────────────────────────────────────
+ Commit: "Adiciona Conversor para Parquet - interface tkinter + executável"
+ Enviado para: origin/master
+────────────────────────────────────────────────────────────────────────────────
