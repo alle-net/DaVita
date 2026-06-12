@@ -1,0 +1,280 @@
+===============================================================================
+PROGRESSO - Form
+===============================================================================
+Data: 01/06/2026
+
+===============================================================================
+HISTORICO DA SESSAO
+===============================================================================
+
+1. SINCRONIZACAO LOCAL COM GITHUB
+   - Repositorio local sincronizado com o origin/master
+   - git pull executado com sucesso
+   - Commit atual: 7ba5154 "frmPrincipal com layout do usuario + codigo completo"
+   - Pastas locais e remotas estao alinhadas
+
+===============================================================================
+INTERACOES REGISTRADAS
+===============================================================================
+
+[30/05 - USUARIO] "preciso que voce seja um profissional especialista em vba com muitos anos de experiencia na area (...) voce avalia minuciosamente o projeto para que as novas alteracoes nao afetem o quebrem o que ja foi implantado"
+[30/05 - AGENTE] Confirmou metodo de trabalho: 1. Usuario solicita / 2. Agente apresenta solucao / 3. Avalia impacto / So altera com autorizacao
+
+[30/05 - USUARIO] "crie um arquivo txt com o nome de progresso.txt e grave nele toda a nossa conversa"
+[30/05 - AGENTE] Leu todo o projeto (modAutenticacao.bas, modDados.bas, frmLogin.frm, progresso.txt anterior). Criou progresso.txt em VBA/Form/ com estado completo do projeto.
+
+[30/05 - USUARIO] "houve perda de arquivos no projeto (...) vamos sincronizar a pasta do projeto com a pasta que esta no github no Repositorio: DaVita/VBA/Form"
+[30/05 - AGENTE] Diagnosticou: local atrasado 4 commits, pastas nao trackeadas. Moveu pastas conflitantes para *_local/, removeu progresso.txt temporario, executou git pull. VBA/Form/ agora com excluir.txt (placeholder).
+
+[30/05 - USUARIO] "aguarde preciso formatar uma pasta de trabalho do excel onde vao estar os formularios"
+[30/05 - AGENTE] Aguardando.
+
+[30/05 - USUARIO] "coloque como primeira acao no arquivo progresso.txt a sincronizacao com o github"
+[30/05 - AGENTE] Atualizou progresso.txt com registro da sincronizacao.
+
+[30/05 - USUARIO] "no arquivo progresso.txt nao precisa mencionar nada sobre o projeto anterior esse e totalmente novo"
+[30/05 - AGENTE] Simplificou progresso.txt: apenas sincronizacao, sem mencao ao projeto anterior.
+
+[30/05 - USUARIO] "grave todas as nossas interacoes ou seja tudo que aparece no console deve estar dentro do arquivo solicitacoes codigos tudo"
+[30/05 - AGENTE] Ok. A partir de agora todo o conteudo da conversa sera registrado neste arquivo.
+
+[30/05 - USUARIO] "ok"
+[30/05 - AGENTE] Aguardando usuario preparar a pasta de trabalho Excel.
+
+[30/05 - USUARIO] "ok temos os dados para que possamos fazer a tela de login eu vou criar um formulario manual e voce cria os codigos"
+[30/05 - AGENTE] Inspecionou Form.xlsm: 3 abas (Form, dUsuarios, Dados). Propos criar modAutenticacao.bas + code-behind frmLogin + ThisWorkbook.
+
+[30/05 - USUARIO] "criei o formulario vamos continuar"
+[30/05 - AGENTE] Verificou form: imgLogo, lblEmail, cboEmail (Style=2), lblSenha, txtSenha (PasswordChar=*), lblMensagem, cmdEntrar, cmdCancelar.
+
+[30/05 - USUARIO] "crie os blocos de codigo e os modulos"
+[30/05 - AGENTE] Injetou via COM no Form.xlsm:
+   - modAutenticacao (46 linhas): CarregarEmailsAtivos, VerificarCredenciais, ObterIdUsuario, ResetarSessao
+   - frmLogin (50 linhas): events Initialize, cboEmail_Change, txtSenha_Change, cmdEntrar_Click, cmdCancelar_Click, QueryClose
+   - ThisWorkbook (9 linhas): Workbook_Open (frmLogin.Show), Workbook_BeforeClose (ResetarSessao)
+   - Senha atual: "102030" (provisorio)
+
+[30/05 - USUARIO] "tem uma lista com os e-mails e as senhas no codigo?"
+[30/05 - AGENTE] Emails vem da tabela dUsuario (planilha). Senha hardcoded "102030" no modAutenticacao.
+
+[30/05 - USUARIO] "como posso mudar a senha?"
+[30/05 - AGENTE] Explicou que altera a linha VerificarCredenciais = (pSenha = "102030") no modAutenticacao.
+
+[30/05 - USUARIO] "como faco para testar o form?"
+[30/05 - AGENTE] Explicou F5 no VBA ou fechar/reabrir o Form.xlsm. Necessario ter email com Status=1 na dUsuario.
+
+[30/05 - USUARIO] "certo atualize o arquivo progresso e faca o commit para o github como tela de login"
+[30/05 - AGENTE] Commit realizado: "Tela de login - frmLogin + modAutenticacao"
+
+[30/05 - USUARIO] "agora preciso tirar uma duvida como podemos fazer um campo de filtro no formulario (...) filtrar qualquer coluna na caixa de listagem?"
+[30/05 - AGENTE] Explicou filtro textual unico percorrendo todas as 16 colunas em memoria.
+
+[30/05 - USUARIO] codigo de exemplo de formatacao dual-array
+[30/05 - AGENTE] Analisou codigo do usuario e confirmou compatibilidade com a arquitetura ja existente em modDados.
+
+[30/05 - USUARIO] "enquanto isso vou criar o frmPrincipal"
+[30/05 - AGENTE] Aguardou criacao do frmPrincipal. Exportou frmPrincipal.frm e extraiu controles do .frx.
+
+[30/05 - USUARIO] Confirmou nomes dos controles: imgLogofrmPrincipal, lblTitulo, lblFaturamento, lblGlosa, lblPerda, lblFiltrar, txtBoxFiltro, cmdAdd, cmdExcluir, cmdEditar, cmdAtualizar, lstDados
+[30/05 - USUARIO] Criou controles adicionais: cmdAnterior, cmdProximo, lblPagina, lblUsuarioLogado
+
+[30/05 - AGENTE] Criou modDados.bas adaptado (tabela TabDados, filtro em memoria, subtotais). Preparou codigo do frmPrincipal (48 linhas) e atualizou ThisWorkbook. Tentou injecao via COM mas timeout - orientou colagem manual.
+
+[30/05 - USUARIO] "agora faco o commit para o github"
+[30/05 - AGENTE] Commit 3869b4a "frmPrincipal + modDados - grid, filtro, subtotais, navegacao"
+
+[30/05 - USUARIO] "vou voltar mais tarde" / "estou de volta"
+[30/05 - USUARIO] Labels de subtotais: criou lblTituloFat, lblTituloGlosa, lblTituloPerda
+[30/05 - AGENTE] Atualizou frmPrincipalCode.txt com titulos em azul e valores so com "R$"
+
+[30/05 - USUARIO] Tentou colar codigos manualmente mas erro 800a0011 (FRX corrompido)
+[30/05 - AGENTE] Criou frmPrincipal.frm limpo (sem FRX). Criou CriarControles.bas (macro para gerar controles automaticamente). Modulo apresentou erro de compilacao.
+
+[30/05 - USUARIO] "retorne ao projeto salvo no github"
+[30/05 - USUARIO] "guardes as informacoes no arquivo de progresso e tentaremos de novo amanha"
+
+[31/05 - USUARIO] "vamos continuar (...) de uma forma mais organizada (...) quero ver o progresso" 
+[31/05 - AGENTE] Leu progresso.txt, analisou estado atual. Identificou que frmPrincipal ja tinha controles criados manualmente.
+
+[31/05 - USUARIO] "me faca um resumo do que fizemos ate agora (...) quero saber exatamente de ponto a ponto"
+[31/05 - AGENTE] Criou resumo estruturado: layout do usuario preservado, frmPrincipal importado com FRX, modDados com 13 colunas formatadas, LISTBOX (sem MSCOMCTL.OCX), paginacao (PAGE_SIZE=25), filtro, subtotais, QueryClose corrigido.
+
+[31/05 - USUARIO] Revisou objetivos: preservar layout manual, nao usar CriarControles.bas para nao resetar o FRX, usar ListBox sem dependencias externas, resolver IDs das tabelas dimensao.
+
+[31/05 - USUARIO] "para terminar por hoje vamo corrigir o erro no campo de busca (...) erro em tempo de execucao 9 subscrito fora do intervalo (...) ReDim res(0 To n - 1, 0 To 12) esta em amarelo"
+[31/05 - AGENTE] Corrigiu GetPageDataFormatado: validacao de array vazio (On Error Resume Next n = UBound) antes do ReDim.
+
+[31/05 - USUARIO] "o erro ainda aparece (...) AplicarFiltro (...) mFilteredIdx(n) = i esta amarelo"
+[31/05 - AGENTE] Corrigiu AplicarFiltro: adicionou ReDim mFilteredIdx(1 To mTotalRecords) antes do loop na branch de filtro ativo (txt <> ""), pois o array nao era redimensionado.
+
+[31/05 - USUARIO] "o filtro nao esta funcionando como deveria se eu escrever rj ele deveria filtrar todas as regionais rj - mg"
+[31/05 - AGENTE] Diagnosticou que AplicarFiltro buscava em mAllData (dados crus com IDs numericos), nao nos textos resolvidos. Criou mAllDataSearchable() As String e funcao ResolveSearchText que pre-resolve todas as dimensoes e formata datas/valores. AplicarFiltro agora busca em mAllDataSearchable.
+
+[31/05 - USUARIO] "ainda nao esta funcionando parece que so le a primeira letra"
+[31/05 - AGENTE] Descobriu que ResolveSearchText usava indices de coluna errados (Case 3 = Hospital, mas deveria ser Case 4). Corrigiu mapeamento: Case 4=Hospital, 5=Regional, 6=Unidade, 9=StatusNFe, 10=MotivoGlosa.
+
+[31/05 - USUARIO] "certo agora so falta corrigir o filtro de competencia que nao esta funcionando (...) mmm/aaaa com primeira letra maiuscula"
+[31/05 - AGENTE] Adicionou Case 3 em ResolveSearchText para formatar Competencia como "Jan/2026" (mesmo formato exibido no grid).
+
+[31/05 - USUARIO] "Perfeito faca o commit e atualize o arquivo progresso.txt"
+
+[01/06 - USUARIO] "leia o arquivo progresso para continuarmos o desenvolvimento"
+[01/06 - AGENTE] Leu progresso.txt, modDados.bas, modAutenticacao.bas, frmPrincipal.frm. Proximo passo: frmEdicao.
+
+[01/06 - USUARIO] Pediu alteracoes no modDados: 1) truncar Observacao em 80 chars, 2) remover simbolo R$ das colunas de valor
+[01/06 - AGENTE] Alterou modDados.bas: Left$(raw(i,14),80) e format #,##0.00 sem R$
+
+[01/06 - USUARIO] Reportou erro de filtro novamente (ReDim res subscript out of range)
+[01/06 - AGENTE] Codigo ja tinha protecao On Error/If n=0. Orientou reimportar modDados.bas.
+
+[01/06 - USUARIO] Pediu alinhamento dos labels de cabecalho com as colunas do lstDados
+[01/06 - AGENTE] Multiplas tentativas via AlinharCabecalhos (dinamico), AjustarHeaders (macro), modDiagnostico. Todas apresentaram problemas de posicionamento devido a conversao points->twips e bordas do ListBox. Reverteu alteracoes via git.
+
+[01/06 - USUARIO] Criou labels manualmente (lblHdrCompetencia, etc.) e ajustou posicoes no VBA
+[01/06 - AGENTE] Criou modDebug.bas (macro Reset), modDiagnostico.bas (mostrar posicoes), AjustarHeaders.bas (macro com fator de ajuste configuravel)
+
+[01/06 - USUARIO] Salvou alteracoes e pediu commit
+[01/06 - AGENTE] Commit e463741 "Ajuste labels cabecalho + colunas sem R$, observacao 80 chars"
+
+--- ESTADO ATUAL DOS ARQUIVOS ---
+- modDados.bas: valores sem R$ (#,##0.00), Observacao truncada em 80 chars
+- frmPrincipal.frm: ColumnWidths ajustadas pelo usuario ("65;80;80;220;90;80;110;80;100;80;80;80;80")
+- Labels de cabecalho: lblHdrCompetencia, lblHdrRegional, lblHdrUnidade, lblHdrHospital, lblHdrTitulo, lblHdrNFe, lblHdrStatusNFe, lblHdrDataEnvio, lblHdrMotivoGlosa, lblHdrFaturamento, lblHdrGlosa, lblHdrPerda, lblHdrObservacao
+- AjudarHeaders.bas: macro com FACTOR configuravel para reposicionar labels
+- modDebug.bas: macro Reset (descarrega forms e reabre login)
+- demais arquivos inalterados
+
+PROXIMA SESSAO - COMO RETOMAR
+1. Abrir Form.xlsm, ALT+F11
+2. Importar modDados.bas (Arquivo > Importar) se necessario
+3. Verificar se frmPrincipal esta importado com FRX + codigo
+4. Testar login (email dUsuario, senha "102030")
+5. Se labels desalinhados, executar Call AjustarHeaders no Immediate Window
+6. Proximo passo: frmEdicao (Add/Edit com ComboBoxes das dimensoes)
+
+[01/06 - USUARIO] Solicitou criacao do botao Adicionar com frmEdicao
+[01/06 - AGENTE] Apresentou plano: hash ID, auto-incremento, GUID. Usuario escolheu GUID.
+
+DECISOES TOMADAS:
+- ID: GUID formato UUID v4, gerado 100% VBA puro (Rnd+Hex), sem API externa, sem Declare
+- Cada analista tem propria copia do Form.xlsm → sem risco de colisao entre GUIDs (probabilidade ~1 em 2^122)
+- Coluna 16 da TabDados (Data): gravar Now como "dd/mm/aaaa HH:MM:ss" na insercao
+- Campos valor (Faturamento, Glosa, Perda): entrada ATM (digitar sem separadores, 2 ultimos digitos = centavos)
+
+PLANO IMPLEMENTACAO frmEdicao:
+1. Criar frmEdicao manualmente no VBA (usuario)
+2. Agente implementa em modDados.bas: GerarGUID(), InserirRegistro(), CarregarDadosCombo()
+3. Agente implementa code-behind do frmEdicao
+4. Agente atualiza cmdAdd_Click no frmPrincipal
+
+TABELAS DIMENSAO PARA POPULAR COMBOBOXES:
+| Aba | Tabela | ID | Descricao | Status |
+| dHospital | dHospitais | Col 1 | Col 2 | Col 3=1 |
+| dRegional | dRegionais | Col 1 | Col 2 | Col 3=1 |
+| dUnidades | dUnidade | Col 1 | Col 2 | Col 3=1 |
+| dStatusNFe | dStatusNFEs | Col 1 | Col 2 | Col 3=1 |
+| dMotivosGlosas | dMotivosGlosa | Col 1 | Col 2 | Col 3=1 |
+| dUsuarios | dUsuario | Col 1 | Col 2 | Col 3=1 |
+
+CONTROLES DO frmEdicao:
+| Nome | Tipo | Obs |
+| cboCompetencia | ComboBox Style=0 | Digitar "mmm/aaaa" |
+| cboRegional | ComboBox Style=2 | Exibir nome, gravar ID |
+| cboUnidade | ComboBox Style=2 | Exibir nome, gravar ID |
+| cboHospital | ComboBox Style=2 | Exibir nome, gravar ID |
+| txtTitulo | TextBox | |
+| txtNFe | TextBox | |
+| cboStatusNFe | ComboBox Style=2 | Exibir nome, gravar ID |
+| cboMotivoGlosa | ComboBox Style=2 | Exibir nome, gravar ID |
+| txtDataEnvio | TextBox | |
+| txtFaturamento | TextBox | ATM input |
+| txtGlosa | TextBox | ATM input |
+| txtPerda | TextBox | ATM input |
+| txtObservacao | TextBox | Multiline, MaxLength 80 |
+| lblFaturamentoFormat | Label | Exibe "R$ 0,00" |
+| lblGlosaFormat | Label | Exibe "R$ 0,00" |
+| lblPerdaFormat | Label | Exibe "R$ 0,00" |
+| cmdSalvar | CommandButton | |
+| cmdCancelar | CommandButton | |
+
+[02/06 - USUARIO] "leia o arquivo progresso principalmente a parte do botao add"
+[02/06 - AGENTE] Leu progresso.txt, modDados.bas, frmPrincipalCode.txt. Explicou que um unico form (frmRegistro) pode servir para Add e Edit.
+
+[02/06 - USUARIO] Confirmou nomes dos controles do frmRegistro, inclusive txtCompetencia como TextBox em formato dd/mm/aaaa (grava primeiro dia do mes)
+[02/06 - USUARIO] Preferiu abrir form via Sub Mostrar(ModoEdit, GUID) ao inves de variavel publica
+
+[02/06 - AGENTE] Implementou:
+- modDados.bas: GerarGUID(), ObterListaDimensao(), InserirRegistro(), AtualizarRegistro(), ExcluirRegistro(), ObterRegistroPorGUID()
+- frmRegistroCode.txt: code-behind completo (Mostrar, PopularCombos, CarregarParaEdicao, ATM input, ValidarCampos, cmdGravar, cmdCancelar)
+- frmPrincipalCode.txt: cmdAdd abre frmRegistro modo Add, cmdEditar abre modo Edit com GUID, cmdExcluir exclui direto
+
+ESTADO ATUAL DOS ARQUIVOS:
+- modDados.bas: +6 funcoes CRUD (GerarGUID, Inserir, Atualizar, Excluir, Obter, ListaDimensao)
+- frmRegistroCode.txt: code-behind completo do frmRegistro
+- frmPrincipalCode.txt: cmdAdd, cmdEditar, cmdExcluir com codigo real
+- criado frmRegistro manualmente com controles pelo usuario
+- GerarGUID: UUID v4, Rnd+Hex puro VBA
+- ATM input nos 3 campos valor (Faturamento, Perda, Glosa)
+
+[02/06 - USUARIO] "antes vamos ajustar uma coisa no frmRegistos preciso que os campos de data o usuario apenas digite os numeros a formatacao de data seja colocada automaticamente"
+[02/06 - AGENTE] Adicionou mascara automatica dd/mm/aaaa via _Change em txtCompetencia e txtDataNFe no frmRegistroCode.txt. Usuario digita apenas numeros, as barras sao inseridas automaticamente. Protegeu atribuicoes em CarregarParaEdicao com mUpdating.
+[02/06 - USUARIO] Exportou frmPrincipal e frmRegistro do VBA Editor para salvar layout manual dos labels
+[02/06 - AGENTE] Commit 5bec6c4 - Mascara data + export layout forms
+[02/06 - USUARIO] "agora vamos colocar uma funcao no botao atualizar esse botao deve fazer um refresh na planilha para atualizar as dimensoes que estao ocultas na pasta de trabalho e garantir que elas aparecam nas caixa de listagem para novos registros"
+[02/06 - AGENTE] Adicionou ThisWorkbook.RefreshAll no cmdAtualizar_Click do frmPrincipalCode.txt para atualizar Power Queries/conexoes das abas ocultas antes de recarregar os dados.
+[02/06 - USUARIO] "acho que esse botao atualizar esta no formulario errado deveria estar no formulario de registro concorda?"
+[02/06 - AGENTE] Removeu cmdAtualizar do frmPrincipal. Adicionou cmdAtualizar no frmRegistro com salvamento/restauracao de todos os campos.
+[02/06 - USUARIO] "deixa eu entender talvez fosse melhor toda vez que o usuario abrisse o formulario de adicao/edicao as tabelas fossem atualizadas assim iriamos dispensar o uso do botao atualizar"
+[02/06 - AGENTE] RefreshAll ja estava no Mostrar (executa ao abrir o form). Removeu cmdAtualizar do frmRegistroCode.txt - nao ha mais botoes Atualizar em nenhum form.
+[02/06 - USUARIO] "remova tambem os lbltituloFat, ltbtituloglosa e lbltituloperda do codigo vou exclui-los"
+[02/06 - AGENTE] Removeu referencias a lblTituloFat, lblTituloGlosa, lblTituloPerda do frmPrincipalCode.txt.
+[02/06 - USUARIO] Planilha Dimensoes foi alterada mas listas nao atualizaram - Power Query assincrono
+[02/06 - AGENTE] Adicionou Application.CalculateUntilAsyncQueriesDone apos RefreshAll no Mostrar e no cmdAtualizar (recolocado com save/restore). Agora o VBA espera as queries terminarem antes de popular as ComboBoxes.
+[02/06 - USUARIO] "funcionou mas confesso que nao gostei do resultado pois a cada vez que o usuario vai adcionar ou editar demora muito"
+[02/06 - AGENTE] Removeu auto RefreshAll do Mostrar - fica apenas sob demanda no cmdAtualizar.
+[02/06 - USUARIO] "nao consigo acessar o botao atualizar ate que eu preencha tudo"
+[02/06 - AGENTE] Adicionou cmdAtualizar.TakeFocusOnClick = False no Mostrar. Agora clicar no botao nao aciona os _Exit dos campos - usuario pode atualizar sem preencher nada.
+
+[02/06 - USUARIO] Solicitou: 1) TakeFocusOnClick no Cancelar, 2) validar data <= hoje, 3) Status padrao "PENDENTE DE EMISSAO", 4) Motivo padrao "NAO HOUVE GLOSA", 5) Faturamento > 0
+[02/06 - AGENTE] Implementou:
+- cmdCancelar.TakeFocusOnClick = False
+- SelecionarComboPorTexto() para selecionar ComboBox por nome
+- Status padrao "PENDENTE DE EMISSAO" e Motivo "NAO HOUVE GLOSA" ao adicionar
+- Validacao data <= hoje em txtCompetencia_Exit, txtDataNFe_Exit e ValidarCampos
+- Validacao Faturamento > 0 em ValidarCampos
+
+ESTADO ATUAL DOS ARQUIVOS:
+- modDados.bas: +6 funcoes CRUD (GerarGUID, Inserir, Atualizar, Excluir, Obter, ListaDimensao)
+- frmRegistroCode.txt: code-behind + mascara data + defaults Status/Motivo + validacoes data/valor
+- frmPrincipalCode.txt: cmdAdd, cmdEditar, cmdExcluir
+- Exportado frmPrincipal.frm + frmRegistro.frm com layout manual preservado
+
+[03/06 - USUARIO] "preciso de 2 alteracoes: 1) quando NFe preenchido foco vai para DataNFe, 2) campos pintados voltam ao branco quando preenchidos"
+[03/06 - AGENTE]
+- txtNFe_Change: SetFocus para txtDataNFe quando NFe fica preenchido (transicao detectada via txtDataNFe.Locked)
+- txtNFe.BackColor resetado no Change
+- txtCompetencia_Change, txtDataNFe_Change, txtFaturamento_Change, txtPerda_Change, txtGlosa_Change: BackColor = &H80000005 no inicio
+- txtTitulo_Change: novo evento, BackColor = &H80000005
+- cboRegional_Change, cboUnidade_Change, cboHospital_Change, cboStatusNFe_Change: BackColor = &H80000005 (com guard mFiltrandoCombo)
+[03/06 - AGENTE] Alteracoes no frmRegistroCode.txt:
+- Removidos _Exit handlers que travavam o usuario (txtTitulo, cboRegional, cboUnidade, cboHospital, cboStatusNFe)
+- Modificados txtCompetencia_Exit e txtDataNFe_Exit: validam sem Cancel=True, pintam de rosa se invalido
+- Modificado txtFaturamento_Exit: mesmo comportamento
+- Criado ResetarFundoCampos(): limpa rosa de todos os campos
+- ValidarCampos: chama ResetarFundoCampos no inicio + pinta cada campo invalido de rosa RGB(255,204,204) antes de Exit Function
+- Corrigido bug de CDate("") em _Exit e ValidarCampos (VBA nao faz short-circuit no And), usando If aninhados
+
+[04/06 - USUARIO] Retomar regra NFe que foi perdida nas versoes anteriores
+[04/06 - AGENTE] Reimplementou regra completa do campo NFe via nova rotina AtualizarEstadoNFe:
+  - NFe vazio  → Status="PENDENTE DE EMISSAO", ComboBox disponivel (exceto "EMITIDA"), DataNFe limpa/inativa/nao obrigatoria
+  - NFe preenchido → Status="EMITIDA" (fixo, Locked), ComboBox inativa, DataNFe ativa/obrigatoria/SetFocus
+  - Funciona mesmo se usuario preencher e depois apagar
+  - txtNFe_Change: apenas BackColor + se vazio chama AtualizarEstadoNFe (imediato)
+  - txtNFe_Exit: chama AtualizarEstadoNFe + SetFocus dataNFe se preenchido
+  - Chamada em: txtNFe_Change, txtNFe_Exit, CarregarParaEdicao (final), Mostrar (modo add), cmdAtualizar (final)
+
+PROXIMA SESSAO:
+1. Colar frmRegistroCode.txt e frmPrincipalCode.txt no VBA
+2. Testar Add/Edit/Excluir
+3. Testar regra NFe (preencher/apagar/editar)
+===============================================================================

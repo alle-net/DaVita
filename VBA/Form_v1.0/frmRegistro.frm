@@ -1,0 +1,502 @@
+VERSION 5.00
+Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} frmRegistro 
+   Caption         =   "Registros"
+   ClientHeight    =   7950
+   ClientLeft      =   120
+   ClientTop       =   465
+   ClientWidth     =   10590
+   OleObjectBlob   =   "frmRegistro.frx":0000
+   StartUpPosition =   1  'CenterOwner
+End
+Attribute VB_Name = "frmRegistro"
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = False
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Explicit
+
+Private mModoEdicao As Boolean
+Private mEditGUID As String
+Private mUpdating As Boolean
+Private mFiltrandoCombo As Boolean
+Private mListaRegional As Variant
+Private mListaUnidade As Variant
+Private mListaHospital As Variant
+Private mListaStatus As Variant
+Private mListaMotivo As Variant
+
+Private Function MesNumero(mes As String) As Integer
+    Select Case UCase(Left$(mes, 3))
+        Case "JAN": MesNumero = 1
+        Case "FEV": MesNumero = 2
+        Case "MAR": MesNumero = 3
+        Case "ABR": MesNumero = 4
+        Case "MAI": MesNumero = 5
+        Case "JUN": MesNumero = 6
+        Case "JUL": MesNumero = 7
+        Case "AGO": MesNumero = 8
+        Case "SET": MesNumero = 9
+        Case "OUT": MesNumero = 10
+        Case "NOV": MesNumero = 11
+        Case "DEZ": MesNumero = 12
+        Case Else: MesNumero = 0
+    End Select
+End Function
+
+Public Sub Mostrar(Optional ModoEdit As Boolean = False, Optional GUID As String = "")
+    mModoEdicao = ModoEdit
+    mEditGUID = GUID
+
+    txtUsuario.Value = modAutenticacao.EmailAtual
+    txtUsuario.Locked = True
+    txtUsuario.BackColor = &H8000000F
+
+    Application.ScreenUpdating = False
+    ThisWorkbook.RefreshAll
+    Application.ScreenUpdating = True
+
+    Call PopularCombos
+
+    If mModoEdicao Then
+        Me.Caption = "Editar Registro"
+        Call CarregarParaEdicao
+    Else
+        Me.Caption = "Adicionar Registro"
+        txtFaturamento.Value = "0"
+        txtPerda.Value = "0"
+        txtGlosa.Value = "0"
+    End If
+
+    Call ConfigurarTabOrder
+    Me.Show
+End Sub
+
+Private Sub PopularCombos()
+    PopularCombo cboRegional, "dRegional", "dRegionais"
+    PopularCombo cboUnidade, "dUnidades", "dUnidade"
+    PopularCombo cboHospital, "dHospital", "dHospitais"
+    PopularCombo cboStatusNFe, "dStatusNFe", "dStatusNFEs"
+    PopularCombo cboMotivoGlosa, "dMotivosGlosas", "dMotivosGlosa"
+End Sub
+
+Private Sub PopularCombo(cbo As ComboBox, aba As String, tabela As String)
+    Dim dados As Variant, i As Long, n As Long
+    dados = modDados.ObterListaDimensao(aba, tabela)
+    If Not IsArray(dados) Then Exit Sub
+    On Error Resume Next
+    n = UBound(dados, 1)
+    If Err.Number <> 0 Then Exit Sub
+    On Error GoTo 0
+    If n = 0 Then Exit Sub
+    
+    If cbo Is cboRegional Then mListaRegional = dados
+    If cbo Is cboUnidade Then mListaUnidade = dados
+    If cbo Is cboHospital Then mListaHospital = dados
+    If cbo Is cboStatusNFe Then mListaStatus = dados
+    If cbo Is cboMotivoGlosa Then mListaMotivo = dados
+    
+    cbo.Style = fmStyleDropDownCombo
+    cbo.MatchEntry = fmMatchEntryNone
+    cbo.ColumnCount = 2
+    cbo.ColumnWidths = "0;120"
+    For i = 1 To n
+        cbo.AddItem dados(i, 1)
+        cbo.List(cbo.ListCount - 1, 1) = dados(i, 2)
+    Next i
+End Sub
+
+Private Sub FiltrarCombo(cbo As ComboBox, lista As Variant)
+    Dim txt As String, i As Long, n As Long
+    txt = cbo.Text
+    If Not IsArray(lista) Then Exit Sub
+    On Error Resume Next
+    n = UBound(lista, 1)
+    If Err.Number <> 0 Or n = 0 Then Exit Sub
+    On Error GoTo 0
+    mFiltrandoCombo = True
+    cbo.Clear
+    cbo.ColumnCount = 2
+    cbo.ColumnWidths = "0;120"
+    cbo.Style = fmStyleDropDownCombo
+    cbo.MatchEntry = fmMatchEntryNone
+    If txt = "" Then
+        For i = 1 To n
+            cbo.AddItem lista(i, 1)
+            cbo.List(cbo.ListCount - 1, 1) = lista(i, 2)
+        Next i
+    Else
+        For i = 1 To n
+            If InStr(1, LCase(CStr(lista(i, 2))), LCase(txt), vbTextCompare) > 0 Then
+                cbo.AddItem lista(i, 1)
+                cbo.List(cbo.ListCount - 1, 1) = lista(i, 2)
+            End If
+        Next i
+    End If
+    On Error Resume Next
+    cbo.Value = txt
+    On Error GoTo 0
+    cbo.DropDown
+    mFiltrandoCombo = False
+End Sub
+
+Private Sub ConfigurarTabOrder()
+    txtUsuario.TabStop = False
+    txtTitulo.TabIndex = 0
+    txtCompetencia.TabIndex = 1
+    cboRegional.TabIndex = 2
+    cboUnidade.TabIndex = 3
+    cboHospital.TabIndex = 4
+    txtNFe.TabIndex = 5
+    cboStatusNFe.TabIndex = 6
+    txtDataNFe.TabIndex = 7
+    txtFaturamento.TabIndex = 8
+    txtPerda.TabIndex = 9
+    cboMotivoGlosa.TabIndex = 10
+    txtGlosa.TabIndex = 11
+    txtObservacao.TabIndex = 12
+    cmdGravar.TabIndex = 13
+    cmdCancelar.TabIndex = 14
+End Sub
+
+Private Sub txtCompetencia_Change()
+    If mUpdating Then Exit Sub
+    mUpdating = True
+    Dim raw As String: raw = GetDigits(txtCompetencia.Value)
+    If Len(raw) = 0 Then
+        txtCompetencia.Value = ""
+    ElseIf Len(raw) <= 2 Then
+        txtCompetencia.Value = raw
+    ElseIf Len(raw) <= 4 Then
+        txtCompetencia.Value = Left$(raw, 2) & "/" & Mid$(raw, 3)
+    Else
+        txtCompetencia.Value = Left$(raw, 2) & "/" & Mid$(raw, 3, 2) & "/" & Mid$(raw, 5, 4)
+    End If
+    txtCompetencia.SelStart = Len(txtCompetencia.Value)
+    mUpdating = False
+End Sub
+
+Private Sub txtDataNFe_Change()
+    If mUpdating Then Exit Sub
+    mUpdating = True
+    Dim raw As String: raw = GetDigits(txtDataNFe.Value)
+    If Len(raw) = 0 Then
+        txtDataNFe.Value = ""
+    ElseIf Len(raw) <= 2 Then
+        txtDataNFe.Value = raw
+    ElseIf Len(raw) <= 4 Then
+        txtDataNFe.Value = Left$(raw, 2) & "/" & Mid$(raw, 3)
+    Else
+        txtDataNFe.Value = Left$(raw, 2) & "/" & Mid$(raw, 3, 2) & "/" & Mid$(raw, 5, 4)
+    End If
+    txtDataNFe.SelStart = Len(txtDataNFe.Value)
+    mUpdating = False
+End Sub
+
+Private Sub txtTitulo_Exit(ByVal Cancel As MSForms.ReturnBoolean)
+    If Not mModoEdicao And Trim(txtTitulo.Value) = "" Then
+        Cancel = True: txtTitulo.SetFocus
+    End If
+End Sub
+
+Private Sub txtCompetencia_Exit(ByVal Cancel As MSForms.ReturnBoolean)
+    If Not mModoEdicao And (Trim(txtCompetencia.Value) = "" Or Not IsDate(txtCompetencia.Value)) Then
+        Cancel = True: txtCompetencia.SetFocus
+    End If
+End Sub
+
+Private Sub cboRegional_Exit(ByVal Cancel As MSForms.ReturnBoolean)
+    If Not mModoEdicao And cboRegional.ListIndex = -1 Then
+        Cancel = True: cboRegional.SetFocus
+    End If
+End Sub
+
+Private Sub cboUnidade_Exit(ByVal Cancel As MSForms.ReturnBoolean)
+    If Not mModoEdicao And cboUnidade.ListIndex = -1 Then
+        Cancel = True: cboUnidade.SetFocus
+    End If
+End Sub
+
+Private Sub cboHospital_Exit(ByVal Cancel As MSForms.ReturnBoolean)
+    If Not mModoEdicao And cboHospital.ListIndex = -1 Then
+        Cancel = True: cboHospital.SetFocus
+    End If
+End Sub
+
+Private Sub cboStatusNFe_Exit(ByVal Cancel As MSForms.ReturnBoolean)
+    If Not mModoEdicao And cboStatusNFe.ListIndex = -1 Then
+        Cancel = True: cboStatusNFe.SetFocus
+    End If
+End Sub
+
+Private Sub txtFaturamento_Exit(ByVal Cancel As MSForms.ReturnBoolean)
+    If Not mModoEdicao And (Trim(txtFaturamento.Value) = "" Or Not IsNumeric(GetDigits(txtFaturamento.Value))) Then
+        Cancel = True: txtFaturamento.SetFocus
+    End If
+End Sub
+
+Private Sub CarregarParaEdicao()
+    Dim reg As Variant
+    reg = modDados.ObterRegistroPorGUID(mEditGUID)
+    If Not IsArray(reg) Then
+        MsgBox "Registro nao encontrado.", vbExclamation, "Erro"
+        Unload Me
+        Exit Sub
+    End If
+
+    mUpdating = True
+    If IsDate(reg(3)) Then txtCompetencia.Value = Format$(reg(3), "dd/mm/yyyy")
+    mUpdating = False
+
+    Call SelecionarComboPorID(cboHospital, reg(4))
+    Call SelecionarComboPorID(cboRegional, reg(5))
+    Call SelecionarComboPorID(cboUnidade, reg(6))
+
+    txtTitulo.Value = reg(7)
+    txtNFe.Value = reg(8)
+
+    Call SelecionarComboPorID(cboStatusNFe, reg(9))
+    Call SelecionarComboPorID(cboMotivoGlosa, reg(10))
+
+    mUpdating = True
+    If IsDate(reg(11)) Then txtDataNFe.Value = Format$(reg(11), "dd/mm/yyyy")
+    mUpdating = False
+
+    If IsNumeric(reg(12)) Then txtFaturamento.Value = NumToATM(CDbl(reg(12)))
+    If IsNumeric(reg(13)) Then txtPerda.Value = NumToATM(CDbl(reg(13)))
+    If IsNumeric(reg(14)) Then txtGlosa.Value = NumToATM(CDbl(reg(14)))
+
+    txtObservacao.Value = reg(15)
+End Sub
+
+Private Sub SelecionarComboPorID(cbo As ComboBox, id As Variant)
+    Dim i As Long
+    For i = 0 To cbo.ListCount - 1
+        If CStr(cbo.List(i, 0)) = CStr(id) Then
+            cbo.ListIndex = i
+            Exit For
+        End If
+    Next i
+End Sub
+
+Private Function NumToATM(valor As Double) As String
+    NumToATM = Format$(valor * 100, "0")
+End Function
+
+Private Function GetDigits(txt As String) As String
+    Dim i As Long, res As String, ch As String
+    For i = 1 To Len(txt)
+        ch = Mid$(txt, i, 1)
+        If ch Like "#" Then res = res & ch
+    Next i
+    GetDigits = res
+End Function
+
+Private Sub txtFaturamento_Change()
+    If mUpdating Then Exit Sub
+    mUpdating = True
+    Dim raw As String: raw = GetDigits(txtFaturamento.Value)
+    If Len(raw) = 0 Then
+        txtFaturamento.Value = ""
+    Else
+        txtFaturamento.Value = Format$(CDbl(raw) / 100, "#,##0.00")
+        txtFaturamento.SelStart = Len(txtFaturamento.Value)
+    End If
+    mUpdating = False
+End Sub
+
+Private Sub txtPerda_Change()
+    If mUpdating Then Exit Sub
+    mUpdating = True
+    Dim raw As String: raw = GetDigits(txtPerda.Value)
+    If Len(raw) = 0 Then
+        txtPerda.Value = ""
+    Else
+        txtPerda.Value = Format$(CDbl(raw) / 100, "#,##0.00")
+        txtPerda.SelStart = Len(txtPerda.Value)
+    End If
+    mUpdating = False
+End Sub
+
+Private Sub txtGlosa_Change()
+    If mUpdating Then Exit Sub
+    mUpdating = True
+    Dim raw As String: raw = GetDigits(txtGlosa.Value)
+    If Len(raw) = 0 Then
+        txtGlosa.Value = ""
+    Else
+        txtGlosa.Value = Format$(CDbl(raw) / 100, "#,##0.00")
+        txtGlosa.SelStart = Len(txtGlosa.Value)
+    End If
+    mUpdating = False
+End Sub
+
+Private Function ValidarCampos() As Boolean
+    If Trim(txtTitulo.Value) = "" Then
+        MsgBox "Titulo e obrigatorio.", vbExclamation: txtTitulo.SetFocus: Exit Function
+    End If
+    If Trim(txtCompetencia.Value) = "" Or Not IsDate(txtCompetencia.Value) Then
+        MsgBox "Competencia deve ser uma data valida (dd/mm/aaaa).", vbExclamation: txtCompetencia.SetFocus: Exit Function
+    End If
+    If cboHospital.ListIndex = -1 Then
+        MsgBox "Hospital e obrigatorio.", vbExclamation: cboHospital.SetFocus: Exit Function
+    End If
+    If cboRegional.ListIndex = -1 Then
+        MsgBox "Regional e obrigatorio.", vbExclamation: cboRegional.SetFocus: Exit Function
+    End If
+    If cboUnidade.ListIndex = -1 Then
+        MsgBox "Unidade e obrigatoria.", vbExclamation: cboUnidade.SetFocus: Exit Function
+    End If
+    If cboStatusNFe.ListIndex = -1 Then
+        MsgBox "Status NFe e obrigatorio.", vbExclamation: cboStatusNFe.SetFocus: Exit Function
+    End If
+    If Trim(txtFaturamento.Value) = "" Or Not IsNumeric(GetDigits(txtFaturamento.Value)) Then
+        MsgBox "Faturamento e obrigatorio.", vbExclamation: txtFaturamento.SetFocus: Exit Function
+    End If
+    ValidarCampos = True
+End Function
+
+Private Sub cmdGravar_Click()
+    If Not ValidarCampos Then Exit Sub
+
+    Dim dados(1 To 16) As Variant
+
+    If mModoEdicao Then
+        dados(1) = mEditGUID
+    Else
+        dados(1) = modDados.GerarGUID()
+    End If
+
+    dados(2) = modAutenticacao.UsuarioAtual
+
+    Dim dt As Date: dt = CDate(txtCompetencia.Value)
+    dados(3) = DateSerial(Year(dt), Month(dt), 1)
+
+    dados(4) = cboHospital.List(cboHospital.ListIndex, 0)
+    dados(5) = cboRegional.List(cboRegional.ListIndex, 0)
+    dados(6) = cboUnidade.List(cboUnidade.ListIndex, 0)
+
+    dados(7) = Trim(txtTitulo.Value)
+    dados(8) = Trim(txtNFe.Value)
+    dados(9) = cboStatusNFe.List(cboStatusNFe.ListIndex, 0)
+
+    If cboMotivoGlosa.ListIndex >= 0 Then
+        dados(10) = cboMotivoGlosa.List(cboMotivoGlosa.ListIndex, 0)
+    Else
+        dados(10) = Empty
+    End If
+
+    If Trim(txtDataNFe.Value) <> "" And IsDate(txtDataNFe.Value) Then
+        dados(11) = CDate(txtDataNFe.Value)
+    Else
+        dados(11) = Empty
+    End If
+
+    dados(12) = CDbl(GetDigits(txtFaturamento.Value)) / 100
+
+    If Trim(txtPerda.Value) <> "" And IsNumeric(GetDigits(txtPerda.Value)) Then
+        dados(13) = CDbl(GetDigits(txtPerda.Value)) / 100
+    Else
+        dados(13) = 0
+    End If
+
+    If Trim(txtGlosa.Value) <> "" And IsNumeric(GetDigits(txtGlosa.Value)) Then
+        dados(14) = CDbl(GetDigits(txtGlosa.Value)) / 100
+    Else
+        dados(14) = 0
+    End If
+
+    dados(15) = Trim(txtObservacao.Value)
+    dados(16) = Now
+
+    Dim ok As Boolean
+    If mModoEdicao Then
+        ok = modDados.AtualizarRegistro(mEditGUID, dados)
+    Else
+        ok = modDados.InserirRegistro(dados)
+    End If
+
+    If ok Then
+        Unload Me
+    Else
+        MsgBox "Erro ao salvar registro.", vbCritical, "Erro"
+    End If
+End Sub
+
+Private Sub cmdCancelar_Click()
+    Unload Me
+End Sub
+
+Private Sub cmdAtualizar_Click()
+    Dim oldRegional As Variant, oldUnidade As Variant, oldHospital As Variant
+    Dim oldStatus As Variant, oldMotivo As Variant
+    Dim oldCompetencia As String, oldDataNFe As String
+    Dim oldTitulo As String, oldNFe As String
+    Dim oldFaturamento As String, oldGlosa As String, oldPerda As String
+    Dim oldObservacao As String
+
+    If cboRegional.ListIndex >= 0 Then oldRegional = cboRegional.List(cboRegional.ListIndex, 0)
+    If cboUnidade.ListIndex >= 0 Then oldUnidade = cboUnidade.List(cboUnidade.ListIndex, 0)
+    If cboHospital.ListIndex >= 0 Then oldHospital = cboHospital.List(cboHospital.ListIndex, 0)
+    If cboStatusNFe.ListIndex >= 0 Then oldStatus = cboStatusNFe.List(cboStatusNFe.ListIndex, 0)
+    If cboMotivoGlosa.ListIndex >= 0 Then oldMotivo = cboMotivoGlosa.List(cboMotivoGlosa.ListIndex, 0)
+
+    oldCompetencia = txtCompetencia.Value
+    oldDataNFe = txtDataNFe.Value
+    oldTitulo = txtTitulo.Value
+    oldNFe = txtNFe.Value
+    oldFaturamento = txtFaturamento.Value
+    oldGlosa = txtGlosa.Value
+    oldPerda = txtPerda.Value
+    oldObservacao = txtObservacao.Value
+
+    Application.ScreenUpdating = False
+    ThisWorkbook.RefreshAll
+    Call PopularCombos
+    Application.ScreenUpdating = True
+
+    If Not IsEmpty(oldRegional) Then SelecionarComboPorID cboRegional, oldRegional
+    If Not IsEmpty(oldUnidade) Then SelecionarComboPorID cboUnidade, oldUnidade
+    If Not IsEmpty(oldHospital) Then SelecionarComboPorID cboHospital, oldHospital
+    If Not IsEmpty(oldStatus) Then SelecionarComboPorID cboStatusNFe, oldStatus
+    If Not IsEmpty(oldMotivo) Then SelecionarComboPorID cboMotivoGlosa, oldMotivo
+
+    txtCompetencia.Value = oldCompetencia
+    txtDataNFe.Value = oldDataNFe
+    txtTitulo.Value = oldTitulo
+    txtNFe.Value = oldNFe
+    txtFaturamento.Value = oldFaturamento
+    txtGlosa.Value = oldGlosa
+    txtPerda.Value = oldPerda
+    txtObservacao.Value = oldObservacao
+End Sub
+
+Private Sub cboRegional_KeyUp(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)
+    If mFiltrandoCombo Then Exit Sub
+    If cboRegional.ListIndex >= 0 Then Exit Sub
+    FiltrarCombo cboRegional, mListaRegional
+End Sub
+
+Private Sub cboUnidade_KeyUp(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)
+    If mFiltrandoCombo Then Exit Sub
+    If cboUnidade.ListIndex >= 0 Then Exit Sub
+    FiltrarCombo cboUnidade, mListaUnidade
+End Sub
+
+Private Sub cboHospital_KeyUp(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)
+    If mFiltrandoCombo Then Exit Sub
+    If cboHospital.ListIndex >= 0 Then Exit Sub
+    FiltrarCombo cboHospital, mListaHospital
+End Sub
+
+Private Sub cboStatusNFe_KeyUp(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)
+    If mFiltrandoCombo Then Exit Sub
+    If cboStatusNFe.ListIndex >= 0 Then Exit Sub
+    FiltrarCombo cboStatusNFe, mListaStatus
+End Sub
+
+Private Sub cboMotivoGlosa_KeyUp(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)
+    If mFiltrandoCombo Then Exit Sub
+    If cboMotivoGlosa.ListIndex >= 0 Then Exit Sub
+    FiltrarCombo cboMotivoGlosa, mListaMotivo
+End Sub
+
