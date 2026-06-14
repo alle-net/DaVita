@@ -1,0 +1,92 @@
+=========================================================
+PROJETO: FormLogin - Office Add-in (React + TypeScript)
+INICIO: 14/06/2026
+STATUS: LoginScreen criada e compilando
+=========================================================
+
+=== METODO DE TRABALHO ===
+1. Usuario faz a solicitacao
+2. Analisar e apresentar solucoes
+3. Verificar impacto no projeto
+4. Solicitar autorizacao
+5. Implantar
+
+=== ARQUITETURA DEFINIDA ===
+- Tecnologia: Office Add-in (Task Pane) + React 18 + TypeScript
+- Autenticacao: Stateless via planilha dUsuarios (mesmo workbook ou ListaDeUsuarios.xlsx)
+- Permissoes: Abas dPermissoes + dModulos
+- Sessao: React Context (AuthContext)
+- Login reutilizavel para futuros projetos
+
+=== PLANILHA ==
+ListaDeUsuarios.xlsx (no SharePoint):
+  https://village365bra.sharepoint.com/sites/CiclodaReceita/Documentos Compartilhados/HOSPITAL/Analise_De_Dados/Sistema/ListaDeUsuarios.xlsx
+  Abas: dUsuarios | dPermissoes | dModulos
+
+=== ESTRUTURA DO PROJETO ===
+FormLogin/
+  manifest.xml              - Manifesto do Add-in
+  package.json              - Dependencias (React, Webpack, TS, Office.js)
+  tsconfig.json             - Config TypeScript
+  webpack.config.js         - Bundler
+  src/
+    config.json             - Config (URL planilha, nomes abas)
+    config/ConfigService.ts - Leitor do config.json
+    auth/
+      AuthContext.tsx        - Context React (userId, email, permissoes)
+      LoginScreen.tsx       - Tela de login
+      LoginScreen.css       - Estilos do login
+      LoginService.ts       - Validacao de credenciais via Excel
+      PermissaoService.ts   - Busca permissoes + modulos
+    components/
+      MainScreen.tsx        - Tela principal apos login
+      MainScreen.css        - Estilos da main
+    registry/
+      ModuleRegistry.ts     - Registro de modulos (escalavel)
+    taskpane/
+      taskpane.html         - HTML base
+      taskpane.tsx          - Entry point React
+      taskpane.css          - Estilos globais
+      App.tsx               - Componente raiz (login vs main)
+    commands/
+      commands.ts           - Comandos Office
+  assets/
+    icon-16.png, icon-32.png, icon-80.png
+
+=== STATUS ATUAL ===
+[FEITO] Projeto criado manualmente (yo office incompativel com Node 20.10.0)
+[FEITO] React + TypeScript + Webpack configurados
+[FEITO] AuthContext com login/logout
+[FEITO] LoginScreen com email + senha
+[FEITO] LoginService validando contra dUsuarios
+[FEITO] PermissaoService buscando permissoes
+[FEITO] ModuleRegistry para modulos escalaveis
+[FEITO] MainScreen exibindo modulos permitidos
+[FEITO] Build compila sem erros
+[PENDENTE] Certificado HTTPS (bloqueado por politicas corporativas)
+[PENDENTE] Sideload/teste no Excel Online
+
+=== PROXIMOS PASSOS (para continuar) ===
+- Resolver certificado HTTPS (admin ou politica)
+- Testar sideload no Excel Online
+- Adicionar modulo exemplo (CadastroForm)
+- Testar login com multiplos usuarios
+- Testar isolamento de permissoes
+
+=== OBSERVACOES ===
+- Para mudar URL da planilha: editar src/config.json
+- Para adicionar modulo: registrar em ModuleRegistry + adicionar permissao na planilha
+- Node 20.10.0 esta desatualizado para o Yeoman, precisamos atualizar ou usar manual
+- Certificado HTTPS requer permissao admin ou config manual
+
+=== ERROS E SOLUCOES ===
+1. yo office nao funciona (Node 20.10.0 falta styleText)
+   Solucao: projeto criado manualmente
+2. style-loader faltando
+   Solucao: npm install --save-dev style-loader css-loader
+3. getItemOrNullObject() sem argumento
+   Solucao: substituido por getUsedRange().values
+
+=========================================================
+Para continuar, diga "proximo passo" ou o numero da etapa
+=========================================================
