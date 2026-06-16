@@ -1,0 +1,87 @@
+.cadastro-container {
+  padding: 16px;
+}
+
+.cadastro-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.cadastro-header h2 {
+  font-size: 18px;
+  color: #333;
+  margin: 0;
+}
+
+.btn-voltar {
+  padding: 6px 12px;
+  background: none;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  color: #666;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.btn-voltar:hover {
+  border-color: #8B0E0E;
+  color: #8B0E0E;
+}
+
+.cadastro-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.cadastro-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cadastro-field span {
+  font-size: 13px;
+  color: #555;
+  font-weight: 500;
+}
+
+.cadastro-field input,
+.cadastro-field select {
+  padding: 8px 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 14px;
+  outline: none;
+}
+
+.cadastro-field input:focus,
+.cadastro-field select:focus {
+  border-color: #8B0E0E;
+}
+
+.btn-salvar {
+  padding: 10px 16px;
+  background-color: #8B0E0E;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  margin-top: 8px;
+}
+
+.btn-salvar:hover {
+  background-color: #a01111;
+}
+
+.cadastro-sucesso {
+  text-align: center;
+  color: #2e7d32;
+  font-size: 14px;
+  font-weight: 500;
+}

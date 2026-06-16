@@ -1,4 +1,5 @@
 const path = require('path');
+const os = require('os');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 
 module.exports = (env, argv) => {
@@ -7,7 +8,7 @@ module.exports = (env, argv) => {
   return {
     devtool: isDev ? 'source-map' : undefined,
     entry: {
-      taskpane: './src/taskpane/taskpane.tsx',
+      taskpane: './src/taskpane/taskpane.ts',
       commands: './src/commands/commands.ts',
     },
     resolve: {
@@ -45,7 +46,10 @@ module.exports = (env, argv) => {
       static: {
         directory: path.join(__dirname, 'dist'),
       },
-      https: true,
+      https: {
+        key: path.join(os.homedir(), '.office-addin-dev-certs', 'localhost.key'),
+        cert: path.join(os.homedir(), '.office-addin-dev-certs', 'localhost.crt'),
+      },
       port: 3000,
       hot: true,
     },

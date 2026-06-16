@@ -1,8 +1,8 @@
-=========================================================
-PROJETO: FormLogin - Office Add-in (React + TypeScript)
+=================================================================
+PROJETO: FormLogin - Office Add-in (TypeScript + Office.js)
 INICIO: 14/06/2026
-STATUS: LoginScreen criada e compilando
-=========================================================
+MIGRACAO: 16/06/2026 - React removido, convertido para TypeScript puro
+=================================================================
 
 === METODO DE TRABALHO ===
 1. Usuario faz a solicitacao
@@ -11,73 +11,239 @@ STATUS: LoginScreen criada e compilando
 4. Solicitar autorizacao
 5. Implantar
 
+=== REGISTRO COMPLETO (16/06/2026) ===
+
+MOTIVO DA MIGRACAO:
+  Usuario identificou que React + TypeScript viola normas da empresa.
+  Necessario usar TypeScript puro + Office.js (mais proximo do VBA)
+  para uso no Excel Online, com capacidade de consulta, gravacao e
+  edicao de dados, alem de ser reutilizavel em outros projetos.
+
+DECISAO TOMADA:
+  - Opcao escolhida: TypeScript puro + Office.js
+  - Abordagem: Converter projeto existente (aproveitar servicos)
+  - Framework removido: React 18 completamente eliminado
+
+ARQUIVOS CRIADOS/SUBSTITUIDOS:
+  src/auth/AuthContext.ts         (antigo AuthContext.tsx)
+    - Substituido React Context por classe singleton
+    - Sistema de inscricao (subscribe) para notificar UI
+    - Login/logout globais sem dependencia React
+
+  src/auth/LoginScreen.ts         (antigo LoginScreen.tsx)
+    - Substituido JSX por DOM manipulation (createElement/innerHTML)
+    - Formulario de login com validacao contra Excel
+    - Retorna funcao de cleanup para remover event listeners
+
+  src/components/MainScreen.ts   (antigo MainScreen.tsx)
+    - Substituido JSX por template strings + DOM
+    - Lista modulos permitidos com botoes
+    - Botao de logout integrado ao AuthContext
+
+  src/components/CadastroForm.ts (antigo CadastroForm.tsx)
+    - Formulario exemplo convertido para DOM
+    - Interface ModuloProps com onVoltar
+    - Retorna cleanup function
+
+  src/taskpane/App.ts             (antigo App.tsx)
+    - Controlador central de navegacao
+    - Gerencia ciclo de vida das telas (cleanup/render)
+    - Navegacao entre login, main, e modulos
+
+  src/taskpane/taskpane.ts        (antigo taskpane.tsx)
+    - Entry point sem ReactDOM.createRoot
+    - Office.onReady dispara renderApp()
+    - AuthContext subscribe atualiza UI automaticamente
+
+  src/registry/ModuleRegistry.ts  (alterado)
+    - Removida dependencia React (ComponentType)
+    - Novo tipo RenderModulo: funcao que recebe HTMLElement + props
+    - Cada modulo fornece funcao renderizar() em vez de componente
+
+  src/registry/registerModules.ts (alterado)
+    - Registra funcao renderizar em vez de componente React
+
+ARQUIVOS EXCLUIDOS (React):
+  - src/auth/AuthContext.tsx
+  - src/auth/LoginScreen.tsx
+  - src/taskpane/App.tsx
+  - src/taskpane/taskpane.tsx
+  - src/components/MainScreen.tsx
+  - src/components/CadastroForm.tsx
+
+ARQUIVOS MANTIDOS (inalterados):
+  - src/auth/LoginService.ts        (validacao contra planilha)
+  - src/auth/PermissaoService.ts    (busca permissoes + modulos)
+  - src/auth/LoginScreen.css        (estilos do login)
+  - src/components/MainScreen.css   (estilos da main)
+  - src/components/CadastroForm.css (estilos do cadastro)
+  - src/taskpane/taskpane.css       (estilos globais)
+  - src/taskpane/taskpane.html      (HTML base com div#root)
+  - src/config/ConfigService.ts     (leitor config.json)
+  - src/config.json                 (URL planilha, abas)
+  - src/commands/commands.ts        (comandos Office)
+  - manifest.xml                    (descricao atualizada)
+  - assets/                         (icones)
+
+ARQUIVOS DE CONFIGURACAO ALTERADOS:
+  package.json:
+    - Descricao atualizada
+    - Removido: react, react-dom, @types/react, @types/react-dom
+    - npm install removeu 9 pacotes do React
+
+  tsconfig.json:
+    - Removido: "jsx": "react-jsx"
+
+  webpack.config.js:
+    - Entry alterado: taskpane.tsx -> taskpane.ts
+
+  manifest.xml:
+    - Descricao atualizada para TypeScript + Office.js
+
+DEPENDENCIAS ATUAIS (devDependencies):
+  @types/office-js, css-loader, html-loader, html-webpack-plugin,
+  office-addin-debugging, office-addin-dev-certs, office-addin-manifest,
+  style-loader, ts-loader, typescript, webpack, webpack-cli,
+  webpack-dev-server
+
+DEPENDENCIAS ATUAIS (dependencies):
+  (vazio - nenhuma)
+
 === ARQUITETURA DEFINIDA ===
-- Tecnologia: Office Add-in (Task Pane) + React 18 + TypeScript
-- Autenticacao: Stateless via planilha dUsuarios (mesmo workbook ou ListaDeUsuarios.xlsx)
+- Tecnologia: Office Add-in (Task Pane) + TypeScript puro + Office.js
+- Autenticacao: Stateless via planilha dUsuarios
 - Permissoes: Abas dPermissoes + dModulos
-- Sessao: React Context (AuthContext)
+- Sessao: AuthContext (singleton com event emitter)
+- UI: DOM manipulation direta (sem framework)
+- Ciclo de vida: funcoes render() + cleanup()
 - Login reutilizavel para futuros projetos
 
-=== PLANILHA ==
+=== PLANILHA ===
 ListaDeUsuarios.xlsx (no SharePoint):
   https://village365bra.sharepoint.com/sites/CiclodaReceita/Documentos Compartilhados/HOSPITAL/Analise_De_Dados/Sistema/ListaDeUsuarios.xlsx
   Abas: dUsuarios | dPermissoes | dModulos
 
-=== ESTRUTURA DO PROJETO ===
+=== ESTRUTURA DO PROJETO ATUAL ===
 FormLogin/
   manifest.xml              - Manifesto do Add-in
-  package.json              - Dependencias (React, Webpack, TS, Office.js)
+  package.json              - Dependencias (TS, Webpack, Office.js)
   tsconfig.json             - Config TypeScript
   webpack.config.js         - Bundler
   src/
     config.json             - Config (URL planilha, nomes abas)
     config/ConfigService.ts - Leitor do config.json
     auth/
-      AuthContext.tsx        - Context React (userId, email, permissoes)
-      LoginScreen.tsx       - Tela de login
-      LoginScreen.css       - Estilos do login
-      LoginService.ts       - Validacao de credenciais via Excel
-      PermissaoService.ts   - Busca permissoes + modulos
+      AuthContext.ts        - Singleton de autenticacao (event emitter)
+      LoginScreen.ts       - Tela de login (DOM puro)
+      LoginScreen.css      - Estilos do login
+      LoginService.ts      - Validacao de credenciais via Excel
+      PermissaoService.ts  - Busca permissoes + modulos
     components/
-      MainScreen.tsx        - Tela principal apos login
-      MainScreen.css        - Estilos da main
+      MainScreen.ts        - Tela principal apos login
+      MainScreen.css       - Estilos da main
+      CadastroForm.ts      - Formulario exemplo (modulo)
+      CadastroForm.css     - Estilos do cadastro
     registry/
-      ModuleRegistry.ts     - Registro de modulos (escalavel)
+      ModuleRegistry.ts    - Registro de modulos (funcoes render)
+      registerModules.ts   - Registro centralizado
     taskpane/
-      taskpane.html         - HTML base
-      taskpane.tsx          - Entry point React
-      taskpane.css          - Estilos globais
-      App.tsx               - Componente raiz (login vs main)
+      taskpane.html        - HTML base
+      taskpane.ts          - Entry point (DOM puro)
+      taskpane.css         - Estilos globais
+      App.ts               - Controlador de navegacao
     commands/
-      commands.ts           - Comandos Office
+      commands.ts          - Comandos Office
   assets/
     icon-16.png, icon-32.png, icon-80.png
 
 === STATUS ATUAL ===
 [FEITO] Projeto criado manualmente (yo office incompativel com Node 20.10.0)
-[FEITO] React + TypeScript + Webpack configurados
-[FEITO] AuthContext com login/logout
-[FEITO] LoginScreen com email + senha
+[FEITO] Convertido de React + TypeScript para TypeScript puro + Office.js
+[FEITO] AuthContext com login/logout (event emitter, sem React)
+[FEITO] LoginScreen com email + senha (DOM puro)
 [FEITO] LoginService validando contra dUsuarios
 [FEITO] PermissaoService buscando permissoes
-[FEITO] ModuleRegistry para modulos escalaveis
+[FEITO] ModuleRegistry para modulos escalaveis (render functions)
 [FEITO] MainScreen exibindo modulos permitidos
-[FEITO] Build compila sem erros
+[FEITO] Navegacao entre modulos (App.ts com activeModule)
+[FEITO] Modulo exemplo CadastroForm (formulario DOM puro)
+[FEITO] Registro de modulos centralizado (registerModules.ts)
+[FEITO] Build compila sem erros (webpack production)
 [PENDENTE] Certificado HTTPS (bloqueado por politicas corporativas)
 [PENDENTE] Sideload/teste no Excel Online
 
-=== PROXIMOS PASSOS (para continuar) ===
+=== PROXIMOS PASSOS ===
 - Resolver certificado HTTPS (admin ou politica)
 - Testar sideload no Excel Online
-- Adicionar modulo exemplo (CadastroForm)
 - Testar login com multiplos usuarios
+- Testar navegacao entre modulos
 - Testar isolamento de permissoes
+- Adicionar novos modulos (registrar em registerModules.ts + planilha)
+
+=== COMO ADICIONAR UM NOVO MODULO ===
+1. Criar arquivo .ts em src/components/ com funcão renderizadora:
+     export function renderMeuModulo(container, { onVoltar }): () => void
+2. Criar .css correspondente (opcional)
+3. Importar em src/registry/registerModules.ts
+4. Registrar:
+     ModuleRegistry.registrar({
+       chave: 'MeuModulo',
+       nome: 'Meu Modulo',
+       renderizar: renderMeuModulo,
+     });
+5. Adicionar permissao na planilha dPermissoes para o usuario
+
+=== DEPLOY NO SHAREPOINT (16/06/2026) ===
+O Add-in foi configurado para ser hospedado no SharePoint, eliminando
+a necessidade de certificado HTTPS local.
+
+URL BASE:
+  https://village365bra.sharepoint.com/sites/CiclodaReceita/
+  Documentos%20Compartilhados/HOSPITAL/Analise_De_Dados/
+  Sistema/FormLogin/
+
+ARQUIVOS PARA UPLOAD (na pasta FormLogin do SharePoint):
+  taskpane.html    <- dist/taskpane.html
+  taskpane.js      <- dist/taskpane.js
+  commands.js      <- dist/commands.js
+  assets/
+    icon-16.png    <- assets/icon-16.png
+    icon-32.png    <- assets/icon-32.png
+    icon-80.png    <- assets/icon-80.png
+  manifest.xml     <- manifest.xml (raiz do projeto)
+
+PASSOS PARA INSTALAR NO EXCEL ONLINE:
+  1. Navegar ate a pasta no SharePoint
+  2. Criar pasta FormLogin com subpasta assets/ (se nao existir)
+  3. Fazer upload de todos os arquivos acima
+  4. Abrir Excel Online (workbook qualquer)
+  5. Clicar em: Pagina Inicial (Home) > Suplementos (Add-ins)
+  6. No painel direito, clicar em "Mais Configuracoes" ou "Avançado"
+  7. Na janela "Suplementos do Office", clicar "Carregar Meu Suplemento"
+  8. Navegar ate o manifest.xml no SharePoint e selecionar
+  9. Clicar em "Upload" (Carregar)
+  10. O botao "Abrir Login" aparecera na faixa de opcoes (ribbon)
+
+OBSERVACOES:
+  - O sideload via "Carregar Meu Suplemento" e por usuario/navegador
+    (armazena na cache do navegador)
+  - Para deploy corporativo (todos usuarios), usar Catalogo de Aplicativos
+    do SharePoint (App Catalog) ou Centralized Deployment no admin M365
+  - O manifest-localhost.xml pode ser usado para testes locais com
+    "npm start"
+
+=== CONTRATO DAS FUNCOES RENDER ===
+Toda funcao de modulo deve seguir:
+  (container: HTMLElement, props: ModuloProps) => () => void
+Onde ModuloProps = { onVoltar: () => void }
+E o retorno e uma funcao de cleanup para remover event listeners.
 
 === OBSERVACOES ===
 - Para mudar URL da planilha: editar src/config.json
-- Para adicionar modulo: registrar em ModuleRegistry + adicionar permissao na planilha
-- Node 20.10.0 esta desatualizado para o Yeoman, precisamos atualizar ou usar manual
-- Certificado HTTPS requer permissao admin ou config manual
+- Node 20.10.0 esta desatualizado para o Yeoman
+- Certificado HTTPS requer permissao admin
+- Projeto 100% livre de React e JSX
+- Toda UI e feita com template strings e DOM API
 
 === ERROS E SOLUCOES ===
 1. yo office nao funciona (Node 20.10.0 falta styleText)
@@ -86,7 +252,17 @@ FormLogin/
    Solucao: npm install --save-dev style-loader css-loader
 3. getItemOrNullObject() sem argumento
    Solucao: substituido por getUsedRange().values
+4. React violava normas corporativas
+   Solucao: removido React, convertido para TypeScript puro + DOM
+5. Certificado HTTPS bloqueado por politicas corporativas
+   Solucao: Add-in hospedado no SharePoint (ja possui HTTPS)
+   manifest.xml atualizado com URLs do SharePoint
+6. Manifest.xml com erro de schema (CustomTab.Label na posicao errada)
+   Solucao: Label do CustomTab movido para o final (depois de todos Groups)
+   Adicionado SupportUrl e CustomTab.Label
+7. Erro ao carregar suplemento no Excel Online (pendente - 16/06/2026)
+   Status: manifest.xml validado, aguardando teste apos upload no SharePoint
 
-=========================================================
+=================================================================
 Para continuar, diga "proximo passo" ou o numero da etapa
-=========================================================
+=================================================================

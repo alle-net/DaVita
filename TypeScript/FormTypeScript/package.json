@@ -1,7 +1,7 @@
 {
   "name": "formlogin",
   "version": "1.0.0",
-  "description": "Office Add-in - Login System with React + TypeScript",
+  "description": "Office Add-in - Login System with TypeScript + Office.js",
   "main": "dist/taskpane.js",
   "scripts": {
     "build": "webpack --mode production",
@@ -12,8 +12,6 @@
   },
   "devDependencies": {
     "@types/office-js": "^1.0.360",
-    "@types/react": "^18.2.0",
-    "@types/react-dom": "^18.2.0",
     "css-loader": "^6.11.0",
     "html-loader": "^4.2.0",
     "html-webpack-plugin": "^5.5.0",
@@ -27,8 +25,5 @@
     "webpack-cli": "^5.1.0",
     "webpack-dev-server": "^4.15.0"
   },
-  "dependencies": {
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0"
-  }
+  "dependencies": {}
 }

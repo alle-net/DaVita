@@ -1,6 +1,13 @@
+export interface ModuloProps {
+  onVoltar: () => void;
+}
+
+export type RenderModulo = (container: HTMLElement, props: ModuloProps) => (() => void);
+
 export interface Modulo {
   chave: string;
   nome: string;
+  renderizar?: RenderModulo;
   onOpen?: () => void;
 }
 
