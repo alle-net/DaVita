@@ -262,18 +262,12 @@ Private Function CarregarDimensao(aba As String, tabela As String) As Variant
     Set ws = ThisWorkbook.Worksheets(aba)
     Set tb = ws.ListObjects(tabela)
     If tb.DataBodyRange Is Nothing Then GoTo ErrHandler
-    Set dr = tb.DataBodyRange: n = 0
-    For i = 1 To dr.Rows.Count
-        If dr.Cells(i, 3).Value = 1 Then n = n + 1
-    Next i
+    Set dr = tb.DataBodyRange: n = dr.Rows.Count
     If n = 0 Then GoTo ErrHandler
-    ReDim res(1 To n, 1 To 2): n = 0
-    For i = 1 To dr.Rows.Count
-        If dr.Cells(i, 3).Value = 1 Then
-            n = n + 1
-            res(n, 1) = dr.Cells(i, 1).Value
-            res(n, 2) = dr.Cells(i, 2).Value
-        End If
+    ReDim res(1 To n, 1 To 2)
+    For i = 1 To n
+        res(i, 1) = dr.Cells(i, 1).Value
+        res(i, 2) = dr.Cells(i, 2).Value
     Next i
     CarregarDimensao = res
     Exit Function
