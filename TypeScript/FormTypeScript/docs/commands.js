@@ -1,0 +1,1 @@
+(()=>{"use strict";Office.onReady(()=>{Office.actions.associate("OpenTaskpane",()=>{var a;null===(a=Office.addin)||void 0===a||a.showAsTaskpane()})})})();
