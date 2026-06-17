@@ -260,8 +260,12 @@ E o retorno e uma funcao de cleanup para remover event listeners.
 6. Manifest.xml com erro de schema (CustomTab.Label na posicao errada)
    Solucao: Label do CustomTab movido para o final (depois de todos Groups)
    Adicionado SupportUrl e CustomTab.Label
-7. Erro ao carregar suplemento no Excel Online (pendente - 16/06/2026)
-   Status: manifest.xml validado, aguardando teste apos upload no SharePoint
+7. Erro ao carregar suplemento no Excel Online (resolvido - 17/06/2026)
+   Causa: taskpane.html nao carregava office.js (CDN faltando)
+   Solucao: adicionado <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js">
+8. Manifest.xml com Label do CustomTab na posicao errada (resolvido)
+   Solucao: Label movido para o final do CustomTab (depois de Group)
+   Adicionado SupportUrl e CustomTab.Label. manifest-localhost.xml sincronizado.
 
 =================================================================
 Para continuar, diga "proximo passo" ou o numero da etapa
