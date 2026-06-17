@@ -266,6 +266,15 @@ E o retorno e uma funcao de cleanup para remover event listeners.
 8. Manifest.xml com Label do CustomTab na posicao errada (resolvido)
    Solucao: Label movido para o final do CustomTab (depois de Group)
    Adicionado SupportUrl e CustomTab.Label. manifest-localhost.xml sincronizado.
+9. SharePoint nao servia HTML puro (bloqueio de seguranca - 17/06/2026)
+   Causa: SharePoint Online nao permite HTML em iframe (strict mode)
+   Solucao: Migrado para GitHub Pages (docs/ no repo alle-net/DaVita)
+   Status: push feito, AGUARDANDO USUARIO ATIVAR GITHUB PAGES:
+   - Ir em https://github.com/alle-net/DaVita/settings/pages
+   - Source: Deploy from a branch
+   - Branch: master, /docs
+   - Salvar
+   URL final: https://alle-net.github.io/DaVita/taskpane.html
 
 =================================================================
 Para continuar, diga "proximo passo" ou o numero da etapa
