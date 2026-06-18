@@ -222,3 +222,82 @@ PROXIMA SESSAO - COMO RETOMAR
 4. Colar frmLoginCode.txt no frmLogin
 5. Salvar e testar (F5)
 6. Proximo passo: frmPrincipal + barra de progresso
+
+===============================================================================
+SESSAO 18/06
+===============================================================================
+
+[18/06 - USUARIO] Retomou sessao. Confirmou que leu progresso.txt e entendeu.
+
+[18/06 - USUARIO] "o login esta levando em consideracao a coluna status da tabela?"
+[18/06 - AGENTE] Analisou modAutenticacao.bas:
+   - VerificarCredenciais: filtra coluna 4 = 1 (Status ativo) — SIM, considera.
+   - CarregarEmailsAtivos: tambem filtra por Status = 1.
+   - ObterIdUsuario: NAO verifica Status, mas e chamada apos VerificarCredenciais.
+   Conclusao: usuario inativo (Status = 0) NAO consegue logar.
+
+[18/06 - USUARIO] "frmLogin nao abre quando a pasta de trabalho e aberta"
+[18/06 - AGENTE] Diagnosticou: falta Workbook_Open no ThisWorkbook.
+   Criou thisworkbook.txt com Workbook_Open + Workbook_BeforeClose.
+
+[18/06 - USUARIO] Solicitou 2 alteracoes:
+   1. Usuario inativo: "Usuario inativo entre em contato com o administrador do sistema"
+   2. Fechar apenas a sessao atual (ThisWorkbook.Close False — ja implementado)
+
+[18/06 - AGENTE] Atualizou VerificarCredenciais em modAutenticacao.bas:
+   Logica invertida: localiza email, depois verifica Status.
+   Status = 0 -> msg inativo. Email nao encontrado -> "Email ou senha incorretos."
+
+[18/06 - USUARIO] "como aplico as modificacoes?"
+[18/06 - AGENTE] Instruiu: Importar modAutenticacao.bas, colar codigos nos forms.
+
+[18/06 - USUARIO] Criou frmPrincipal. "Mude codigo para abri-lo apos login"
+[18/06 - AGENTE] Adicionou frmPrincipal.Show vbModal apos Unload Me no frmLoginCode.txt.
+
+[18/06 - USUARIO] Linhas vermelhas ao colar codigo.
+[18/06 - AGENTE] Estava colando frmLogin.frm em vez de frmLoginCode.txt. Corrigido.
+
+[18/06 - USUARIO] "frmPrincipal maximizado. Tire MsgBox do login."
+[18/06 - AGENTE]
+   - Removeu MsgBox de modAutenticacao.bas
+   - Criou frmPrincipalCode.txt: API FindWindow + ShowWindow (SW_MAXIMIZE)
+   - #If VBA7 Then para compatibilidade 32/64 bits
+
+[18/06 - USUARIO] "Excel 64 bits"
+[18/06 - AGENTE] Ajustou para PtrSafe + LongPtr. Codigo final compativel.
+
+[18/06 - USUARIO] Testou frmPrincipal maximizado. OK.
+[18/06 - AGENTE] Confirmou compatibilidade: VBA6 (Long) / VBA7 (PtrSafe + LongPtr).
+
+[18/06 - USUARIO] "commit e push, parar por hoje"
+[18/06 - AGENTE] Commit 65128e6. 5 arquivos.
+
+===============================================================================
+DECISOES TOMADAS
+===============================================================================
+11. frmPrincipalMaximizado: API FindWindow + ShowWindow (user32.dll)
+12. Compatibilidade: #If VBA7 Then (VBA6=Long, VBA7=PtrSafe+LongPtr)
+13. MsgBox login: removida (email em label do frmPrincipal futuramente)
+14. Usuario inativo: mensagem especifica implementada
+
+===============================================================================
+ESTADO ATUAL (Fim da sessao 18/06)
+===============================================================================
+- FormV1.1.xlsm: frmLogin + frmPrincipal + Workbook_Open
+- modAutenticacao.bas: login c/ status, msg inativo, sem MsgBox
+- frmLoginCode.txt: abre frmPrincipal apos login
+- frmPrincipalCode.txt: API maximizacao (32/64 bits)
+- thisworkbook.txt: Workbook_Open + BeforeClose
+- Proximo passo: estruturar frmPrincipal
+
+===============================================================================
+PROXIMA SESSAO - COMO RETOMAR
+===============================================================================
+1. Ler este progresso.txt
+2. Abrir FormV1.1.xlsm
+3. Importar modAutenticacao.bas (ALT+F11 > Arquivo > Importar)
+4. Colar frmLoginCode.txt no frmLogin
+5. Colar frmPrincipalCode.txt no frmPrincipal
+6. Colar thisworkbook.txt no ThisWorkbook
+7. Salvar e testar
+8. Proximo passo: estruturar frmPrincipal (label email, barra progresso)
