@@ -1,0 +1,33 @@
+' ============================================================
+' ThisWorkbook - Code-Behind
+' Cole este codigo no VBA Editor:
+'   ALT+F11 -> ThisWorkbook (doublo clique) -> colar tudo
+' ============================================================
+
+Option Explicit
+
+Private Sub Workbook_Open()
+    Application.ScreenUpdating = False
+    
+    ' Desabilitar menus de contexto
+    Application.CommandBars("Cell").Enabled = False
+    Application.CommandBars("Row").Enabled = False
+    Application.CommandBars("Column").Enabled = False
+    Application.CommandBars("Ply").Enabled = False
+    
+    Application.ScreenUpdating = True
+    
+    frmLogin.Show vbModal
+End Sub
+
+Private Sub Workbook_BeforeClose(Cancel As Boolean)
+    modAutenticacao.ResetarSessao
+    
+    ' Reabilitar menus
+    On Error Resume Next
+    Application.CommandBars("Cell").Enabled = True
+    Application.CommandBars("Row").Enabled = True
+    Application.CommandBars("Column").Enabled = True
+    Application.CommandBars("Ply").Enabled = True
+    On Error GoTo 0
+End Sub

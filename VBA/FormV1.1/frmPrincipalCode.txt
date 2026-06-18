@@ -1,0 +1,37 @@
+' ============================================================
+' frmPrincipal - Code-Behind
+' ============================================================
+
+Option Explicit
+
+#If VBA7 Then
+    Private Declare PtrSafe Function FindWindow Lib "user32" Alias "FindWindowA" _
+        (ByVal lpClassName As String, ByVal lpWindowName As String) As LongPtr
+    Private Declare PtrSafe Function ShowWindow Lib "user32" _
+        (ByVal hwnd As LongPtr, ByVal nCmdShow As Long) As Long
+#Else
+    Private Declare Function FindWindow Lib "user32" Alias "FindWindowA" _
+        (ByVal lpClassName As String, ByVal lpWindowName As String) As Long
+    Private Declare Function ShowWindow Lib "user32" _
+        (ByVal hwnd As Long, ByVal nCmdShow As Long) As Long
+#End If
+
+Private Const SW_MAXIMIZE = 3
+
+Private Sub UserForm_Initialize()
+    Me.Caption = "Controle Financeiro"
+End Sub
+
+Private Sub UserForm_Activate()
+    Static bMaximizado As Boolean
+    If Not bMaximizado Then
+        bMaximizado = True
+#If VBA7 Then
+        Dim hwnd As LongPtr
+#Else
+        Dim hwnd As Long
+#End If
+        hwnd = FindWindow("ThunderDFrame", Me.Caption)
+        If hwnd <> 0 Then ShowWindow hwnd, SW_MAXIMIZE
+    End If
+End Sub

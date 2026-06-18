@@ -222,14 +222,17 @@ Public Function VerificarCredenciais(ByVal pEmail As String, ByVal pSenha As Str
     
     Dim i As Long
     For i = 1 To tb.Rows.count
-        If tb.Cells(i, 4).Value = 1 Then
-            If LCase(Trim(tb.Cells(i, 2).Value)) = LCase(Trim(pEmail)) Then
+        If LCase(Trim(tb.Cells(i, 2).Value)) = LCase(Trim(pEmail)) Then
+            If tb.Cells(i, 4).Value = 1 Then
                 If tb.Cells(i, 3).Value = pSenha Then
                     VerificarCredenciais = True
                     FecharBanco db
-                    MsgBox "Conectado como: " & pEmail, vbInformation, "Login OK"
                     Exit Function
                 End If
+            Else
+                FecharBanco db
+                MsgBox "Usuario inativo entre em contato com o administrador do sistema", vbExclamation, "Acesso Negado"
+                Exit Function
             End If
         End If
     Next
