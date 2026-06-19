@@ -48,7 +48,7 @@ Private Sub cmbEntrar_Click()
         modAutenticacao.EmailAtual = email
         modAutenticacao.UsuarioAtual = modAutenticacao.ObterIdUsuario(email)
         Unload Me
-        frmPrincipal.Show vbModal
+        frmPrincipal.Show vbModeless
     Else
         lblMenssagem.Caption = "Email ou senha incorretos."
         txtSenha.Value = ""

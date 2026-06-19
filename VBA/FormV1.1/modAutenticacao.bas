@@ -1,13 +1,13 @@
 Attribute VB_Name = "modAutenticacao"
 Option Explicit
 
-' === Variaveis de sessao ===
 Public UsuarioAtual As Long
 Public EmailAtual As String
 
-' === Variaveis internas ===
 Private mCaminhoBanco As String
-Private mBancoAberto As Workbook
+
+Private Const STR_PROVIDER As String = "Microsoft.ACE.OLEDB.12.0"
+Private Const STR_EXTENDED As String = "Excel 12.0 Xml;HDR=Yes;IMEX=1"
 
 ' ====================================================================
 ' GERENCIAMENTO DO CAMINHO DO BANCO
@@ -18,7 +18,7 @@ Private Function ObterCaminhoBanco() As String
         ObterCaminhoBanco = mCaminhoBanco
         Exit Function
     End If
-    
+
     Dim configPath As String
     configPath = LerConfig
     If configPath <> "" Then
@@ -36,18 +36,18 @@ Private Function ObterCaminhoBanco() As String
             End If
         End If
     End If
-    
+
     Dim user As String
     user = Environ("USERNAME")
-    
+
     mCaminhoBanco = ProcurarBancoEm("C:\Users\" & user & "\DaVita\")
-    
+
     If mCaminhoBanco <> "" Then
         SalvarConfig mCaminhoBanco
         ObterCaminhoBanco = mCaminhoBanco
         Exit Function
     End If
-    
+
     Dim resposta As String
     resposta = InputBox("Informe o caminho completo do arquivo Banco Analistas.xlsx:" & vbCrLf & _
                         "Ex: C:\Users\" & user & "\DaVita\...\Banco Analistas.xlsx", _
@@ -58,16 +58,16 @@ Private Function ObterCaminhoBanco() As String
     ElseIf resposta <> "" Then
         mCaminhoBanco = resposta
     End If
-    
+
     ObterCaminhoBanco = mCaminhoBanco
 End Function
 
 Private Function ProcurarBancoEm(ByVal pastaBase As String) As String
     Dim fso As Object
     Set fso = CreateObject("Scripting.FileSystemObject")
-    
+
     If Not fso.FolderExists(pastaBase) Then Exit Function
-    
+
     Dim pasta As Object
     Set pasta = fso.GetFolder(pastaBase)
     ProcurarBancoEm = BuscarRecursivo(pasta, "Banco Analistas.xlsx", 3)
@@ -75,14 +75,14 @@ End Function
 
 Private Function BuscarRecursivo(ByVal pasta As Object, ByVal nomeArquivo As String, ByVal profundidade As Long) As String
     Dim arq As Object, subPasta As Object
-    
+
     For Each arq In pasta.Files
         If LCase(arq.Name) = LCase(nomeArquivo) Then
             BuscarRecursivo = arq.Path
             Exit Function
         End If
     Next
-    
+
     If profundidade > 0 Then
         For Each subPasta In pasta.SubFolders
             BuscarRecursivo = BuscarRecursivo(subPasta, nomeArquivo, profundidade - 1)
@@ -119,61 +119,79 @@ Private Sub SalvarConfig(ByVal caminho As String)
 End Sub
 
 ' ====================================================================
-' ACESSO AO BANCO
+' CONEXAO ADODB
 ' ====================================================================
 
-Public Function AbrirBanco(ByVal readOnly As Boolean) As Workbook
+Public Function AbrirConexao() As Object
     Dim caminho As String
     caminho = ObterCaminhoBanco
-    If caminho = "" Then
-        Dim msg As String
-        msg = "Banco de dados nao encontrado." & vbCrLf & vbCrLf
-        msg = msg & "Verifique o caminho na planilha Config (celula A1)." & vbCrLf
-        msg = msg & "Deseja informar o caminho agora?"
-        If MsgBox(msg, vbCritical + vbYesNo, "Erro") = vbYes Then
+    If caminho = "" Then Exit Function
+
+    If Dir(caminho) = "" Then
+        Dim errMsg As String
+        errMsg = "Arquivo nao encontrado:" & vbCrLf & vbCrLf & _
+                 caminho & vbCrLf & vbCrLf & _
+                 "Deseja informar um novo caminho?"
+        If MsgBox(errMsg, vbCritical + vbYesNo, "Arquivo nao encontrado") = vbYes Then
             mCaminhoBanco = ""
             caminho = SolicitarCaminhoBanco
             If caminho <> "" Then
-                Set AbrirBanco = AbrirBancoComErro(caminho, readOnly)
+                Set AbrirConexao = AbrirConexao
             End If
         End If
         Exit Function
     End If
-    
-    Set AbrirBanco = AbrirBancoComErro(caminho, readOnly)
-End Function
 
-Private Function AbrirBancoComErro(ByVal caminho As String, ByVal readOnly As Boolean) As Workbook
-    Application.ScreenUpdating = False
-    Application.DisplayAlerts = False
-    
-    Dim tempWB As Workbook
+    Dim conn As Object
+    Set conn = CreateObject("ADODB.Connection")
+
     On Error Resume Next
-    Set tempWB = Workbooks.Open(caminho, , readOnly)
+    conn.Open "Provider=" & STR_PROVIDER & ";Data Source=" & caminho & _
+              ";Extended Properties=""" & STR_EXTENDED & """"
     On Error GoTo 0
-    
-    Application.DisplayAlerts = True
-    
-    If tempWB Is Nothing Then
-        Application.ScreenUpdating = True
-        Dim errMsg As String
-        errMsg = "Nao foi possivel abrir o banco de dados." & vbCrLf & vbCrLf & _
+
+    If conn.State <> 1 Then
+        Set conn = Nothing
+        errMsg = "Nao foi possivel conectar ao banco de dados." & vbCrLf & vbCrLf & _
                  "Caminho: " & caminho & vbCrLf & vbCrLf & _
-                 "Possiveis causas:" & vbCrLf & _
-                 "- O arquivo foi movido ou renomeado" & vbCrLf & _
-                 "- O caminho de rede esta inacessivel" & vbCrLf & _
-                 "- O arquivo esta corrompido ou em uso" & vbCrLf & vbCrLf & _
                  "Deseja informar um novo caminho?"
-        If MsgBox(errMsg, vbCritical + vbYesNo, "Erro") = vbYes Then
-            Dim novo As String
-            novo = SolicitarCaminhoBanco
-            If novo <> "" Then
-                Set AbrirBancoComErro = AbrirBancoComErro(novo, readOnly)
+        If MsgBox(errMsg, vbCritical + vbYesNo, "Erro de conexao") = vbYes Then
+            mCaminhoBanco = ""
+            caminho = SolicitarCaminhoBanco
+            If caminho <> "" Then
+                Set AbrirConexao = AbrirConexao
             End If
         End If
-    Else
-        Set AbrirBancoComErro = tempWB
+        Exit Function
     End If
+
+    Set AbrirConexao = conn
+End Function
+
+Public Sub FecharConexao(ByVal conn As Object)
+    On Error Resume Next
+    If Not conn Is Nothing Then
+        If conn.State = 1 Then conn.Close
+    End If
+    Set conn = Nothing
+    On Error GoTo 0
+End Sub
+
+Public Function ExecutarSelect(ByVal conn As Object, ByVal sql As String) As Object
+    If conn Is Nothing Then Exit Function
+
+    Dim rs As Object
+    Set rs = CreateObject("ADODB.Recordset")
+
+    On Error Resume Next
+    rs.Open sql, conn, 0, 1
+    On Error GoTo 0
+
+    If rs.State <> 1 Then
+        Set rs = Nothing
+    End If
+
+    Set ExecutarSelect = rs
 End Function
 
 Private Function SolicitarCaminhoBanco() As String
@@ -200,151 +218,109 @@ Private Function SolicitarCaminhoBanco() As String
     End If
 End Function
 
-Public Sub FecharBanco(ByVal db As Workbook)
-    If Not db Is Nothing Then
-        db.Close False
-    End If
-    Application.ScreenUpdating = True
-End Sub
-
 ' ====================================================================
-' FUNCOES DE AUTENTICACAO
+' AUTENTICACAO
 ' ====================================================================
 
 Public Function CarregarEmailsAtivos() As String()
-    Dim db As Workbook
-    Set db = AbrirBanco(True)
-    If db Is Nothing Then Exit Function
-    
-    Dim ws As Worksheet
-    Set ws = db.Sheets("Usuarios")
-    
-    Dim lo As ListObject
-    Set lo = ws.ListObjects("TabUsuarios")
-    
-    If lo Is Nothing Then
-        FecharBanco db
+    Dim conn As Object
+    Set conn = AbrirConexao
+    If conn Is Nothing Then Exit Function
+
+    Dim rs As Object
+    Set rs = ExecutarSelect(conn, "SELECT Email FROM TabUsuarios WHERE Status = 1")
+    If rs Is Nothing Then
+        FecharConexao conn
         Exit Function
     End If
-    
-    Dim tb As Range
-    Set tb = lo.DataBodyRange
-    
-    If tb Is Nothing Then
-        FecharBanco db
+
+    If rs.EOF Then
+        rs.Close
+        FecharConexao conn
         Exit Function
     End If
-    
-    Dim i As Long, count As Long
-    count = 0
-    
-    For i = 1 To tb.Rows.count
-        If tb.Cells(i, 4).Value = 1 Then
-            count = count + 1
-        End If
-    Next
-    
-    If count = 0 Then
-        FecharBanco db
-        Exit Function
-    End If
-    
+
     Dim emails() As String
-    ReDim emails(1 To count)
-    
+    ReDim emails(1 To 1000)
+
     Dim idx As Long
-    idx = 1
-    
-    For i = 1 To tb.Rows.count
-        If tb.Cells(i, 4).Value = 1 Then
-            emails(idx) = tb.Cells(i, 2).Value
-            idx = idx + 1
-        End If
-    Next
-    
-    FecharBanco db
+    idx = 0
+    Do While Not rs.EOF
+        idx = idx + 1
+        If idx > UBound(emails) Then ReDim Preserve emails(1 To idx + 1000)
+        emails(idx) = rs.Fields("Email").Value
+        rs.MoveNext
+    Loop
+
+    rs.Close
+    FecharConexao conn
+
+    If idx = 0 Then Exit Function
+    ReDim Preserve emails(1 To idx)
     CarregarEmailsAtivos = emails
 End Function
 
 Public Function VerificarCredenciais(ByVal pEmail As String, ByVal pSenha As String) As Boolean
-    Dim db As Workbook
-    Set db = AbrirBanco(True)
-    If db Is Nothing Then Exit Function
-    
-    Dim ws As Worksheet
-    Set ws = db.Sheets("Usuarios")
-    
-    Dim lo As ListObject
-    Set lo = ws.ListObjects("TabUsuarios")
-    
-    If lo Is Nothing Then
-        FecharBanco db
+    Dim conn As Object
+    Set conn = AbrirConexao
+    If conn Is Nothing Then Exit Function
+
+    pEmail = Replace(pEmail, "'", "''")
+    pSenha = Replace(pSenha, "'", "''")
+
+    Dim sql As String
+    sql = "SELECT IdUsuario, Senha, Status FROM TabUsuarios WHERE LCase(Email) = LCase('" & pEmail & "')"
+
+    Dim rs As Object
+    Set rs = ExecutarSelect(conn, sql)
+    If rs Is Nothing Then
+        FecharConexao conn
         Exit Function
     End If
-    
-    Dim tb As Range
-    Set tb = lo.DataBodyRange
-    
-    If tb Is Nothing Then
-        FecharBanco db
-        Exit Function
-    End If
-    
-    Dim i As Long
-    For i = 1 To tb.Rows.count
-        If LCase(Trim(tb.Cells(i, 2).Value)) = LCase(Trim(pEmail)) Then
-            If tb.Cells(i, 4).Value = 1 Then
-                If tb.Cells(i, 3).Value = pSenha Then
-                    VerificarCredenciais = True
-                    FecharBanco db
-                    Exit Function
-                End If
-            Else
-                FecharBanco db
-                MsgBox "Usuario inativo entre em contato com o administrador do sistema", vbExclamation, "Acesso Negado"
-                Exit Function
+
+    If Not rs.EOF Then
+        If rs.Fields("Status").Value = 1 Then
+            If rs.Fields("Senha").Value = pSenha Then
+                VerificarCredenciais = True
             End If
+        Else
+            FecharConexao conn
+            MsgBox "Usuario inativo entre em contato com o administrador do sistema", vbExclamation, "Acesso Negado"
+            Exit Function
         End If
-    Next
-    
-    FecharBanco db
-    MsgBox "Email ou senha incorretos.", vbExclamation, "Falha no Login"
+    End If
+
+    rs.Close
+    FecharConexao conn
+
+    If Not VerificarCredenciais Then
+        MsgBox "Email ou senha incorretos.", vbExclamation, "Falha no Login"
+    End If
 End Function
 
 Public Function ObterIdUsuario(ByVal pEmail As String) As Long
-    Dim db As Workbook
-    Set db = AbrirBanco(True)
-    If db Is Nothing Then Exit Function
-    
-    Dim ws As Worksheet
-    Set ws = db.Sheets("Usuarios")
-    
-    Dim lo As ListObject
-    Set lo = ws.ListObjects("TabUsuarios")
-    
-    If lo Is Nothing Then
-        FecharBanco db
+    Dim conn As Object
+    Set conn = AbrirConexao
+    If conn Is Nothing Then Exit Function
+
+    pEmail = Replace(pEmail, "'", "''")
+
+    Dim sql As String
+    sql = "SELECT IdUsuario FROM TabUsuarios WHERE LCase(Email) = LCase('" & pEmail & "')"
+
+    Dim rs As Object
+    Set rs = ExecutarSelect(conn, sql)
+    If rs Is Nothing Then
+        FecharConexao conn
         Exit Function
     End If
-    
-    Dim tb As Range
-    Set tb = lo.DataBodyRange
-    
-    If tb Is Nothing Then
-        FecharBanco db
-        Exit Function
+
+    If Not rs.EOF Then
+        ObterIdUsuario = rs.Fields("IdUsuario").Value
     End If
-    
-    Dim i As Long
-    For i = 1 To tb.Rows.count
-        If LCase(Trim(tb.Cells(i, 2).Value)) = LCase(Trim(pEmail)) Then
-            ObterIdUsuario = tb.Cells(i, 1).Value
-            FecharBanco db
-            Exit Function
-        End If
-    Next
-    
-    FecharBanco db
+
+    rs.Close
+    FecharConexao conn
 End Function
 
 Public Sub ResetarSessao()

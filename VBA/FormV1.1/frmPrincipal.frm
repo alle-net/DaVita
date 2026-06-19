@@ -1,3 +1,18 @@
+VERSION 5.00
+Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} frmPrincipal 
+   Caption         =   "Registros"
+   ClientHeight    =   8235.001
+   ClientLeft      =   120
+   ClientTop       =   465
+   ClientWidth     =   20760
+   OleObjectBlob   =   "frmPrincipal.frx":0000
+   StartUpPosition =   1  'CenterOwner
+End
+Attribute VB_Name = "frmPrincipal"
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = False
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
 ' ============================================================
 ' frmPrincipal - Code-Behind
 ' Cole este codigo no VBA Editor:
@@ -81,7 +96,7 @@ Private Sub UserForm_Initialize()
 
     AnexarAoExcel
 
-    lblUsuarioLogado.Caption = "Usuário: " & modAutenticacao.EmailAtual
+    lblUsuarioLogado.Caption = "Usu�rio: " & modAutenticacao.EmailAtual
 
     mNomesHeaders = Array( _
         "lblHdrCompetencia", "lblHdrRegional", "lblHdrUnidade", _
@@ -138,12 +153,11 @@ End Sub
 
 Public Sub AjustarTamanho()
     On Error Resume Next
-    ' Mantem o form dentro da area do Excel, mas sem ocupar a tela inteira
     Me.StartUpPosition = 0
-    Me.Width = Application.UsableWidth * 0.82
-    Me.Height = Application.UsableHeight * 0.84
-    Me.Left = Application.Left + (Application.UsableWidth - Me.Width) / 2
-    Me.Top = Application.Top + (Application.UsableHeight - Me.Height) / 2
+    Me.Width = Application.UsableWidth
+    Me.Height = Application.UsableHeight
+    Me.Left = 0
+    Me.Top = 0
     On Error GoTo 0
     AjustarHeaders
 End Sub
@@ -537,9 +551,9 @@ Private Sub AtualizarSomas()
     Dim i As Long
 
     For i = 1 To mTotalFiltrados
-        totalFat = totalFat + Val(mFiltrados(i, 9))
-        totalGlosa = totalGlosa + Val(mFiltrados(i, 10))
-        totalPerda = totalPerda + Val(mFiltrados(i, 11))
+        totalFat = totalFat + val(mFiltrados(i, 9))
+        totalGlosa = totalGlosa + val(mFiltrados(i, 10))
+        totalPerda = totalPerda + val(mFiltrados(i, 11))
     Next
 
     lblFaturamento.Caption = Format(totalFat, "R$ #,##0.00")
@@ -571,5 +585,7 @@ Private Sub cmbExcluir_Click()
     If MsgBox("Deseja realmente excluir este registro?", vbQuestion + vbYesNo, "Excluir") = vbNo Then Exit Sub
     MsgBox "Funcionalidade em desenvolvimento.", vbInformation, "Excluir"
 End Sub
+
+
 
 
