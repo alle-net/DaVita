@@ -436,3 +436,80 @@ PROXIMA SESSAO - COMO RETOMAR
 7. Se erro "arquivo nao localizado": usar nova opcao de reconfiguracao
    (o sistema pergunta se quer informar novo caminho apos o erro)
 8. Proximo passo programado: estrutura do frmPrincipal com dados carregados
+
+===============================================================================
+SESSAO 19/06 (continuacao)
+===============================================================================
+
+[19/06 - USUARIO] "no momento a coisa mais importante e conseguir ancorar 
+   o frmPrincipal dentro da janela do excel"
+
+[19/06 - AGENTE] Implementou SetParent real em AnexarAoExcel:
+   - FindWindow("XLMAIN") + SetParent + WS_CHILD (remove WS_POPUP)
+   - AjustarTamanho: 100% de Application.UsableWidth/Height, Left=0, Top=0
+
+[19/06 - USUARIO] Testou. "erro o arquivo a seguir nao foi localizado"
+
+[19/06 - AGENTE] Adicionou Dir() check antes de Workbooks.Open para 
+   suprimir dialogo padrao do Excel. Nao resolveu — usuario ainda com erro.
+
+[19/06 - USUARIO] Aceitou migrar para ADODB em vez de Workbooks.Open.
+
+[19/06 - AGENTE] Reescreveu modAutenticacao.bas com ADODB (late binding):
+   - AbrirConexao / FecharConexao / ExecutarSelect
+   - Provider: Microsoft.ACE.OLEDB.12.0
+   - Extended Properties: "Excel 12.0 Xml;HDR=Yes;IMEX=1"
+   - VerificarCredenciais, ObterIdUsuario, CarregarEmailsAtivos via SQL
+   - ExecutarSelect: checa rs.State antes de retornar
+   - Cursor: forward-only (compativel com Excel)
+
+[19/06 - AGENTE] Atualizou frmPrincipalCode.txt e frmPrincipal.frm para ADODB:
+   - CarregarDados: SELECT * FROM [TabDados] WHERE IdUsuario = X
+   - CarregarCacheDimensoes: SELECT * FROM [TabNome] para cada dicionario
+   - Collection para acumular linhas (evita MoveLast/MoveFirst nao suportado)
+   - CarregarDicionario via ADODB (remove EncontrarTabela/ListObject)
+
+[19/06 - USUARIO] "erro em tempo de execucao a operacao nao e permitida 
+   com objeto fechado"
+
+[19/06 - AGENTE] Corrigiu:
+   - ExecutarSelect: verifica rs.State <> 1 (evita retornar Recordset fechado)
+   - CarregarDados: usa Collection para armazenar linhas em vez de
+     MoveLast/RecordCount (nao suportado pelo ACE.OLEDB)
+
+[19/06 - USUARIO] "commit para continuar depois"
+
+[19/06 - AGENTE] Commit b3d6233 - FormV1.1: migracao para ADODB + ancorado
+
+===============================================================================
+DECISOES TOMADAS
+===============================================================================
+20. Metodo de acesso ao banco: ADODB (ACE.OLEDB.12.0) em vez de Workbooks.Open
+21. Ancoragem do frmPrincipal: SetParent + WS_CHILD (API Windows)
+22. AjustarTamanho: 100% da area util (Application.UsableWidth/Height)
+23. Carregamento de dados: Collection -> array (evita MoveLast/MoveFirst)
+24. Cursor ADODB: forward-only (mais compativel com Excel)
+
+===============================================================================
+ESTADO ATUAL (Fim da sessao 19/06)
+===============================================================================
+- modAutenticacao.bas: ADODB completo (AbrirConexao, FecharConexao, ExecutarSelect)
+- frmPrincipalCode.txt: dados via ADODB + SetParent + ajuste 100%
+- frmPrincipal.frm: sincronizado (contem layout + code)
+- thisworkbook.txt: inalterado (Workbook_WindowResize -> AjustarTamanho)
+- ERRO PENDENTE: "objeto fechado" ao carregar dados — verificar na proxima sessao
+  Suspeita: SQL com nome de tabela incorreto ou ACE.OLEDB nao reconhecendo ListObjects
+
+===============================================================================
+PROXIMA SESSAO - COMO RETOMAR
+===============================================================================
+1. Ler este progresso.txt
+2. Abrir FormV1.1.xlsm
+3. ALT+F11 > Importar modAutenticacao.bas
+4. Colar frmPrincipalCode.txt no frmPrincipal
+5. Salvar e testar
+6. Se error "objeto fechado" no ADODB:
+   - Verificar se ACE.OLEDB.12.0 esta instalado
+   - Verificar SQL: usar sheet reference [SheetName$] em vez de [TabName]
+   - ou criar named range para cada tabela
+7. Proximo passo: corrigir erro ADODB + testar ancoragem
