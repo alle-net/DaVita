@@ -21,10 +21,20 @@ Private Function ObterCaminhoBanco() As String
     
     Dim configPath As String
     configPath = LerConfig
-    If configPath <> "" And Dir(configPath) <> "" Then
-        mCaminhoBanco = configPath
-        ObterCaminhoBanco = mCaminhoBanco
-        Exit Function
+    If configPath <> "" Then
+        If Dir(configPath) <> "" Then
+            mCaminhoBanco = configPath
+            ObterCaminhoBanco = mCaminhoBanco
+            Exit Function
+        Else
+            Dim msg As String
+            msg = "O caminho salvo nao foi encontrado:" & vbCrLf & vbCrLf & _
+                  configPath & vbCrLf & vbCrLf & _
+                  "Deseja informar um novo caminho?"
+            If MsgBox(msg, vbQuestion + vbYesNo, "Arquivo nao encontrado") = vbNo Then
+                Exit Function
+            End If
+        End If
     End If
     
     Dim user As String
@@ -45,6 +55,8 @@ Private Function ObterCaminhoBanco() As String
     If resposta <> "" And Dir(resposta) <> "" Then
         mCaminhoBanco = resposta
         SalvarConfig mCaminhoBanco
+    ElseIf resposta <> "" Then
+        mCaminhoBanco = resposta
     End If
     
     ObterCaminhoBanco = mCaminhoBanco
@@ -110,27 +122,85 @@ End Sub
 ' ACESSO AO BANCO
 ' ====================================================================
 
-Private Function AbrirBanco(ByVal readOnly As Boolean) As Workbook
+Public Function AbrirBanco(ByVal readOnly As Boolean) As Workbook
     Dim caminho As String
     caminho = ObterCaminhoBanco
     If caminho = "" Then
-        MsgBox "Banco de dados nao encontrado.", vbCritical, "Erro"
+        Dim msg As String
+        msg = "Banco de dados nao encontrado." & vbCrLf & vbCrLf
+        msg = msg & "Verifique o caminho na planilha Config (celula A1)." & vbCrLf
+        msg = msg & "Deseja informar o caminho agora?"
+        If MsgBox(msg, vbCritical + vbYesNo, "Erro") = vbYes Then
+            mCaminhoBanco = ""
+            caminho = SolicitarCaminhoBanco
+            If caminho <> "" Then
+                Set AbrirBanco = AbrirBancoComErro(caminho, readOnly)
+            End If
+        End If
         Exit Function
     End If
     
-    Application.ScreenUpdating = False
-    
-    On Error GoTo ErroAbrir
-    Set AbrirBanco = Workbooks.Open(caminho, , readOnly)
-    Exit Function
-    
-ErroAbrir:
-    Application.ScreenUpdating = True
-    MsgBox "Erro ao abrir o banco de dados:" & vbCrLf & caminho & vbCrLf & vbCrLf & _
-           "Verifique se o arquivo existe e nao esta em uso.", vbCritical, "Erro"
+    Set AbrirBanco = AbrirBancoComErro(caminho, readOnly)
 End Function
 
-Private Sub FecharBanco(ByVal db As Workbook)
+Private Function AbrirBancoComErro(ByVal caminho As String, ByVal readOnly As Boolean) As Workbook
+    Application.ScreenUpdating = False
+    Application.DisplayAlerts = False
+    
+    Dim tempWB As Workbook
+    On Error Resume Next
+    Set tempWB = Workbooks.Open(caminho, , readOnly)
+    On Error GoTo 0
+    
+    Application.DisplayAlerts = True
+    
+    If tempWB Is Nothing Then
+        Application.ScreenUpdating = True
+        Dim errMsg As String
+        errMsg = "Nao foi possivel abrir o banco de dados." & vbCrLf & vbCrLf & _
+                 "Caminho: " & caminho & vbCrLf & vbCrLf & _
+                 "Possiveis causas:" & vbCrLf & _
+                 "- O arquivo foi movido ou renomeado" & vbCrLf & _
+                 "- O caminho de rede esta inacessivel" & vbCrLf & _
+                 "- O arquivo esta corrompido ou em uso" & vbCrLf & vbCrLf & _
+                 "Deseja informar um novo caminho?"
+        If MsgBox(errMsg, vbCritical + vbYesNo, "Erro") = vbYes Then
+            Dim novo As String
+            novo = SolicitarCaminhoBanco
+            If novo <> "" Then
+                Set AbrirBancoComErro = AbrirBancoComErro(novo, readOnly)
+            End If
+        End If
+    Else
+        Set AbrirBancoComErro = tempWB
+    End If
+End Function
+
+Private Function SolicitarCaminhoBanco() As String
+    Dim user As String
+    user = Environ("USERNAME")
+    Dim resposta As String
+    resposta = InputBox("Informe o caminho completo do arquivo Banco Analistas.xlsx:" & vbCrLf & _
+                        "Ex: C:\Users\" & user & "\DaVita\...\Banco Analistas.xlsx", _
+                        "Configuracao do Banco")
+    If resposta <> "" Then
+        If Dir(resposta) <> "" Then
+            mCaminhoBanco = resposta
+            SalvarConfig resposta
+            SolicitarCaminhoBanco = resposta
+        Else
+            Dim confirma As String
+            confirma = "O arquivo informado nao foi encontrado:" & vbCrLf & _
+                       resposta & vbCrLf & vbCrLf & _
+                       "Deseja tentar novamente com outro caminho?"
+            If MsgBox(confirma, vbExclamation + vbYesNo, "Arquivo nao encontrado") = vbYes Then
+                SolicitarCaminhoBanco = SolicitarCaminhoBanco
+            End If
+        End If
+    End If
+End Function
+
+Public Sub FecharBanco(ByVal db As Workbook)
     If Not db Is Nothing Then
         db.Close False
     End If

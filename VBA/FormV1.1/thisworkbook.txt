@@ -8,21 +8,21 @@ Option Explicit
 
 Private Sub Workbook_Open()
     Application.ScreenUpdating = False
-    
+
     ' Desabilitar menus de contexto
     Application.CommandBars("Cell").Enabled = False
     Application.CommandBars("Row").Enabled = False
     Application.CommandBars("Column").Enabled = False
     Application.CommandBars("Ply").Enabled = False
-    
+
     Application.ScreenUpdating = True
-    
+
     frmLogin.Show vbModal
 End Sub
 
 Private Sub Workbook_BeforeClose(Cancel As Boolean)
     modAutenticacao.ResetarSessao
-    
+
     ' Reabilitar menus
     On Error Resume Next
     Application.CommandBars("Cell").Enabled = True
@@ -30,4 +30,13 @@ Private Sub Workbook_BeforeClose(Cancel As Boolean)
     Application.CommandBars("Column").Enabled = True
     Application.CommandBars("Ply").Enabled = True
     On Error GoTo 0
+End Sub
+
+Private Sub Workbook_WindowResize(ByVal Wn As Window)
+    On Error Resume Next
+    If Not frmPrincipal Is Nothing Then
+        If frmPrincipal.Visible Then
+            frmPrincipal.AjustarTamanho
+        End If
+    End If
 End Sub

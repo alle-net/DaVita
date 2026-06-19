@@ -301,3 +301,138 @@ PROXIMA SESSAO - COMO RETOMAR
 6. Colar thisworkbook.txt no ThisWorkbook
 7. Salvar e testar
 8. Proximo passo: estruturar frmPrincipal (label email, barra progresso)
+
+===============================================================================
+SESSAO 19/06
+===============================================================================
+
+[19/06 - USUARIO] Retomou sessao. Leu progresso.txt.
+
+[19/06 - USUARIO] "preciso de uma alternativa melhor que o listbox"
+[19/06 - AGENTE] Apresentou alternativas ao ListView (mscomctl.ocx nao funciona 64 bits):
+   1. ListBox multicompos (nativo, ColumnCount + ColumnWidths + Labels como headers)
+   2. WebBrowser + HTML table (renderiza tabela com CSS, eventos via BeforeNavigate2)
+   3. Quadro pintado com API Line/Circle
+   4. Controles dinamicos em Frame
+   Recomendacao: ListBox multicompos pela simplicidade, ou WebBrowser+HTML pela aparencia.
+
+[19/06 - USUARIO] "como funciona webbrowser?"
+[19/06 - AGENTE] Explicou WebBrowser+HTML: gera HTML no VBA, salva arquivo temporario,
+   navega no controle, captura cliques via BeforeNavigate2. Continuidade dentro do Excel.
+
+[19/06 - USUARIO] "acho que vou usar o listbox mas meu problema sao os cabecalhos"
+[19/06 - AGENTE] Apresentou tecnica de Labels posicionadas sobre o ListBox como headers:
+   calcula Left/Width baseado no ColumnWidths do ListBox.
+
+[19/06 - USUARIO] "vamos tentar desta forma"
+[19/06 - AGENTE] Apresentou plano do frmPrincipal:
+   - Formulario sem borda (BorderStyle=0), encaixado na janela do Excel
+   - Labels como headers (13 colunas)
+   - ListBox com paginacao (50 registros)
+   - Cache de dimensoes via Dictionary
+   - Busca/filtro em todas as colunas
+   - Somas totais nos frames (faturamento, glosa, perda)
+
+[19/06 - USUARIO] Criou controles no frmPrincipal:
+   Frames: fmeFaturamento, fmeGlosa, fmePerda
+   Labels: lblFaturamento, lblGlosa, lblPerda
+           13 headers: lblHdrCompetencia, lblHdrRegional, lblHdrUnidade,
+           lblHdrHospital, lblHdrTitulo, lblHdrNFe, lblHdrStatusNFe,
+           lblHdrDataEnvio, lblHdrMotivoGlosa, lblHdrFaturamento,
+           lblHdrGlosa, lblHdrPerda, lblHdrObservacao
+           lblBuscar, lblPagina, lblUsuarioLogado
+   TextBox: txtBoxBusca
+   ListBox: lstDados
+   Buttons: cmdAnterior, cmdProximo, cmdAdicionar, cmbEditar, cmbExcluir
+   Images: imgLogofrmPrincipal, imgAnterior, imgProximo, imgAdicionar,
+           imgEditar, imgExcluir
+
+[19/06 - USUARIO] "formprincipal encaixar dentro da janela do excel"
+[19/06 - AGENTE] Duas opcoes:
+   A) Com borda (BorderStyle=2) - botoes min/max/fechar visiveis
+   B) Sem borda (BorderStyle=0) - tipo painel integrado, sem title bar
+   USUARIO ESCOLHEU: Opcao B
+
+[19/06 - USUARIO] Confirmou estrutura completa do banco:
+   - TabUsuarios: IdUsuario(inteiro) | Email(texto) | Senha(texto) | Status(inteiro)
+   - TabHospitais: IdHospital(inteiro) | Hospital(texto) | Status(inteiro)
+   - TabRegionais: IdRegional(inteiro) | Regional(texto) | Status(inteiro)
+   - TabUnidades: IdUnidades(inteiro) | Unidade(texto) | Status(inteiro)
+   - TabStatusNFe: IdStatus(inteiro) | StatusNFe(texto) | Status(inteiro)
+   - TabMotivosGlosa: IdMotivo(inteiro) | MotivoGlosa(texto) | Status(inteiro)
+   - TabDados: id(texto hash) | IdUsuario(inteiro) | Competencia(data)
+     | IdHospital(inteiro) | IdRegional(inteiro) | IdUnidade(inteiro)
+     | Titulo(texto) | NFe(texto) | IdStatus(inteiro) | IdMotivo(inteiro)
+     | DataEnvioNFe(data) | ValorFaturamento(numero 2 dec) | ValorPerda(numero 2 dec)
+     | ValorGlosa(numero 2 dec) | Observacao(texto) | Data(data/hora)
+
+[19/06 - AGENTE] Gerou 3 arquivos:
+   1. frmPrincipalCode.txt (538 linhas):
+      - API SetWindowLong para BorderStyle=0
+      - AjustarTamanho: form ocupa Application.Top/Left/Width/Height
+      - Workbook_WindowResize via ThisWorkbook
+      - CarregarCacheDimensoes: 5 dicionarios (hospitais, regionais, etc)
+      - CarregarDados: 2 passagens (conta + aloca) filtrado por IdUsuario
+      - 13 colunas com resolucao de nomes via Dictionary
+      - Paginacao (50 reg/pag) com cmdAnterior/cmdProximo
+      - Busca textual em todas as colunas via txtBoxBusca
+      - Somas totais nos labels lblFaturamento/lblGlosa/lblPerda
+   2. modAutenticacao.bas (alterado):
+      - AbrirBanco/FecharBanco tornados Public
+      - AbrirBanco refatorado: Application.DisplayAlerts=False, 
+        On Error Resume Next, mensagens customizadas, suporte a 
+        reconfiguracao do caminho
+   3. thisworkbook.txt (alterado):
+      - Adicionado Workbook_WindowResize -> frmPrincipal.AjustarTamanho
+
+[19/06 - USUARIO] "codigo esta vermelho" (API declarations no #Else)
+[19/06 - AGENTE] Simplificou para apenas 64-bit. Depois restaurou
+   #If VBA7 Then/#Else/#End If a pedido do usuario.
+
+[19/06 - USUARIO] "arquivo a seguir nao foi localizado" ao logar
+[19/06 - AGENTE] Refatorou AbrirBanco para suprimir dialogo do Excel:
+   - Application.DisplayAlerts = False
+   - On Error Resume Next (sem dialogo padrao)
+   - Mensagem customizada mostrando o caminho tentado
+   - Opcao de informar novo caminho
+
+[19/06 - USUARIO] "erro em tempo de execucao 9 - subscrito fora do intervalo"
+   Linha: ReDim Preserve mDados(1 To mTotalLinhas, 0 To 12)
+[19/06 - AGENTE] Corrigiu: VBA nao permite ReDim Preserve na 1a dimensao.
+   Alterado para 2 passagens: contar linhas primeiro, alocar tamanho exato,
+   depois popular. Tambem corrigiu AplicarFiltro com guard para mTotalLinhas=0.
+
+[19/06 - USUARIO] "vamos parar por enquanto"
+[19/06 - AGENTE] Atualizou progresso.txt. Pendente: commit.
+
+===============================================================================
+DECISOES TOMADAS
+===============================================================================
+15. Componente de grid: ListBox multicompos com Labels como headers
+16. Forma de exibicao: BorderStyle=0 (sem borda, encaixado no Excel)
+17. Redimensionamento: Workbook_WindowResize event
+18. Cache de dimensoes: Dictionary (Scripting.Dictionary)
+19. Abertura do banco: Application.DisplayAlerts=False + On Error Resume Next
+
+===============================================================================
+ESTADO ATUAL (Fim da sessao 19/06)
+===============================================================================
+- modAutenticacao.bas: AbrirBanco refatorado, public, com reconfiguracao
+- frmPrincipalCode.txt: completo (538 linhas) - dados, paginacao, busca, somas
+- thisworkbook.txt: com Workbook_WindowResize
+- FormV1.1.xlsm: aguardando importacao dos modulos atualizados
+- ERRO PENDENTE: "arquivo a seguir nao foi localizado" - usuario precisa
+  verificar caminho na planilha Config ou usar nova opcao de reconfiguracao
+
+===============================================================================
+PROXIMA SESSAO - COMO RETOMAR
+===============================================================================
+1. Ler este progresso.txt
+2. Abrir FormV1.1.xlsm
+3. Importar modAutenticacao.bas (Arquivo > Importar, substituir)
+4. Colar frmPrincipalCode.txt no frmPrincipal (Ctrl+A, Delete, colar)
+5. Colar thisworkbook.txt no ThisWorkbook
+6. Salvar e testar
+7. Se erro "arquivo nao localizado": usar nova opcao de reconfiguracao
+   (o sistema pergunta se quer informar novo caminho apos o erro)
+8. Proximo passo programado: estrutura do frmPrincipal com dados carregados
