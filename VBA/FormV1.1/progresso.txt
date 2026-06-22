@@ -597,4 +597,46 @@ ESTADO ATUAL (Fim da sessao 22/06 - parte 2)
 - frmPrincipalCode.txt: maximizacao simples + QueryClose (sair reseta sessao)
 - thisworkbook.txt: loop Do...Loop While (Login -> Principal -> Login)
 - frmLogin.frm/txt: cmbCancelar faz Unload em vez de ThisWorkbook.Close
-- PROXIMO PASSO: Testar frmPrincipal vazio e depois adicionar componentes
+- PROXIMO PASSO: Adicionar componentes (ListBox, botoes) no frmPrincipal
+
+===============================================================================
+SESSAO 22/06 - parte 3 (final)
+===============================================================================
+
+[22/06 - USUARIO] Pediu planejamento do formulario principal:
+   - Opcao A (SetParent + WS_CHILD): ja causou problemas antes
+   - Opcao B (maximizado simples sem API): recomendada
+   - Opcao C (hibrido sem borda): descartada
+   - Decisao: Opcao B (maximizado simples)
+
+[22/06 - AGENTE] Criou frmPrincipal.frm vazio (sem componentes) + thisworkbook.txt
+   com loop modal (Login -> Principal -> Login).
+   - frmLogin: cmbCancelar faz Unload Me (em vez de ThisWorkbook.Close)
+   - thisworkbook.txt: Do...Loop While (UsuarioAtual > 0)
+
+[22/06 - USUARIO] Testou frmPrincipal vazio. Relatou problemas:
+   - Form maior que a tela do Excel (maximizacao errada)
+   - Form nao fechava ao clicar X (QueryClose com Cancel=True + Unload Me)
+
+[22/06 - AGENTE] Corrigiu ambos os problemas:
+   - Removeu maximizacao dinamica: tamanho fixo 20000x10000 twips (~14")
+   - Centralizado com (Application.Width - Me.Width) / 2
+   - QueryClose: padrao sem Unload Me, apenas Cancel=True se "Nao"
+   - Combinou .frm + codigo num arquivo unico para importacao direta
+
+[22/06 - USUARIO] Pediu finalizar e commit.
+
+===============================================================================
+DECISOES TOMADAS (adicional)
+===============================================================================
+31. Tamanho do form: fixo 20000x10000 twips (14 polegadas), sem redimensionamento
+32. Centralizacao: (Application.Width - Me.Width) / 2
+
+===============================================================================
+ESTADO ATUAL (Fim da sessao 22/06 - parte 3)
+===============================================================================
+- frmPrincipal.frm: contem definicao + codigo (importavel diretamente)
+- frmPrincipalCode.txt: codigo extraido separadamente
+- thisworkbook.txt: loop Do...Loop While
+- frmLogin.frm/txt: cmbCancelar -> Unload Me
+- PROXIMO PASSO: Adicionar componentes (ListBox, botoes, labels) no frmPrincipal
