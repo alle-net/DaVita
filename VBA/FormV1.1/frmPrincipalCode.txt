@@ -1,0 +1,36 @@
+' ============================================================
+' frmPrincipal - Code-Behind
+' Cole este codigo no VBA Editor:
+'   ALT+F11 -> frmPrincipal (duplo clique) -> colar tudo
+' ============================================================
+
+Option Explicit
+
+Private Sub UserForm_Initialize()
+    Me.Caption = "Controle Financeiro"
+    Maximizar
+End Sub
+
+Private Sub UserForm_Activate()
+    Maximizar
+End Sub
+
+Private Sub Maximizar()
+    On Error Resume Next
+    Me.StartUpPosition = 0
+    Me.Left = 0
+    Me.Top = 0
+    Me.Width = Application.UsableWidth
+    Me.Height = Application.UsableHeight
+    On Error GoTo 0
+End Sub
+
+Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
+    If CloseMode = 0 Then
+        Cancel = True
+        If MsgBox("Deseja realmente sair do sistema?", vbQuestion + vbYesNo, "Sair") = vbYes Then
+            modAutenticacao.ResetarSessao
+            Unload Me
+        End If
+    End If
+End Sub

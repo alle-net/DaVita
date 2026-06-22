@@ -17,7 +17,16 @@ Private Sub Workbook_Open()
 
     Application.ScreenUpdating = True
 
-    frmLogin.Show vbModal
+    Application.WindowState = xlMaximized
+
+    Do
+        frmLogin.Show vbModal
+        If modAutenticacao.UsuarioAtual > 0 Then
+            frmPrincipal.Show vbModal
+        End If
+    Loop While modAutenticacao.UsuarioAtual > 0
+
+    ThisWorkbook.Close False
 End Sub
 
 Private Sub Workbook_BeforeClose(Cancel As Boolean)

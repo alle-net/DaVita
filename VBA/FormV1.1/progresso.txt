@@ -587,12 +587,14 @@ DECISOES TOMADAS
 26. Nomes reais das abas: sem prefixo "Tab" (Usuarios, Hospitais, etc.)
 27. Formato SQL ADODB: [NomeAba$] (colchetes + cifrao)
 28. Funcao de comparacao: UCASE (em vez de LCase)
+29. Ancoragem: Maximizado simples (UsableWidth/Height) sem API/S etParent
+30. Ciclo de vida: Loop modal em Workbook_Open (Login -> Principal -> Login)
 
 ===============================================================================
-ESTADO ATUAL (Fim da sessao 22/06)
+ESTADO ATUAL (Fim da sessao 22/06 - parte 2)
 ===============================================================================
-- FormV1.1.xlsm: frmLogin + Workbook_Open + modAutenticacao
-- frmLogin.frm: com cmdConfigurar (botao para selecionar banco)
-- modAutenticacao.bas: simplificado, s/ busca automatica, SQL corrigido
-- thisworkbook.txt: Workbook_Open + BeforeClose (s/ WindowResize)
-- PROXIMO PASSO: Aguardando solicitacao do usuario
+- frmPrincipal.frm: criado (vazio, sem componentes)
+- frmPrincipalCode.txt: maximizacao simples + QueryClose (sair reseta sessao)
+- thisworkbook.txt: loop Do...Loop While (Login -> Principal -> Login)
+- frmLogin.frm/txt: cmbCancelar faz Unload em vez de ThisWorkbook.Close
+- PROXIMO PASSO: Testar frmPrincipal vazio e depois adicionar componentes

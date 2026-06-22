@@ -60,7 +60,7 @@ End Sub
 Private Sub cmbCancelar_Click()
     If MsgBox("Deseja realmente sair?", vbQuestion + vbYesNo, "Sair") = vbYes Then
         modAutenticacao.ResetarSessao
-        ThisWorkbook.Close False
+        Unload Me
     End If
 End Sub
 
