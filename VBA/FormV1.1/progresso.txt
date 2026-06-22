@@ -509,7 +509,90 @@ PROXIMA SESSAO - COMO RETOMAR
 4. Colar frmPrincipalCode.txt no frmPrincipal
 5. Salvar e testar
 6. Se error "objeto fechado" no ADODB:
-   - Verificar se ACE.OLEDB.12.0 esta instalado
-   - Verificar SQL: usar sheet reference [SheetName$] em vez de [TabName]
-   - ou criar named range para cada tabela
+    - Verificar se ACE.OLEDB.12.0 esta instalado
+    - Verificar SQL: usar sheet reference [SheetName$] em vez de [TabName]
+    - ou criar named range para cada tabela
 7. Proximo passo: corrigir erro ADODB + testar ancoragem
+
+===============================================================================
+SESSAO 22/06
+===============================================================================
+
+[22/06 - USUARIO] Retomou sessao. Leu progresso.txt.
+
+[22/06 - USUARIO] "preciso que voce seja um profissional especialista em vba"
+
+[22/06 - AGENTE] Se apresentou como especialista, explorou o projeto:
+   - frmLogin.frm (98 linhas) - tela de login
+   - frmPrincipal.frm (591 linhas) - tela principal com dados, paginacao, filtros
+   - modAutenticacao.bas (333 linhas) - autenticacao + ADODB
+
+[22/06 - USUARIO] "quero excluir o frmPrincipal e todas as suas referencias"
+
+[22/06 - AGENTE] Removeu:
+   - frmPrincipal.frm, frmPrincipal.frx, frmPrincipalCode.txt, frmPrincipal.log
+   - thisworkbook.txt: removed Workbook_WindowResize (referencia a frmPrincipal)
+   - frmLoginCode.txt: removed frmPrincipal.Show vbModeless
+
+[22/06 - USUARIO] Discutiu localizacao do banco de dados:
+   - Opcao A (UNC): inviavel (SharePoint, nao rede local)
+   - Opcao E (Environ OneDrive): %OneDrive% aponta para C:\Users\...\OneDrive
+     mas o banco esta em C:\Users\...\DaVita\ (fora do OneDrive)
+   - Conclusao: manter ConfigSheet + botao manual
+
+[22/06 - AGENTE] Implementou melhorias no modAutenticacao.bas:
+   - AbrirDialogoSelecaoBanco: funcao publica com FileDialog (late binding)
+   - Fallback OneDrive adicionado (depois removido a pedido do usuario)
+   - Corrigido bug de recursao em AbrirConexao (Set = AbrirConexao() com parenteses)
+   - Substituido InputBox por FileDialog
+
+[22/06 - USUARIO] Solicitou remover toda busca automatica de caminho.
+   Quer apenas o botao "Configurar Banco" para apontar o banco.
+
+[22/06 - AGENTE] Simplificou ObterCaminhoBanco:
+   - Removeu busca em C:\Users\<USERNAME>\DaVita\ (recursiva 3 niveis)
+   - Removeu busca no OneDrive (Environ)
+   - Removeu InputBox fallback
+   - Removeu exibicao automatica do FileDialog
+
+[22/06 - USUARIO] Quer salvamento na ConfigSheet para persistir entre sessoes.
+
+[22/06 - AGENTE] Re-adicionou LerConfig/SalvarConfig:
+   - ObterCaminhoBanco: so le mCaminhoBanco (memoria) + ConfigSheet (persistencia)
+   - AbrirDialogoSelecaoBanco: salva na ConfigSheet (xlSheetVeryHidden)
+   - NENHUMA busca automatica em pastas
+
+[22/06 - USUARIO] Nao consegue logar mesmo com credenciais corretas.
+
+[22/06 - AGENTE] Diagnosticou causa raiz: As abas no Excel NAO se chamam
+   "TabUsuarios", "TabHospitais", etc. Os nomes reais sao (confirmado via
+   Excel COM + ADODB no PowerShell):
+     - Usuarios$ (e nao TabUsuarios)
+     - Hospitais$ (e nao TabHospitais)
+     - Regionais$ (e nao TabRegionais)
+     - Unidades$ (e nao TabUnidades)
+     - StatusNFe$ (e nao TabStatusNFe)
+     - MotivosGlosa$ (e nao TabMotivosGlosa)
+     - Dados$ (e nao TabDados)
+   - Corrigiu todas as consultas SQL para usar [Usuarios$] com $ e colchetes
+   - Troca de LCase para UCASE (compativel com ACE OLEDB)
+   - Testado com PowerShell: UCASE funciona, consulta retorna dados corretos
+
+[22/06 - USUARIO] Login funcionou. Pediu atualizar progresso.txt e commit.
+
+===============================================================================
+DECISOES TOMADAS
+===============================================================================
+25. Configuracao do banco: APENAS botao manual + ConfigSheet (sem busca automatica)
+26. Nomes reais das abas: sem prefixo "Tab" (Usuarios, Hospitais, etc.)
+27. Formato SQL ADODB: [NomeAba$] (colchetes + cifrao)
+28. Funcao de comparacao: UCASE (em vez de LCase)
+
+===============================================================================
+ESTADO ATUAL (Fim da sessao 22/06)
+===============================================================================
+- FormV1.1.xlsm: frmLogin + Workbook_Open + modAutenticacao
+- frmLogin.frm: com cmdConfigurar (botao para selecionar banco)
+- modAutenticacao.bas: simplificado, s/ busca automatica, SQL corrigido
+- thisworkbook.txt: Workbook_Open + BeforeClose (s/ WindowResize)
+- PROXIMO PASSO: Aguardando solicitacao do usuario

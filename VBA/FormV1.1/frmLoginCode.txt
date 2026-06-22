@@ -48,7 +48,6 @@ Private Sub cmbEntrar_Click()
         modAutenticacao.EmailAtual = email
         modAutenticacao.UsuarioAtual = modAutenticacao.ObterIdUsuario(email)
         Unload Me
-        frmPrincipal.Show vbModeless
     Else
         lblMenssagem.Caption = "Email ou senha incorretos."
         txtSenha.Value = ""
@@ -62,6 +61,12 @@ Private Sub cmbCancelar_Click()
     If MsgBox("Deseja realmente sair?", vbQuestion + vbYesNo, "Sair") = vbYes Then
         modAutenticacao.ResetarSessao
         ThisWorkbook.Close False
+    End If
+End Sub
+
+Private Sub cmdConfigurar_Click()
+    If modAutenticacao.AbrirDialogoSelecaoBanco Then
+        lblMenssagem.Caption = "Banco configurado com sucesso!"
     End If
 End Sub
 

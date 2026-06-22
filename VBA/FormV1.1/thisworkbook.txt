@@ -32,11 +32,3 @@ Private Sub Workbook_BeforeClose(Cancel As Boolean)
     On Error GoTo 0
 End Sub
 
-Private Sub Workbook_WindowResize(ByVal Wn As Window)
-    On Error Resume Next
-    If Not frmPrincipal Is Nothing Then
-        If frmPrincipal.Visible Then
-            frmPrincipal.AjustarTamanho
-        End If
-    End If
-End Sub

@@ -1,10 +1,10 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} frmLogin 
    Caption         =   "Login"
-   ClientHeight    =   3465
+   ClientHeight    =   3480
    ClientLeft      =   120
    ClientTop       =   465
-   ClientWidth     =   5610
+   ClientWidth     =   5055
    OleObjectBlob   =   "frmLogin.frx":0000
    StartUpPosition =   1  'CenterOwner
 End
@@ -22,60 +22,51 @@ Attribute VB_Exposed = False
 Option Explicit
 
 Private Sub UserForm_Initialize()
-    Me.Caption = "Login - Controle Financeiro"
+    Me.Caption = "Login"
     
-    ' Limpar campos
-    cmbEmail.Value = ""
-    cmbSenha.Value = ""
-    lblMensagem.Caption = ""
-    cmbSenha.PasswordChar = "*"
+    txtEmail.Value = ""
+    txtSenha.Value = ""
+    lblMenssagem.Caption = ""
+    txtSenha.PasswordChar = "*"
     
-    ' Centralizar na tela
     Me.StartUpPosition = 0
     Me.Left = (Application.Width - Me.Width) / 2
     Me.Top = (Application.Height - Me.Height) / 2
     
-    ' Foco no campo de email
-    cmbEmail.SetFocus
+    txtEmail.SetFocus
 End Sub
 
 Private Sub cmbEntrar_Click()
-    Dim email As String
-    Dim senha As String
+    Dim email As String, senha As String
     
-    email = Trim(cmbEmail.Value)
-    senha = cmbSenha.Value
+    email = Trim(txtEmail.Value)
+    senha = txtSenha.Value
     
-    ' Validar campos
     If email = "" Then
-        lblMensagem.Caption = "Informe o email."
-        cmbEmail.SetFocus
+        lblMenssagem.Caption = "Informe o email."
+        txtEmail.SetFocus
         Exit Sub
     End If
     
     If senha = "" Then
-        lblMensagem.Caption = "Informe a senha."
-        cmbSenha.SetFocus
+        lblMenssagem.Caption = "Informe a senha."
+        txtSenha.SetFocus
         Exit Sub
     End If
     
-    ' Desabilitar botoes durante validacao
     cmbEntrar.Enabled = False
     cmbCancelar.Enabled = False
-    lblMensagem.Caption = "Autenticando..."
+    lblMenssagem.Caption = "Autenticando..."
     DoEvents
     
-    ' Verificar credenciais
     If modAutenticacao.VerificarCredenciais(email, senha) Then
-        ' Login OK
         modAutenticacao.EmailAtual = email
         modAutenticacao.UsuarioAtual = modAutenticacao.ObterIdUsuario(email)
         Unload Me
     Else
-        ' Login falhou
-        lblMensagem.Caption = "Email ou senha incorretos."
-        cmbSenha.Value = ""
-        cmbSenha.SetFocus
+        lblMenssagem.Caption = "Email ou senha incorretos."
+        txtSenha.Value = ""
+        txtSenha.SetFocus
         cmbEntrar.Enabled = True
         cmbCancelar.Enabled = True
     End If
@@ -88,8 +79,13 @@ Private Sub cmbCancelar_Click()
     End If
 End Sub
 
+Private Sub cmdConfigurar_Click()
+    If modAutenticacao.AbrirDialogoSelecaoBanco Then
+        lblMenssagem.Caption = "Banco configurado com sucesso!"
+    End If
+End Sub
+
 Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
-    ' Fechar com X redireciona para o botao Cancelar
     If CloseMode = 0 Then
         Cancel = True
         cmbCancelar_Click
