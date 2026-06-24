@@ -22,7 +22,7 @@ Attribute VB_Exposed = False
 Option Explicit
 
 Private Sub UserForm_Initialize()
-    Me.Caption = "Login"
+    Me.Caption = "Login - Controle Financeiro"
     
     txtEmail.Value = ""
     txtSenha.Value = ""

@@ -261,3 +261,108 @@ End Sub
 Public Function ObterCaminhoBancoConfig() As String
     ObterCaminhoBancoConfig = ObterCaminhoBanco
 End Function
+
+Public Function ListarDados() As Variant
+    Dim conn As Object
+    Set conn = AbrirConexao
+    If conn Is Nothing Then Exit Function
+    Dim sql As String
+    sql = "SELECT IdUsuario, Competencia, IdHospital, IdRegional, IdUnidade, " & _
+          "Titulo, NFe, IdStatus, IdMotivo, DataEnvioNFe, " & _
+          "ValorFaturamento, ValorPerda, ValorGlosa, Observacao " & _
+          "FROM [Dados$] WHERE IdUsuario = " & UsuarioAtual
+    Dim rs As Object
+    Set rs = ExecutarSelect(conn, sql)
+    If rs Is Nothing Then
+        FecharConexao conn
+        Exit Function
+    End If
+    Dim dados() As Variant
+    Dim linha As Long
+    Dim total As Long
+    linha = 0
+    total = 1000
+    ReDim dados(1 To total, 1 To 14)
+    Do While Not rs.EOF
+        linha = linha + 1
+        If linha > total Then
+            total = total + 1000
+            ReDim Preserve dados(1 To total, 1 To 14)
+        End If
+        dados(linha, 1) = rs.Fields("Competencia").Value
+        dados(linha, 2) = rs.Fields("IdHospital").Value
+        dados(linha, 3) = rs.Fields("IdRegional").Value
+        dados(linha, 4) = rs.Fields("IdUnidade").Value
+        dados(linha, 5) = rs.Fields("Titulo").Value
+        dados(linha, 6) = rs.Fields("NFe").Value
+        dados(linha, 7) = rs.Fields("IdStatus").Value
+        dados(linha, 8) = rs.Fields("IdMotivo").Value
+        dados(linha, 9) = rs.Fields("DataEnvioNFe").Value
+        dados(linha, 10) = rs.Fields("ValorFaturamento").Value
+        dados(linha, 11) = rs.Fields("ValorPerda").Value
+        dados(linha, 12) = rs.Fields("ValorGlosa").Value
+        dados(linha, 13) = rs.Fields("Observacao").Value
+        dados(linha, 14) = rs.Fields("IdUsuario").Value
+        rs.MoveNext
+    Loop
+    rs.Close
+    FecharConexao conn
+    If linha = 0 Then Exit Function
+    If linha < total Then
+        ReDim Preserve dados(1 To linha, 1 To 14)
+    End If
+    ListarDados = dados
+End Function
+
+Public Function ListarDimensao(ByVal tabela As String, ByVal colId As String, _
+                                ByVal colNome As String) As Object
+    Dim dict As Object
+    Set dict = CreateObject("Scripting.Dictionary")
+    Dim conn As Object
+    Set conn = AbrirConexao
+    If conn Is Nothing Then
+        Set ListarDimensao = dict
+        Exit Function
+    End If
+    Dim sql As String
+    sql = "SELECT " & colId & ", " & colNome & " FROM [" & tabela & "$] WHERE Status = 1"
+    Dim rs As Object
+    Set rs = ExecutarSelect(conn, sql)
+    If rs Is Nothing Then
+        FecharConexao conn
+        Set ListarDimensao = dict
+        Exit Function
+    End If
+    Do While Not rs.EOF
+        dict(rs.Fields(0).Value) = rs.Fields(1).Value
+        rs.MoveNext
+    Loop
+    rs.Close
+    FecharConexao conn
+    Set ListarDimensao = dict
+End Function
+
+Public Function ListarUsuarios() As Object
+    Dim dict As Object
+    Set dict = CreateObject("Scripting.Dictionary")
+    Dim conn As Object
+    Set conn = AbrirConexao
+    If conn Is Nothing Then
+        Set ListarUsuarios = dict
+        Exit Function
+    End If
+    Dim rs As Object
+    Set rs = ExecutarSelect(conn, "SELECT IdUsuario, Email FROM [Usuarios$] WHERE Status = 1")
+    If rs Is Nothing Then
+        FecharConexao conn
+        Set ListarUsuarios = dict
+        Exit Function
+    End If
+    Do While Not rs.EOF
+        dict(rs.Fields("IdUsuario").Value) = rs.Fields("Email").Value
+        rs.MoveNext
+    Loop
+    rs.Close
+    FecharConexao conn
+    Set ListarUsuarios = dict
+End Function

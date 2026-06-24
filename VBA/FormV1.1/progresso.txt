@@ -640,3 +640,807 @@ ESTADO ATUAL (Fim da sessao 22/06 - parte 3)
 - thisworkbook.txt: loop Do...Loop While
 - frmLogin.frm/txt: cmbCancelar -> Unload Me
 - PROXIMO PASSO: Adicionar componentes (ListBox, botoes, labels) no frmPrincipal
+
+===============================================================================
+SESSAO 23/06 - CORRECOES
+===============================================================================
+
+[23/06 - USUARIO] "as ultimas alteracoes nao deram certo preciso que revise
+   o codigo para que possamos aplicar"
+
+[23/06 - AGENTE] Leu progresso.txt e analisou todos os arquivos. Diagnosticou:
+
+   🔴 PROBLEMA 1 - frmLogin.frm:88-93 - Loop infinito no QueryClose
+      Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
+          If CloseMode = 0 Then
+              Cancel = True           ' anula fechamento
+              cmbCancelar_Click       ' chama Unload Me (se Yes)
+          End If                      ' Unload Me re-dispara QueryClose -> ∞ loop
+      End Sub
+      EFEITO: trava o Excel, form nao fecha, consumo infinito de CPU.
+      CORRECAO: Nao usar Cancel = True. Apenas delegar para cmbCancelar_Click.
+
+   🔴 PROBLEMA 2 - frmPrincipal.frm: Esqueleto vazio sem controles
+      So tem Initialize + Centralizar + QueryClose.
+      NENHUM controle criado (ListBox, botoes, labels, frames, imagens).
+      Nao carrega dados, nao mostra nada.
+
+   🟡 PROBLEMA 3 - frmPrincipal.frm: Tamanho fixo 20000x10000 twips
+      Em monitores menores o formulario fica maior que a area visivel.
+
+   🟡 PROBLEMA 4 - modAutenticacao.bas: Falta funcoes de consulta
+      Nao possui funcoes para o frmPrincipal consultar dados (ListarDados,
+      ListarDimensao, SomarValores).
+
+   ✅ thisworkbook.txt - OK. Loop modal esta correto.
+
+[23/06 - AGENTE] Apresentou plano de correcao:
+   A) Corrigir QueryClose do frmLogin (remover Cancel=True antes do Unload)
+   B) Melhorar modAutenticacao.bas: adicionar ListarDados, ListarDimensao,
+      SomarValores, ListarUsuarios
+   C) Escrever frmPrincipalCode.txt completo com:
+      - Cache de dimensoes via Dictionary
+      - Carga de dados via ADODB
+      - Resolucao de IDs para nomes
+      - ListBox com 13 colunas
+      - Paginacao (50 registros/pagina)
+      - Busca textual em todas as colunas
+      - Somas totais nos frames (faturamento, glosa, perda)
+      - Botoes Anterior/Proximo
+      - lblUsuarioLogado com email do usuario
+   D) Lista exata de controles para criar no frmPrincipal
+   E) Ajustar thisworkbook.txt para centralizar antes de mostrar forms
+
+[23/06 - USUARIO] Autorizou correcoes.
+
+===============================================================================
+CONTROLES DO FRMPRINCIPAL - CRIAR NO VBA EDITOR
+===============================================================================
+Criar manualmente em ALT+F11 > frmPrincipal:
+
+   FRAMES (3):
+     fmeFaturamento - Caption: "Faturamento"
+     fmeGlosa       - Caption: "Glosa"
+     fmePerda       - Caption: "Perda"
+
+   LABELS DE TOTAIS (3) - dentro dos frames:
+     lblFaturamento - Caption: "0,00"
+     lblGlosa       - Caption: "0,00"
+     lblPerda       - Caption: "0,00"
+
+   LABELS DE CABECALHO (13) - acima do ListBox:
+     lblHdrCompetencia, lblHdrRegional, lblHdrUnidade, lblHdrHospital,
+     lblHdrTitulo, lblHdrNFe, lblHdrStatusNFe, lblHdrDataEnvio,
+     lblHdrMotivoGlosa, lblHdrFaturamento, lblHdrGlosa, lblHdrPerda,
+     lblHdrObservacao
+
+   LABELS DE APOIO (3):
+     lblBuscar         - Caption: "Buscar:"
+     lblPagina         - Caption: "Pagina 1 de 1"
+     lblUsuarioLogado  - Caption: (vazio)
+
+   TEXTBOX (1):
+     txtBoxBusca
+
+   LISTBOX (1):
+     lstDados - marcar ColumnCount = 13 na propriedade
+
+   BOTOES (6):
+     cmdAnterior, cmdProximo, cmdAdicionar, cmbEditar, cmbExcluir
+
+   IMAGENS (opcional, usar as pastas Icones/ e Imagens/):
+     imgLogofrmPrincipal, imgAnterior, imgProximo,
+     imgAdicionar, imgEditar, imgExcluir
+
+===============================================================================
+ARQUIVOS CORRIGIDOS - CONTEUDO FINAL
+===============================================================================
+
+--- modAutenticacao.bas (CORRIGIDO) ---
+Attribute VB_Name = "modAutenticacao"
+Option Explicit
+
+Public UsuarioAtual As Long
+Public EmailAtual As String
+
+Private mCaminhoBanco As String
+
+Private Const STR_PROVIDER As String = "Microsoft.ACE.OLEDB.12.0"
+Private Const STR_EXTENDED As String = "Excel 12.0 Xml;HDR=Yes;IMEX=1"
+
+Private Function ObterCaminhoBanco() As String
+    If mCaminhoBanco <> "" Then
+        ObterCaminhoBanco = mCaminhoBanco
+        Exit Function
+    End If
+    Dim configPath As String
+    configPath = LerConfig
+    If configPath <> "" Then
+        If Dir(configPath) <> "" Then
+            mCaminhoBanco = configPath
+        End If
+    End If
+    ObterCaminhoBanco = mCaminhoBanco
+End Function
+
+Private Function LerConfig() As String
+    Dim ws As Worksheet
+    On Error Resume Next
+    Set ws = ThisWorkbook.Sheets("Config")
+    If Not ws Is Nothing Then
+        LerConfig = ws.Range("A1").Value
+    End If
+    On Error GoTo 0
+End Function
+
+Private Sub SalvarConfig(ByVal caminho As String)
+    Dim ws As Worksheet
+    On Error Resume Next
+    Set ws = ThisWorkbook.Sheets("Config")
+    If ws Is Nothing Then
+        Set ws = ThisWorkbook.Sheets.Add(After:=ThisWorkbook.Sheets(ThisWorkbook.Sheets.Count))
+        ws.Name = "Config"
+        ws.Visible = xlSheetVeryHidden
+    End If
+    On Error GoTo 0
+    ws.Range("A1").Value = caminho
+End Sub
+
+Public Function AbrirConexao() As Object
+    Dim caminho As String
+    caminho = ObterCaminhoBanco
+    If caminho = "" Then Exit Function
+    If Dir(caminho) = "" Then Exit Function
+    Dim conn As Object
+    Set conn = CreateObject("ADODB.Connection")
+    On Error Resume Next
+    conn.Open "Provider=" & STR_PROVIDER & ";Data Source=" & caminho & _
+              ";Extended Properties=""" & STR_EXTENDED & """"
+    On Error GoTo 0
+    If conn.State <> 1 Then
+        Set conn = Nothing
+        Exit Function
+    End If
+    Set AbrirConexao = conn
+End Function
+
+Public Sub FecharConexao(ByVal conn As Object)
+    On Error Resume Next
+    If Not conn Is Nothing Then
+        If conn.State = 1 Then conn.Close
+    End If
+    Set conn = Nothing
+    On Error GoTo 0
+End Sub
+
+Public Function ExecutarSelect(ByVal conn As Object, ByVal sql As String) As Object
+    If conn Is Nothing Then Exit Function
+    Dim rs As Object
+    Set rs = CreateObject("ADODB.Recordset")
+    On Error Resume Next
+    rs.Open sql, conn, 0, 1
+    On Error GoTo 0
+    If rs.State <> 1 Then
+        Set rs = Nothing
+    End If
+    Set ExecutarSelect = rs
+End Function
+
+Public Function AbrirDialogoSelecaoBanco() As Boolean
+    Dim fdlg As Object
+    Set fdlg = Application.FileDialog(1)
+    With fdlg
+        .Title = "Selecione o arquivo Banco Analistas.xlsx"
+        .AllowMultiSelect = False
+        .Filters.Clear
+        .Filters.Add "Arquivos Excel", "*.xlsx"
+        .Filters.Add "Todos os arquivos", "*.*"
+        If .Show = -1 Then
+            Dim caminho As String
+            caminho = .SelectedItems(1)
+            If Dir(caminho) <> "" Then
+                mCaminhoBanco = caminho
+                SalvarConfig caminho
+                AbrirDialogoSelecaoBanco = True
+            End If
+        End If
+    End With
+    Set fdlg = Nothing
+End Function
+
+Public Function VerificarCredenciais(ByVal pEmail As String, ByVal pSenha As String) As Boolean
+    Dim conn As Object
+    Set conn = AbrirConexao
+    If conn Is Nothing Then
+        MsgBox "Banco de dados nao configurado. Clique em 'Configurar Banco' " & _
+               "para localizar o arquivo Banco Analistas.xlsx.", _
+               vbExclamation, "Banco nao encontrado"
+        Exit Function
+    End If
+    pEmail = Replace(pEmail, "'", "''")
+    pSenha = Replace(pSenha, "'", "''")
+    Dim sql As String
+    sql = "SELECT IdUsuario, Senha, Status FROM [Usuarios$] WHERE UCASE(Email) = UCASE('" & pEmail & "')"
+    Dim rs As Object
+    Set rs = ExecutarSelect(conn, sql)
+    If rs Is Nothing Then
+        FecharConexao conn
+        Exit Function
+    End If
+    If Not rs.EOF Then
+        If rs.Fields("Status").Value = 1 Then
+            If rs.Fields("Senha").Value = pSenha Then
+                VerificarCredenciais = True
+            End If
+        Else
+            rs.Close
+            FecharConexao conn
+            MsgBox "Usuario inativo entre em contato com o administrador do sistema", _
+                   vbExclamation, "Acesso Negado"
+            Exit Function
+        End If
+    End If
+    rs.Close
+    FecharConexao conn
+    If Not VerificarCredenciais Then
+        MsgBox "Email ou senha incorretos.", vbExclamation, "Falha no Login"
+    End If
+End Function
+
+Public Function ObterIdUsuario(ByVal pEmail As String) As Long
+    Dim conn As Object
+    Set conn = AbrirConexao
+    If conn Is Nothing Then Exit Function
+    pEmail = Replace(pEmail, "'", "''")
+    Dim sql As String
+    sql = "SELECT IdUsuario FROM [Usuarios$] WHERE UCASE(Email) = UCASE('" & pEmail & "')"
+    Dim rs As Object
+    Set rs = ExecutarSelect(conn, sql)
+    If rs Is Nothing Then
+        FecharConexao conn
+        Exit Function
+    End If
+    If Not rs.EOF Then
+        ObterIdUsuario = rs.Fields("IdUsuario").Value
+    End If
+    rs.Close
+    FecharConexao conn
+End Function
+
+Public Sub ResetarSessao()
+    UsuarioAtual = 0
+    EmailAtual = ""
+End Sub
+
+Public Function ObterCaminhoBancoConfig() As String
+    ObterCaminhoBancoConfig = ObterCaminhoBanco
+End Function
+
+[NOVAS FUNCOES PARA FRMPRINCIPAL]
+
+Public Function ListarDados() As Variant
+    Dim conn As Object
+    Set conn = AbrirConexao
+    If conn Is Nothing Then Exit Function
+    Dim sql As String
+    sql = "SELECT IdUsuario, Competencia, IdHospital, IdRegional, IdUnidade, " & _
+          "Titulo, NFe, IdStatus, IdMotivo, DataEnvioNFe, " & _
+          "ValorFaturamento, ValorPerda, ValorGlosa, Observacao " & _
+          "FROM [Dados$] WHERE IdUsuario = " & UsuarioAtual
+    Dim rs As Object
+    Set rs = ExecutarSelect(conn, sql)
+    If rs Is Nothing Then
+        FecharConexao conn
+        Exit Function
+    End If
+    Dim dados() As Variant
+    Dim linha As Long
+    Dim total As Long
+    linha = 0
+    total = 1000
+    ReDim dados(1 To total, 1 To 14)
+    Do While Not rs.EOF
+        linha = linha + 1
+        If linha > total Then
+            total = total + 1000
+            ReDim Preserve dados(1 To total, 1 To 14)
+        End If
+        dados(linha, 1) = rs.Fields("Competencia").Value
+        dados(linha, 2) = rs.Fields("IdHospital").Value
+        dados(linha, 3) = rs.Fields("IdRegional").Value
+        dados(linha, 4) = rs.Fields("IdUnidade").Value
+        dados(linha, 5) = rs.Fields("Titulo").Value
+        dados(linha, 6) = rs.Fields("NFe").Value
+        dados(linha, 7) = rs.Fields("IdStatus").Value
+        dados(linha, 8) = rs.Fields("IdMotivo").Value
+        dados(linha, 9) = rs.Fields("DataEnvioNFe").Value
+        dados(linha, 10) = rs.Fields("ValorFaturamento").Value
+        dados(linha, 11) = rs.Fields("ValorPerda").Value
+        dados(linha, 12) = rs.Fields("ValorGlosa").Value
+        dados(linha, 13) = rs.Fields("Observacao").Value
+        dados(linha, 14) = rs.Fields("IdUsuario").Value
+        rs.MoveNext
+    Loop
+    rs.Close
+    FecharConexao conn
+    If linha = 0 Then Exit Function
+    If linha < total Then
+        ReDim Preserve dados(1 To linha, 1 To 14)
+    End If
+    ListarDados = dados
+End Function
+
+Public Function ListarDimensao(ByVal tabela As String, ByVal colId As String, _
+                               ByVal colNome As String) As Object
+    Dim dict As Object
+    Set dict = CreateObject("Scripting.Dictionary")
+    Dim conn As Object
+    Set conn = AbrirConexao
+    If conn Is Nothing Then
+        Set ListarDimensao = dict
+        Exit Function
+    End If
+    Dim sql As String
+    sql = "SELECT " & colId & ", " & colNome & " FROM [" & tabela & "$] WHERE Status = 1"
+    Dim rs As Object
+    Set rs = ExecutarSelect(conn, sql)
+    If rs Is Nothing Then
+        FecharConexao conn
+        Set ListarDimensao = dict
+        Exit Function
+    End If
+    Do While Not rs.EOF
+        dict(rs.Fields(0).Value) = rs.Fields(1).Value
+        rs.MoveNext
+    Loop
+    rs.Close
+    FecharConexao conn
+    Set ListarDimensao = dict
+End Function
+
+Public Function ListarUsuarios() As Object
+    Dim dict As Object
+    Set dict = CreateObject("Scripting.Dictionary")
+    Dim conn As Object
+    Set conn = AbrirConexao
+    If conn Is Nothing Then
+        Set ListarUsuarios = dict
+        Exit Function
+    End If
+    Dim rs As Object
+    Set rs = ExecutarSelect(conn, "SELECT IdUsuario, Email FROM [Usuarios$] WHERE Status = 1")
+    If rs Is Nothing Then
+        FecharConexao conn
+        Set ListarUsuarios = dict
+        Exit Function
+    End If
+    Do While Not rs.EOF
+        dict(rs.Fields("IdUsuario").Value) = rs.Fields("Email").Value
+        rs.MoveNext
+    Loop
+    rs.Close
+    FecharConexao conn
+    Set ListarUsuarios = dict
+End Function
+
+
+--- frmLoginCode.txt (CORRIGIDO) ---
+' ============================================================
+' frmLogin - Code-Behind
+' Cole este codigo no VBA Editor:
+'   ALT+F11 -> frmLogin (duplo clique) -> colar tudo
+' ============================================================
+
+Option Explicit
+
+Private Sub UserForm_Initialize()
+    Me.Caption = "Login - Controle Financeiro"
+    txtEmail.Value = ""
+    txtSenha.Value = ""
+    lblMenssagem.Caption = ""
+    txtSenha.PasswordChar = "*"
+    Me.StartUpPosition = 0
+    Me.Left = (Application.Width - Me.Width) / 2
+    Me.Top = (Application.Height - Me.Height) / 2
+    txtEmail.SetFocus
+End Sub
+
+Private Sub cmbEntrar_Click()
+    Dim email As String, senha As String
+    email = Trim(txtEmail.Value)
+    senha = txtSenha.Value
+    If email = "" Then
+        lblMenssagem.Caption = "Informe o email."
+        txtEmail.SetFocus
+        Exit Sub
+    End If
+    If senha = "" Then
+        lblMenssagem.Caption = "Informe a senha."
+        txtSenha.SetFocus
+        Exit Sub
+    End If
+    cmbEntrar.Enabled = False
+    cmbCancelar.Enabled = False
+    lblMenssagem.Caption = "Autenticando..."
+    DoEvents
+    If modAutenticacao.VerificarCredenciais(email, senha) Then
+        modAutenticacao.EmailAtual = email
+        modAutenticacao.UsuarioAtual = modAutenticacao.ObterIdUsuario(email)
+        Unload Me
+    Else
+        lblMenssagem.Caption = "Email ou senha incorretos."
+        txtSenha.Value = ""
+        txtSenha.SetFocus
+        cmbEntrar.Enabled = True
+        cmbCancelar.Enabled = True
+    End If
+End Sub
+
+Private Sub cmbCancelar_Click()
+    If MsgBox("Deseja realmente sair?", vbQuestion + vbYesNo, "Sair") = vbYes Then
+        modAutenticacao.ResetarSessao
+        Unload Me
+    End If
+End Sub
+
+Private Sub cmdConfigurar_Click()
+    If modAutenticacao.AbrirDialogoSelecaoBanco Then
+        lblMenssagem.Caption = "Banco configurado com sucesso!"
+    End If
+End Sub
+
+Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
+    If CloseMode = 0 Then
+        ' CORRIGIDO: nao usa Cancel=True, delega direto para cmbCancelar_Click
+        cmbCancelar_Click
+    End If
+End Sub
+
+
+--- frmPrincipalCode.txt (NOVO - COMPLETO) ---
+' ============================================================
+' frmPrincipal - Code-Behind
+' Cole este codigo no VBA Editor:
+'   ALT+F11 -> frmPrincipal (duplo clique) -> colar tudo
+' ============================================================
+
+Option Explicit
+
+Private mDados() As Variant
+Private mTotalLinhas As Long
+Private mPaginaAtual As Long
+Private Const REG_POR_PAGINA As Long = 50
+
+Private mDictHospitais As Object
+Private mDictRegionais As Object
+Private mDictUnidades As Object
+Private mDictStatus As Object
+Private mDictMotivos As Object
+
+' Ordem das colunas no array: 1=Competencia 2=IdHospital 3=IdRegional
+' 4=IdUnidade 5=Titulo 6=NFe 7=IdStatus 8=IdMotivo 9=DataEnvioNFe
+' 10=ValorFaturamento 11=ValorPerda 12=ValorGlosa 13=Observacao 14=IdUsuario
+
+Private Sub UserForm_Initialize()
+    Me.Caption = "Controle Financeiro"
+    Me.StartUpPosition = 0
+    Centralizar
+    CarregarDimensoes
+    CarregarDados
+    lblUsuarioLogado.Caption = "Usuario: " & modAutenticacao.EmailAtual
+End Sub
+
+Private Sub Centralizar()
+    Me.Left = (Application.Width - Me.Width) / 2
+    Me.Top = (Application.Height - Me.Height) / 2
+End Sub
+
+Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
+    If CloseMode = 0 Then
+        If MsgBox("Deseja realmente sair do sistema?", vbQuestion + vbYesNo, "Sair") = vbNo Then
+            Cancel = True
+        Else
+            modAutenticacao.ResetarSessao
+        End If
+    End If
+End Sub
+
+Private Sub CarregarDimensoes()
+    Set mDictHospitais = modAutenticacao.ListarDimensao("Hospitais", "IdHospital", "Hospital")
+    Set mDictRegionais = modAutenticacao.ListarDimensao("Regionais", "IdRegional", "Regional")
+    Set mDictUnidades = modAutenticacao.ListarDimensao("Unidades", "IdUnidades", "Unidade")
+    Set mDictStatus = modAutenticacao.ListarDimensao("StatusNFe", "IdStatus", "StatusNFe")
+    Set mDictMotivos = modAutenticacao.ListarDimensao("MotivosGlosa", "IdMotivo", "MotivoGlosa")
+End Sub
+
+Private Sub CarregarDados()
+    Dim vDados As Variant
+    vDados = modAutenticacao.ListarDados
+    If IsEmpty(vDados) Then
+        mTotalLinhas = 0
+        mPaginaAtual = 0
+        AtualizarNavegacao
+        ExibirTotalizadores
+        Exit Sub
+    End If
+    mDados = vDados
+    mTotalLinhas = UBound(mDados, 1)
+    mPaginaAtual = 1
+    AtualizarGrade
+    AtualizarNavegacao
+    ExibirTotalizadores
+End Sub
+
+Private Sub AtualizarGrade()
+    lstDados.Clear
+    If mTotalLinhas = 0 Then Exit Sub
+    
+    Dim primeiro As Long, ultimo As Long, i As Long, j As Long
+    primeiro = (mPaginaAtual - 1) * REG_POR_PAGINA + 1
+    ultimo = primeiro + REG_POR_PAGINA - 1
+    If ultimo > mTotalLinhas Then ultimo = mTotalLinhas
+    
+    lstDados.ColumnCount = 13
+    lstDados.ColumnWidths = "75;100;100;100;120;90;80;80;100;90;80;80;120"
+    
+    Dim valores(0 To 12) As String
+    For i = primeiro To ultimo
+        valores(0) = FormatarData(mDados(i, 1))
+        valores(1) = ResolverNome(mDictRegionais, mDados(i, 3))
+        valores(2) = ResolverNome(mDictUnidades, mDados(i, 4))
+        valores(3) = ResolverNome(mDictHospitais, mDados(i, 2))
+        valores(4) = CStr(mDados(i, 5))
+        valores(5) = CStr(mDados(i, 6))
+        valores(6) = ResolverNome(mDictStatus, mDados(i, 7))
+        valores(7) = FormatarData(mDados(i, 9))
+        valores(8) = ResolverNome(mDictMotivos, mDados(i, 8))
+        valores(9) = FormatarNumero(mDados(i, 10))
+        valores(10) = FormatarNumero(mDados(i, 11))
+        valores(11) = FormatarNumero(mDados(i, 12))
+        valores(12) = CStr(mDados(i, 13))
+        lstDados.AddItem Join(valores, vbTab)
+    Next i
+End Sub
+
+Private Function ResolverNome(ByVal dict As Object, ByVal id As Variant) As String
+    If dict Is Nothing Then
+        ResolverNome = CStr(id)
+    ElseIf dict.exists(id) Then
+        ResolverNome = CStr(dict(id))
+    Else
+        ResolverNome = CStr(id)
+    End If
+End Function
+
+Private Function FormatarData(ByVal v As Variant) As String
+    If IsDate(v) Then
+        FormatarData = Format(v, "dd/mm/yyyy")
+    ElseIf IsNumeric(v) Then
+        FormatarData = Format(CDate(v), "dd/mm/yyyy")
+    Else
+        FormatarData = ""
+    End If
+End Function
+
+Private Function FormatarNumero(ByVal v As Variant) As String
+    If IsNumeric(v) Then
+        FormatarNumero = Format(CDec(v), "#,##0.00")
+    Else
+        FormatarNumero = "0,00"
+    End If
+End Function
+
+Private Sub AtualizarNavegacao()
+    If mTotalLinhas = 0 Then
+        lblPagina.Caption = "0 registros"
+        cmdAnterior.Enabled = False
+        cmdProximo.Enabled = False
+        Exit Sub
+    End If
+    Dim totalPag As Long
+    totalPag = (mTotalLinhas + REG_POR_PAGINA - 1) \ REG_POR_PAGINA
+    lblPagina.Caption = "Pagina " & mPaginaAtual & " de " & totalPag & _
+                        " (" & mTotalLinhas & " registros)"
+    cmdAnterior.Enabled = (mPaginaAtual > 1)
+    cmdProximo.Enabled = (mPaginaAtual < totalPag)
+End Sub
+
+Private Sub ExibirTotalizadores()
+    Dim somaFat As Currency, somaPerda As Currency, somaGlosa As Currency
+    Dim i As Long
+    
+    If mTotalLinhas = 0 Then
+        lblFaturamento.Caption = "0,00"
+        lblGlosa.Caption = "0,00"
+        lblPerda.Caption = "0,00"
+        Exit Sub
+    End If
+    
+    For i = 1 To mTotalLinhas
+        If IsNumeric(mDados(i, 10)) Then somaFat = somaFat + CCur(mDados(i, 10))
+        If IsNumeric(mDados(i, 11)) Then somaPerda = somaPerda + CCur(mDados(i, 11))
+        If IsNumeric(mDados(i, 12)) Then somaGlosa = somaGlosa + CCur(mDados(i, 12))
+    Next i
+    
+    lblFaturamento.Caption = Format(somaFat, "#,##0.00")
+    lblPerda.Caption = Format(somaPerda, "#,##0.00")
+    lblGlosa.Caption = Format(somaGlosa, "#,##0.00")
+End Sub
+
+Private Sub cmdAnterior_Click()
+    If mPaginaAtual > 1 Then
+        mPaginaAtual = mPaginaAtual - 1
+        AtualizarGrade
+        AtualizarNavegacao
+    End If
+End Sub
+
+Private Sub cmdProximo_Click()
+    Dim totalPag As Long
+    totalPag = (mTotalLinhas + REG_POR_PAGINA - 1) \ REG_POR_PAGINA
+    If mPaginaAtual < totalPag Then
+        mPaginaAtual = mPaginaAtual + 1
+        AtualizarGrade
+        AtualizarNavegacao
+    End If
+End Sub
+
+Private Sub txtBoxBusca_Change()
+    Dim busca As String
+    busca = Trim(txtBoxBusca.Value)
+    If busca = "" Then
+        CarregarDados
+        Exit Sub
+    End If
+    
+    Dim filtrados() As Variant
+    Dim linha As Long, count As Long, i As Long, j As Long
+    count = 0
+    ReDim filtrados(1 To mTotalLinhas, 1 To 14)
+    
+    For i = 1 To mTotalLinhas
+        For j = 1 To 13
+            Dim cellVal As String
+            cellVal = CStr(mDados(i, j))
+            If LCase(cellVal) Like LCase("*" & busca & "*") Then
+                count = count + 1
+                For linha = 1 To 14
+                    filtrados(count, linha) = mDados(i, linha)
+                Next linha
+                Exit For
+            End If
+        Next j
+    Next i
+    
+    If count = 0 Then
+        lstDados.Clear
+        lblPagina.Caption = "Nenhum resultado encontrado"
+        cmdAnterior.Enabled = False
+        cmdProximo.Enabled = False
+        lblFaturamento.Caption = "0,00"
+        lblGlosa.Caption = "0,00"
+        lblPerda.Caption = "0,00"
+        Exit Sub
+    End If
+    
+    mDados = filtrados
+    mTotalLinhas = count
+    mPaginaAtual = 1
+    AtualizarGrade
+    AtualizarNavegacao
+    ExibirTotalizadores
+End Sub
+
+
+--- thisworkbook.txt (CORRIGIDO) ---
+' ============================================================
+' ThisWorkbook - Code-Behind
+' Cole este codigo no VBA Editor:
+'   ALT+F11 -> ThisWorkbook (duplo clique) -> colar tudo
+' ============================================================
+
+Option Explicit
+
+Private Sub Workbook_Open()
+    Application.ScreenUpdating = False
+    Application.CommandBars("Cell").Enabled = False
+    Application.CommandBars("Row").Enabled = False
+    Application.CommandBars("Column").Enabled = False
+    Application.CommandBars("Ply").Enabled = False
+    Application.ScreenUpdating = True
+    Application.WindowState = xlMaximized
+
+    Do
+        frmLogin.Show vbModal
+        If modAutenticacao.UsuarioAtual > 0 Then
+            frmPrincipal.Show vbModal
+        End If
+    Loop While modAutenticacao.UsuarioAtual > 0
+
+    ThisWorkbook.Close False
+End Sub
+
+Private Sub Workbook_BeforeClose(Cancel As Boolean)
+    modAutenticacao.ResetarSessao
+    On Error Resume Next
+    Application.CommandBars("Cell").Enabled = True
+    Application.CommandBars("Row").Enabled = True
+    Application.CommandBars("Column").Enabled = True
+    Application.CommandBars("Ply").Enabled = True
+    On Error GoTo 0
+End Sub
+
+
+===============================================================================
+COMO APLICAR AS CORRECOES
+===============================================================================
+Passo a passo para aplicar tudo:
+
+1. Abrir FormV1.1.xlsm (desabilitar macros ao abrir segurando SHIFT)
+2. ALT+F11 para abrir o VBA Editor
+3. No menu Arquivo > Importar Arquivo, selecionar modAutenticacao.bas
+   (substituir o existente)
+4. No frmLogin (duplo clique): CTRL+A, Delete, colar conteudo de frmLoginCode.txt
+5. No frmPrincipal (duplo clique): CTRL+A, Delete, colar conteudo de frmPrincipalCode.txt
+6. No ThisWorkbook (duplo clique): CTRL+A, Delete, colar conteudo de thisworkbook.txt
+7. CRIAR CONTROLES no frmPrincipal (conforme lista acima)
+8. Salvar (CTRL+S)
+9. Fechar e reabrir (ou F5 no VBA Editor) para testar
+
+===============================================================================
+SESSAO 24/06 - TENTATIVA DE CORRECAO
+===============================================================================
+
+[24/06 - USUARIO] Retomou sessao. Leu progresso.txt.
+
+[24/06 - USUARIO] "preciso que voce seja um profissional especializado em vba"
+
+[24/06 - USUARIO] Relatou erro 438 ao tentar abrir frmPrincipal.
+
+[24/06 - AGENTE] Diagnosticou:
+   - frmPrincipalCode.txt referenciava modAutenticacao.ListarDimensao e
+     ListarDados, que NAO existiam no modAutenticacao.bas (versao antiga sem
+     as 3 funcoes novas)
+   - Erro de compilacao: "Metodo ou membro de dados nao encontrado" em
+     Set mDictHospitais = modAutenticacao.ListarDimensao(...)
+   - Corrigiu modAutenticacao.bas: adicionou ListarDados, ListarDimensao,
+     ListarUsuarios
+
+[24/06 - USUARIO] Apos reimportar modAutenticacao, erro persistiu.
+   Codigo tinha Declare PtrSafe ANTES de Option Explicit (invalido em VBA).
+
+[24/06 - AGENTE] Reestruturou frmPrincipalCode.txt:
+   - Option Explicit movido para primeira linha
+   - Layout dinamico com AjustarLayout (UsableWidth/Height)
+   - FindWindow + SetWindowLong para remover borda do form
+   - COL_PCT para largura proporcional das colunas
+   - Paginacao, busca textual, totalizadores
+
+[24/06 - USUARIO] Ainda com erro de compilacao no frmPrincipal.
+   Problema nao resolvido ate o fim da sessao.
+
+Suspeita: Conflito entre frmPrincipal.frm importado e form criado manualmente,
+ou API calls incompativel com a versao do Excel.
+
+===============================================================================
+ESTADO ATUAL (Fim da sessao 24/06)
+===============================================================================
+- modAutenticacao.bas: atualizado (ListarDados, ListarDimensao, ListarUsuarios)
+- frmPrincipalCode.txt: reestruturado (Option Explicit em 1o lugar)
+- frmLoginCode.txt, thisworkbook.txt: inalterados
+- frmPrincipal.frm: disponivel para importacao
+- ERRO PENDENTE: frmPrincipal nao compila
+
+===============================================================================
+COMO RETOMAR
+===============================================================================
+1. Ler este progresso.txt
+2. Abrir FormV1.1.xlsm segurando SHIFT
+3. Project Explorer: remover frmPrincipal se existir
+4. Importar frmPrincipal.frm (Arquivo > Importar Arquivo)
+5. Colar frmPrincipalCode.txt no code-behind
+6. Reimportar modAutenticacao.bas
+7. Compilar (Depurar > Compilar Projeto VBA)
+
+===============================================================================
+
