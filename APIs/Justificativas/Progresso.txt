@@ -1,0 +1,87 @@
+================================================================================
+                           PROGRESSO - API Justificativas
+================================================================================
+
+Data: Julho 2026
+Projeto: API Corporativa com Python + Azure para cadastro de justificativas
+Arquivo de plano: plano-api-excel.md
+
+================================================================================
+RESUMO DO PLANO
+================================================================================
+
+- Sistema 100% online composto por API REST + Interface Web
+- Hospedagem na Azure (Functions + App Service + SQL Database)
+- Substituir planilha Excel por sistema web
+- Cadastro e consulta de justificativas por regional
+- ~50 registros/dia, até 30 usuários
+- Custo zero estimado (tiers gratuitos)
+
+Arquitetura:
+  Azure Functions (API REST Python)
+    ├── POST /auth          → Login JWT
+    ├── GET /registros      → Listar com filtros
+    ├── POST /registros     → Criar registro
+    ├── GET /registros/{id} → Buscar específico
+    ├── POST /usuarios      → Criar usuário (admin)
+    ├── GET /usuarios       → Listar usuários (admin)
+    └── DELETE /usuarios/{id} → Remover usuário (admin)
+  Streamlit (Interface Web)
+  Azure SQL Database (Free Tier)
+
+Estrutura de pastas:
+  projeto-api-justificativas/
+    ├── api/            → Azure Functions
+    ├── interface/      → Streamlit
+    └── docs/           → Documentação
+
+================================================================================
+AVALIAÇÃO TÉCNICA (em 02/07/2026)
+================================================================================
+
+PONTOS FORTES:
+  ✅ Arquitetura clara e bem separada
+  ✅ Custo zero bem fundamentado com estimativas realistas
+  ✅ Escopo bem delimitado (CRUD simples)
+
+PROBLEMAS E RISCOS:
+  1. Azure SQL Free Tier pode não existir mais em 2026
+     → Alternativa: SQLite (Azure Storage) ou Azure Cosmos DB Free Tier
+  2. Duas hospedagens (Functions + App Service) = complexidade extra
+     → Sugestão: consolidar em Azure Functions + FastAPI + Jinja2
+  3. pyodbc no Azure Functions é problemático (driver nativo)
+     → Usar SQLAlchemy com configuração adequada
+  4. Streamlit não tem autenticação/sessão robusta nativamente
+     → Alternativa: FastAPI + Jinja2 + HTMX ou gerenciar st.session_state
+  5. Plano F1 App Service: 60 min CPU/dia pode ser pouco
+  6. Sem testes descritos no plano
+  7. Dependência python-multipart listada mas não utilizada
+
+PERGUNTAS EM ABERTO:
+  - Quem pode se cadastrar? Apenas admin ou qualquer usuário?
+  - Regional é lista fixa? Vem de lookup table?
+  - Cold start do Consumption Plan (até 10s) é aceitável?
+
+RECOMENDAÇÕES:
+  1. Verificar disponibilidade do Azure SQL Free Tier
+  2. Simplificar deploy (tudo em Azure Functions)
+  3. Adicionar testes (pytest) desde o início
+  4. Considerar FastAPI + Jinja2 no lugar de Streamlit
+
+================================================================================
+PRÓXIMOS PASSOS (pendentes)
+================================================================================
+
+  [x] Avaliar plano (02/07)
+  [x] Verificar Azure SQL Free Tier → Disponível e permanente ✅
+  [ ] Criar conta Azure (precisa de cartão de crédito)
+  [ ] Decidir arquitetura final (manter Streamlit ou migrar para FastAPI)
+  [ ] Fase 1 - Setup + API (3 dias)
+  [ ] Fase 2 - Interface (4 dias)
+  [ ] Fase 3 - Refinamentos (2 dias)
+
+================================================================================
+
+Sessão encerrada em: 02/07/2026
+Status: Aguardando criação da conta Azure para prosseguir
+================================================================================
