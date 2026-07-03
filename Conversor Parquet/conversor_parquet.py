@@ -181,6 +181,145 @@ EXTENSOES = {
 
 
 # ──────────────────────────────────────────────────────────────────────
+# DIÁLOGO DE PRÉ-VISUALIZAÇÃO
+# ──────────────────────────────────────────────────────────────────────
+class PreviewDialog:
+    TIPOS_DISPONIVEIS = ["string", "integer", "float", "boolean", "datetime"]
+    TIPO_PARA_DTYPE = {
+        "string": "object",
+        "integer": "int64",
+        "float": "float64",
+        "boolean": "bool",
+        "datetime": "datetime64[ns]",
+    }
+    DTYPE_PARA_TIPO = {v: k for k, v in TIPO_PARA_DTYPE.items()}
+
+    def __init__(self, parent, nome_arquivo, df, config_atual, callback):
+        self.callback = callback
+        self.nome_arquivo = nome_arquivo
+        self.colunas = list(df.columns)
+        self.df_original = df
+        self.config = config_atual.copy() if config_atual else {}
+        if "colunas_selecionadas" not in self.config:
+            self.config["colunas_selecionadas"] = self.colunas[:]
+        if "tipos" not in self.config:
+            self.config["tipos"] = {}
+
+        self.janela = tk.Toplevel(parent)
+        self.janela.title(f"Pré-visualização: {nome_arquivo}")
+        self.janela.geometry("900x650")
+        self.janela.minsize(700, 500)
+        self.janela.transient(parent)
+        self.janela.grab_set()
+
+        main = ttk.Frame(self.janela, padding="10")
+        main.pack(fill=tk.BOTH, expand=True)
+
+        # ── Configuração de colunas ──
+        frame_config = ttk.LabelFrame(main, text="Configuração das Colunas", padding="5")
+        frame_config.pack(fill=tk.X, pady=(0, 8))
+
+        canvas = tk.Canvas(frame_config, height=120, highlightthickness=0)
+        scroll_h = ttk.Scrollbar(frame_config, orient=tk.HORIZONTAL, command=canvas.xview)
+        scroll_v = ttk.Scrollbar(frame_config, orient=tk.VERTICAL, command=canvas.yview)
+        canvas.configure(xscrollcommand=scroll_h.set, yscrollcommand=scroll_v.set)
+
+        frame_cols = ttk.Frame(canvas)
+        frame_cols.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+
+        canvas.create_window((0, 0), window=frame_cols, anchor="nw")
+        canvas.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+        scroll_v.pack(side=tk.RIGHT, fill=tk.Y)
+        scroll_h.pack(side=tk.BOTTOM, fill=tk.X)
+
+        self.check_vars = {}
+        self.tipo_combos = {}
+
+        for i, col in enumerate(self.colunas):
+            cell = ttk.Frame(frame_cols, borderwidth=1, relief="solid", padding="3")
+            cell.grid(row=0, column=i, sticky="nsew", padx=1, pady=1)
+
+            var = tk.BooleanVar(value=col in self.config["colunas_selecionadas"])
+            self.check_vars[col] = var
+            cb = ttk.Checkbutton(cell, text=col, variable=var)
+            cb.pack(anchor=tk.W)
+
+            tipo_raw = self.config["tipos"].get(col, str(self.df_original[col].dtype))
+            tipo_exibicao = self.DTYPE_PARA_TIPO.get(tipo_raw, tipo_raw)
+            if tipo_exibicao not in self.TIPOS_DISPONIVEIS:
+                tipo_exibicao = "string"
+            combo = ttk.Combobox(cell, values=self.TIPOS_DISPONIVEIS, width=14, state="readonly")
+            combo.set(tipo_exibicao)
+            combo.pack(anchor=tk.W, pady=(2, 0))
+            self.tipo_combos[col] = combo
+
+            frame_cols.columnconfigure(i, weight=0)
+
+        # ── Prévia dos dados ──
+        frame_previa = ttk.LabelFrame(main, text="Prévia dos Dados (primeiras linhas)", padding="5")
+        frame_previa.pack(fill=tk.BOTH, expand=True, pady=(0, 8))
+
+        cols_tree = list(df.columns)
+        self.tree_previa = ttk.Treeview(frame_previa, columns=cols_tree, show="headings",
+                                        height=12)
+        for c in cols_tree:
+            self.tree_previa.heading(c, text=c)
+            self.tree_previa.column(c, width=100, minwidth=60)
+
+        scroll_y2 = ttk.Scrollbar(frame_previa, orient=tk.VERTICAL, command=self.tree_previa.yview)
+        scroll_x2 = ttk.Scrollbar(frame_previa, orient=tk.HORIZONTAL, command=self.tree_previa.xview)
+        self.tree_previa.configure(yscrollcommand=scroll_y2.set, xscrollcommand=scroll_x2.set)
+        self.tree_previa.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scroll_y2.pack(side=tk.RIGHT, fill=tk.Y)
+        scroll_x2.pack(side=tk.BOTTOM, fill=tk.X)
+
+        for _, row in df.head(50).iterrows():
+            vals = [str(v) if v is not None else "" for v in row]
+            self.tree_previa.insert("", tk.END, values=vals)
+
+        # ── Ações ──
+        frame_acoes = ttk.Frame(main)
+        frame_acoes.pack(fill=tk.X)
+
+        ttk.Button(frame_acoes, text="Selecionar Todas",
+                   command=self._selecionar_todas).pack(side=tk.LEFT, padx=(0, 5))
+        ttk.Button(frame_acoes, text="Limpar Seleção",
+                   command=self._limpar_selecao).pack(side=tk.LEFT, padx=(0, 5))
+
+        ttk.Button(frame_acoes, text="Aplicar",
+                   command=self._aplicar).pack(side=tk.RIGHT, padx=(5, 0))
+        ttk.Button(frame_acoes, text="Cancelar",
+                   command=self.janela.destroy).pack(side=tk.RIGHT)
+
+    def _selecionar_todas(self):
+        for var in self.check_vars.values():
+            var.set(True)
+
+    def _limpar_selecao(self):
+        for var in self.check_vars.values():
+            var.set(False)
+
+    def _aplicar(self):
+        selecionadas = [col for col, var in self.check_vars.items() if var.get()]
+        if not selecionadas:
+            messagebox.showwarning("Aviso", "Selecione pelo menos uma coluna.", parent=self.janela)
+            return
+        tipos = {}
+        for col, combo in self.tipo_combos.items():
+            if col in selecionadas:
+                tipo_exibicao = combo.get()
+                if tipo_exibicao:
+                    tipo_dtype = self.TIPO_PARA_DTYPE.get(tipo_exibicao, tipo_exibicao)
+                    tipo_raw_original = str(self.df_original[col].dtype)
+                    tipo_original_exib = self.DTYPE_PARA_TIPO.get(tipo_raw_original, tipo_raw_original)
+                    if tipo_exibicao != tipo_original_exib:
+                        tipos[col] = tipo_dtype
+        config = {"colunas_selecionadas": selecionadas, "tipos": tipos}
+        self.callback(self.nome_arquivo, config)
+        self.janela.destroy()
+
+
+# ──────────────────────────────────────────────────────────────────────
 # INTERFACE GRÁFICA
 # ──────────────────────────────────────────────────────────────────────
 class ConversorParquet:
@@ -191,6 +330,7 @@ class ConversorParquet:
         self.root.minsize(650, 450)
 
         self.pasta_entrada = tk.StringVar()
+        self.pasta_saida = tk.StringVar()
         self.arquivos_encontrados = []
         self._processando = False
         self._criar_widgets()
@@ -200,6 +340,9 @@ class ConversorParquet:
         padrao = os.path.join(achar_downloads(), "Entrada")
         os.makedirs(padrao, exist_ok=True)
         self.pasta_entrada.set(padrao)
+        padrao_saida = os.path.join(achar_downloads(), "Saida")
+        os.makedirs(padrao_saida, exist_ok=True)
+        self.pasta_saida.set(padrao_saida)
 
     def _criar_widgets(self):
         main_frame = ttk.Frame(self.root, padding="10")
@@ -222,6 +365,18 @@ class ConversorParquet:
 
         ttk.Button(entrada_frame, text="Escolher Pasta",
                    command=self._escolher_pasta).pack(side=tk.LEFT)
+
+        # ── Saída ──
+        frame_saida = ttk.LabelFrame(main_frame, text="Pasta de Saída", padding="5")
+        frame_saida.pack(fill=tk.X, pady=(0, 8))
+
+        saida_frame = ttk.Frame(frame_saida)
+        saida_frame.pack(fill=tk.X)
+        self.entry_pasta_saida = ttk.Entry(saida_frame, textvariable=self.pasta_saida)
+        self.entry_pasta_saida.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
+
+        ttk.Button(saida_frame, text="Escolher Pasta",
+                   command=self._escolher_pasta_saida).pack(side=tk.LEFT)
 
         # ── Opções ──
         frame_opcoes = ttk.LabelFrame(main_frame, text="Opções", padding="5")
@@ -265,6 +420,7 @@ class ConversorParquet:
         self.tree.configure(yscrollcommand=scroll_y.set)
         self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scroll_y.pack(side=tk.RIGHT, fill=tk.Y)
+        self.tree.bind("<Double-1>", self._on_tree_double_click)
 
         # ── Ações ──
         frame_acoes = ttk.Frame(main_frame)
@@ -277,6 +433,10 @@ class ConversorParquet:
         self.btn_converter = ttk.Button(frame_acoes, text="▶ Converter Tudo",
                                         command=self._converter_todos, state=tk.DISABLED)
         self.btn_converter.pack(side=tk.LEFT, padx=(0, 5))
+
+        self.btn_visualizar = ttk.Button(frame_acoes, text="👁 Visualizar",
+                                         command=self._visualizar, state=tk.DISABLED)
+        self.btn_visualizar.pack(side=tk.LEFT, padx=(0, 5))
 
         self.btn_abrir_entrada = ttk.Button(frame_acoes, text="📂 Abrir Entrada",
                                             command=lambda: os.startfile(self.pasta_entrada.get()))
@@ -319,7 +479,15 @@ class ConversorParquet:
             self.arquivos_encontrados = []
             self._limpar_tree()
             self.btn_converter.configure(state=tk.DISABLED)
+            self.btn_visualizar.configure(state=tk.DISABLED)
             self._log(f"Pasta selecionada: {pasta}")
+
+    def _escolher_pasta_saida(self):
+        from tkinter import filedialog
+        pasta = filedialog.askdirectory(title="Selecione a pasta de saída")
+        if pasta:
+            self.pasta_saida.set(pasta)
+            self._log(f"Pasta de saída: {pasta}")
 
     def _limpar_tree(self):
         for item in self.tree.get_children():
@@ -336,6 +504,7 @@ class ConversorParquet:
         self.arquivos_encontrados = []
         self.btn_escanear.configure(state=tk.DISABLED)
         self.btn_converter.configure(state=tk.DISABLED)
+        self.btn_visualizar.configure(state=tk.DISABLED)
         self.lbl_status.configure(text="Escaneando...")
         self.progresso.configure(mode="indeterminate")
         self.progresso.start()
@@ -382,7 +551,96 @@ class ConversorParquet:
         self.lbl_status.configure(text=f"{total} arquivo(s) encontrado(s)")
         if total > 0:
             self.btn_converter.configure(state=tk.NORMAL)
+            self.btn_visualizar.configure(state=tk.NORMAL)
         self._log(f"Escaneamento concluído: {total} arquivo(s)")
+
+    def _on_tree_double_click(self, event):
+        self._visualizar()
+
+    def _visualizar(self):
+        sel = self.tree.selection()
+        if not sel:
+            messagebox.showinfo("Aviso", "Selecione um arquivo na lista.")
+            return
+        item = sel[0]
+        valores = self.tree.item(item, "values")
+        if not valores:
+            return
+        nome = valores[0]
+        arq = next((a for a in self.arquivos_encontrados if a["nome"] == nome), None)
+        if arq is None:
+            return
+
+        caminho = arq["caminho"]
+        ext = os.path.splitext(caminho)[1].lower()
+
+        df_preview = self._ler_amostra(caminho, ext)
+        if df_preview is None:
+            messagebox.showerror("Erro", "Não foi possível ler o arquivo para preview.")
+            return
+
+        config = arq.get("colunas_config", {})
+        PreviewDialog(self.root, arq["nome"], df_preview, config, self._aplicar_config_colunas)
+
+    def _ler_amostra(self, caminho, ext):
+        try:
+            if ext in ('.xlsx', '.xlsm', '.xls'):
+                engine = self.var_engine.get()
+                return pd.read_excel(caminho, engine=engine, nrows=100)
+            elif ext == '.ods':
+                return pd.read_excel(caminho, engine='odf', nrows=100)
+            elif ext == '.csv':
+                for enc in ('utf-8', 'latin-1', 'cp1252'):
+                    try:
+                        return pd.read_csv(caminho, encoding=enc, nrows=100)
+                    except (UnicodeDecodeError, UnicodeError):
+                        continue
+                return pd.read_csv(caminho, encoding='latin-1', nrows=100)
+            elif ext == '.txt':
+                for enc in ('utf-8', 'latin-1', 'cp1252'):
+                    try:
+                        with open(caminho, 'r', encoding=enc) as f:
+                            amostra = f.read(8192)
+                    except (UnicodeDecodeError, UnicodeError):
+                        continue
+                    sep = None
+                    for s in [',', ';', '\t', '|']:
+                        if amostra.count(s) >= 3:
+                            sep = s
+                            break
+                    try:
+                        return pd.read_csv(caminho, encoding=enc, sep=sep, nrows=100,
+                                           engine='python' if sep is None else 'c')
+                    except Exception:
+                        continue
+                return pd.read_csv(caminho, encoding='latin-1', sep=None, engine='python', nrows=100)
+            elif ext == '.json':
+                return ler_json_adaptativo(caminho).head(100)
+            elif ext == '.xml':
+                return pd.read_xml(caminho).head(100)
+            elif ext in ('.html', '.htm'):
+                tabelas = ler_html_adaptativo(caminho)
+                if tabelas:
+                    return tabelas[0].head(100)
+                return None
+            elif ext == '.parquet':
+                return pd.read_parquet(caminho).head(100)
+            return None
+        except Exception:
+            return None
+
+    def _aplicar_config_colunas(self, nome_arquivo, config):
+        for arq in self.arquivos_encontrados:
+            if arq["nome"] == nome_arquivo:
+                arq["colunas_config"] = config
+                colunas = config.get("colunas_selecionadas", [])
+                tipos = config.get("tipos", {})
+                info = f"{len(colunas)} col"
+                if tipos:
+                    info += f", {len(tipos)} tipado(s)"
+                self._atualizar_status(nome_arquivo, f"Config: {info}")
+                self._log(f"Config aplicada: {nome_arquivo} -> {info}")
+                break
 
     # ── CONVERSÃO ──
     def _converter_todos(self):
@@ -390,18 +648,17 @@ class ConversorParquet:
             return
         self._processando = True
 
-        pasta_saida = os.path.join(
-            achar_downloads(),
-            "Saida",
-            datetime.now().strftime("Saida_%Y%m%d_%H%M%S")
-        )
-        os.makedirs(pasta_saida, exist_ok=True)
+        pasta_saida = self.pasta_saida.get().strip()
+        if not pasta_saida or not os.path.isdir(pasta_saida):
+            pasta_saida = os.path.join(achar_downloads(), "Saida")
+            os.makedirs(pasta_saida, exist_ok=True)
 
         self._log(f"Pasta de saída: {pasta_saida}")
         self._log(f"Convertendo {len(self.arquivos_encontrados)} arquivo(s)...")
 
         self.btn_escanear.configure(state=tk.DISABLED)
         self.btn_converter.configure(state=tk.DISABLED)
+        self.btn_visualizar.configure(state=tk.DISABLED)
         self.progresso.configure(value=0, maximum=len(self.arquivos_encontrados))
 
         def rodar():
@@ -416,7 +673,7 @@ class ConversorParquet:
                 except Exception as e:
                     self.root.after(0, self._atualizar_status, arq["nome"], "Erro")
                     self.root.after(0, self._log, f"ERRO: {arq['nome']} -> {e}")
-                self.root.after(0, self.progresso.step, 1)
+                self.root.after(0, self._step_progresso)
             self.root.after(0, self._pos_converter, pasta_saida)
 
         threading.Thread(target=rodar, daemon=True).start()
@@ -428,6 +685,10 @@ class ConversorParquet:
                 self.tree.set(item, "status", status)
                 break
 
+    def _step_progresso(self):
+        self.progresso.step(1)
+        self.root.update_idletasks()
+
     def _set_status(self, texto):
         self.lbl_status.configure(text=texto)
 
@@ -436,6 +697,7 @@ class ConversorParquet:
         self.progresso.configure(value=0)
         self.btn_escanear.configure(state=tk.NORMAL)
         self.btn_converter.configure(state=tk.NORMAL)
+        self.btn_visualizar.configure(state=tk.NORMAL if self.arquivos_encontrados else tk.DISABLED)
         self.lbl_status.configure(text="Conversão concluída!")
         self._log("Conversão concluída!")
 
@@ -455,37 +717,58 @@ class ConversorParquet:
         if compressao == "nenhuma":
             compressao = None
 
+        config = arq.get("colunas_config", {})
+        colunas_selecionadas = config.get("colunas_selecionadas")
+        tipos = config.get("tipos", {})
+
+        def _aplicar_config(df):
+            if colunas_selecionadas:
+                cols_validas = [c for c in colunas_selecionadas if c in df.columns]
+                df = df[cols_validas]
+            for col, tipo in tipos.items():
+                if col in df.columns:
+                    try:
+                        if tipo == "datetime64[ns]":
+                            df[col] = pd.to_datetime(df[col], errors="coerce")
+                        else:
+                            df[col] = df[col].astype(tipo, errors="ignore")
+                    except Exception:
+                        pass
+            return df
+
         if ext in ('.xlsx', '.xlsm', '.xls', '.ods'):
             engine = self.var_engine.get()
             if ext == '.ods':
                 engine = 'odf'
             dfs = ler_excel(caminho, engine)
             if len(dfs) == 1:
+                df = _aplicar_config(list(dfs.values())[0])
                 saida = os.path.join(pasta_saida, f"{nome_base}.parquet")
-                salvar_parquet(list(dfs.values())[0], saida, compressao)
+                salvar_parquet(df, saida, compressao)
             else:
                 for sheet, df in dfs.items():
+                    df = _aplicar_config(df)
                     saida = os.path.join(pasta_saida, f"{nome_base}_{sanitizar(sheet)}.parquet")
                     salvar_parquet(df, saida, compressao)
                 self._log(f"  -> {len(dfs)} planilhas convertidas")
 
         elif ext == '.csv':
-            df = ler_csv(caminho)
+            df = _aplicar_config(ler_csv(caminho))
             saida = os.path.join(pasta_saida, f"{nome_base}.parquet")
             salvar_parquet(df, saida, compressao)
 
         elif ext == '.txt':
-            df = ler_txt(caminho)
+            df = _aplicar_config(ler_txt(caminho))
             saida = os.path.join(pasta_saida, f"{nome_base}.parquet")
             salvar_parquet(df, saida, compressao)
 
         elif ext == '.json':
-            df = ler_json_adaptativo(caminho)
+            df = _aplicar_config(ler_json_adaptativo(caminho))
             saida = os.path.join(pasta_saida, f"{nome_base}.parquet")
             salvar_parquet(df, saida, compressao)
 
         elif ext == '.xml':
-            df = pd.read_xml(caminho)
+            df = _aplicar_config(pd.read_xml(caminho))
             saida = os.path.join(pasta_saida, f"{nome_base}.parquet")
             salvar_parquet(df, saida, compressao)
 
@@ -494,16 +777,18 @@ class ConversorParquet:
             if tabelas is None or len(tabelas) == 0:
                 raise ValueError("Nenhuma tabela encontrada no HTML")
             if len(tabelas) == 1:
+                df = _aplicar_config(tabelas[0])
                 saida = os.path.join(pasta_saida, f"{nome_base}.parquet")
-                salvar_parquet(tabelas[0], saida, compressao)
+                salvar_parquet(df, saida, compressao)
             else:
                 for i, df in enumerate(tabelas):
+                    df = _aplicar_config(df)
                     saida = os.path.join(pasta_saida, f"{nome_base}_tabela{i+1}.parquet")
                     salvar_parquet(df, saida, compressao)
                 self._log(f"  -> {len(tabelas)} tabelas extraídas")
 
         elif ext == '.parquet':
-            df = pd.read_parquet(caminho)
+            df = _aplicar_config(pd.read_parquet(caminho))
             saida = os.path.join(pasta_saida, f"{nome_base}.parquet")
             salvar_parquet(df, saida, compressao)
         else:
