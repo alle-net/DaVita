@@ -1,0 +1,123 @@
+===============================================================================
+                            PROGRESSO - API Justificativas
+===============================================================================
+
+Data: Julho 2026
+Projeto: API Corporativa para cadastro de justificativas — Supabase + Streamlit
+Arquivos de plano: plano-api-excel.md (original), plano-supabase.md (atual)
+
+==============================================================================
+RESUMO DO PLANO ORIGINAL (Azure)
+==============================================================================
+
+- Sistema 100% online composto por API REST + Interface Web
+- Hospedagem na Azure (Functions + App Service + SQL Database)
+- Substituir planilha Excel por sistema web
+- Cadastro e consulta de justificativas por regional
+- ~50 registros/dia, até 30 usuários
+- Custo zero estimado (tiers gratuitos)
+
+Arquitetura original:
+  Azure Functions (API REST Python - 7 endpoints manuais)
+  Streamlit (Interface Web)
+  Azure SQL Database (Free Tier)
+
+==============================================================================
+DECISÃO: MIGRAÇÃO PARA SUPABASE (03/07/2026)
+==============================================================================
+
+Após análise, optou-se por substituir Azure SQL + Azure Functions por Supabase.
+
+Motivos:
+  ✅ Supabase fornece PostgreSQL + REST API automática + Auth + RLS
+  ✅ Elimina necessidade de codificar 7 endpoints manualmente
+  ✅ Elimina necessidade de implementar JWT/hash de senha
+  ✅ SDK Python nativo (supabase-py) — sem pyodbc problemático
+  ✅ Deploy mais simples (apenas Streamlit → 1 serviço)
+
+Arquitetura atual:
+  Supabase Cloud (PostgreSQL + REST API automática + Auth)
+    ├── Tabelas: regionais, registros, profiles
+    ├── RLS (Row Level Security) protege os dados
+    └── Auth: email/senha gerenciado pelo Supabase
+  Streamlit (Interface Web)
+    ├── Login via Supabase Auth
+    ├── Novo Registro (dropdown regional + justificativa)
+    ├── Consultar com filtros + exportar CSV
+    └── Admin (gerenciar usuários)
+
+==============================================================================
+PLATAFORMA DE HOSPEDAGEM DA INTERFACE
+==============================================================================
+
+Opções consideradas:
+  - Streamlit Community Cloud (grátis) → cold start ~30s, 60min CPU/dia
+  - Railway (US$ 5/mês) → sem cold start, sem limite CPU
+  - Fly.io (grátis - 3 VMs) → sem cold start, sem limite CPU
+
+Decisão: Começar com Streamlit Cloud grátis. Migrar se necessário.
+
+==============================================================================
+PERGUNTAS ESCLARECIDAS
+==============================================================================
+
+  1. Autenticação: Admin cria contas via Supabase Dashboard.
+     Usuário loga com email+senha. Supabase gerencia JWT.
+  2. Supabase não é "só banco": fornece DB + API automática + Auth + RLS.
+  3. Cold start: app "dorme" após inatividade, ~30s para acordar.
+  4. Limite CPU de 60 min/dia do Streamlit: suficiente para ~50 registros/dia
+     (estimativa de ~7,5 min de CPU/dia = 12,5% do limite).
+
+==============================================================================
+AVALIAÇÃO TÉCNICA (original, mantida para referência)
+==============================================================================
+
+PONTOS FORTES:
+  ✅ Arquitetura clara e bem separada
+  ✅ Custo zero bem fundamentado com estimativas realistas
+  ✅ Escopo bem delimitado (CRUD simples)
+
+PROBLEMAS E RISCOS (endereçados com Supabase):
+  ❌ Azure SQL Free Tier pode não existir mais → Supabase Free (PostgreSQL) ✅
+  ❌ Duas hospedagens (Functions + App Service) → Só Streamlit ✅
+  ❌ pyodbc problemático → supabase-py (puro Python) ✅
+  ❌ Streamlit não tem auth robusta → Supabase Auth resolve ✅
+  ⚠️ Limite Streamlit (60 min CPU/dia) → Suficiente para o volume estimado
+
+==============================================================================
+CRONOGRAMA (novo plano)
+==============================================================================
+
+  Fase 0 - Setup (1 dia)
+    [x] Criar projeto Supabase (03/07)
+    [ ] Instalar Python + dependências no computador
+
+  Fase 1 - Banco de Dados (1 dia)
+    [ ] Criar tabelas: regionais, registros, profiles
+    [ ] Criar trigger + RLS policies
+    [ ] Configurar Authentication (email/password)
+
+  Fase 2 - Interface Streamlit (3 dias)
+    [ ] Login (via Supabase Auth)
+    [ ] Novo Registro (formulário)
+    [ ] Consultar (filtros + CSV)
+    [ ] Admin (gerenciar usuários)
+
+  Fase 3 - Deploy (1 dia)
+    [ ] Publicar no Streamlit Cloud / Railway / Fly.io
+
+==============================================================================
+PRÓXIMOS PASSOS
+==============================================================================
+
+  [x] Avaliar plano original (02/07)
+  [x] Decidir migração para Supabase (03/07)
+  [x] Criar novo plano detalhado (plano-supabase.md)
+  [x] Criar conta Supabase ✅ (URL + chaves obtidas)
+  [ ] Iniciar implementação (aguardando autorização)
+
+==============================================================================
+
+Sessão encerrada em: 03/07/2026
+Status: Conta Supabase criada. Aguardando início da implementação.
+===============================================================================
