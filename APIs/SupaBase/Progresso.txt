@@ -36,13 +36,13 @@ Motivos:
   ✅ Deploy mais simples (apenas Streamlit → 1 serviço)
 
 Arquitetura atual:
-  Supabase Cloud (PostgreSQL + REST API automática + Auth)
-    ├── Tabelas: regionais, registros, profiles
+  Supabase Cloud (PostgreSQL + REST API automática + RLS)
+    ├── Tabelas: fDados, dUsuarios, dRegional, dPendencias, dResponsavel
     ├── RLS (Row Level Security) protege os dados
-    └── Auth: email/senha gerenciado pelo Supabase
+    └── Autenticação: hash SHA-256 (login manual via Python)
   Streamlit (Interface Web)
-    ├── Login via Supabase Auth
-    ├── Novo Registro (dropdown regional + justificativa)
+    ├── Login (email + senha com hash)
+    ├── Novo Registro (formulário com filtro ativo/inativo)
     ├── Consultar com filtros + exportar CSV
     └── Admin (gerenciar usuários)
 
@@ -90,15 +90,15 @@ CRONOGRAMA (novo plano)
 
   Fase 0 - Setup (1 dia)
     [x] Criar projeto Supabase (03/07)
-    [ ] Instalar Python + dependências no computador
+    [x] Instalar Python + dependências (06/07)
 
   Fase 1 - Banco de Dados (1 dia)
-    [ ] Criar tabelas: regionais, registros, profiles
-    [ ] Criar trigger + RLS policies
-    [ ] Configurar Authentication (email/password)
+    [x] Modelagem: modelo estrela (fDados + 4 dimensões)
+    [x] Criar script SQL (sql_criacao_tabelas.sql)
+    [ ] Executar SQL no Supabase Dashboard
 
   Fase 2 - Interface Streamlit (3 dias)
-    [ ] Login (via Supabase Auth)
+    [ ] Login (email + senha com hash SHA-256)
     [ ] Novo Registro (formulário)
     [ ] Consultar (filtros + CSV)
     [ ] Admin (gerenciar usuários)
@@ -114,10 +114,13 @@ PRÓXIMOS PASSOS
   [x] Decidir migração para Supabase (03/07)
   [x] Criar novo plano detalhado (plano-supabase.md)
   [x] Criar conta Supabase ✅ (URL + chaves obtidas)
-  [ ] Iniciar implementação (aguardando autorização)
+  [x] Criar ambiente virtual + instalar dependências (06/07)
+  [x] Modelar banco (modelo estrela) e gerar script SQL (06/07)
+  [ ] Executar SQL no Supabase Dashboard
+  [ ] Codificar interface Streamlit
 
 ==============================================================================
 
-Sessão encerrada em: 03/07/2026
-Status: Conta Supabase criada. Aguardando início da implementação.
+Sessão encerrada em: 06/07/2026
+Status: SQL gerado. Aguardando execução no Supabase Dashboard.
 ===============================================================================
