@@ -1,10 +1,11 @@
 import os
 import sys
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, filedialog
 from datetime import datetime
 import threading
 import json
+import time
 
 import pandas as pd
 import pyarrow.parquet as pq
@@ -32,15 +33,10 @@ def sanitizar(nome):
     return nome[:80]
 
 
-def achar_downloads():
-    return os.path.join(os.path.expanduser("~"), "Downloads")
-
-
 # ──────────────────────────────────────────────────────────────────────
 # LÓGICA DE CONVERSÃO
 # ──────────────────────────────────────────────────────────────────────
 def _flatten_json(obj, prefixo="_", sep="_"):
-    """Achata JSON aninhado recursivamente."""
     items = {}
     if isinstance(obj, dict):
         for k, v in obj.items():
@@ -179,17 +175,32 @@ EXTENSOES = {
     '.parquet': 'Parquet',
 }
 
+FILTROS_FILEDIALOG = [
+    ("Todos os suportados", " ".join(f"*{ext}" for ext in EXTENSOES)),
+    ("Excel", "*.xlsx *.xlsm *.xls"),
+    ("CSV", "*.csv"),
+    ("TXT", "*.txt"),
+    ("JSON", "*.json"),
+    ("XML", "*.xml"),
+    ("HTML", "*.html *.htm"),
+    ("Parquet", "*.parquet"),
+    ("ODS", "*.ods"),
+    ("Todos os arquivos", "*.*"),
+]
+
 
 # ──────────────────────────────────────────────────────────────────────
 # DIÁLOGO DE PRÉ-VISUALIZAÇÃO
 # ──────────────────────────────────────────────────────────────────────
 class PreviewDialog:
-    TIPOS_DISPONIVEIS = ["string", "integer", "float", "boolean", "datetime"]
+    TIPOS_DISPONIVEIS = ["string", "integer", "float", "money", "boolean", "date", "datetime"]
     TIPO_PARA_DTYPE = {
         "string": "object",
         "integer": "int64",
         "float": "float64",
+        "money": "money",
         "boolean": "bool",
+        "date": "date",
         "datetime": "datetime64[ns]",
     }
     DTYPE_PARA_TIPO = {v: k for k, v in TIPO_PARA_DTYPE.items()}
@@ -244,12 +255,9 @@ class PreviewDialog:
             cb = ttk.Checkbutton(cell, text=col, variable=var)
             cb.pack(anchor=tk.W)
 
-            tipo_raw = self.config["tipos"].get(col, str(self.df_original[col].dtype))
-            tipo_exibicao = self.DTYPE_PARA_TIPO.get(tipo_raw, tipo_raw)
-            if tipo_exibicao not in self.TIPOS_DISPONIVEIS:
-                tipo_exibicao = "string"
+            # Padrão: sempre "string" por primeiro
             combo = ttk.Combobox(cell, values=self.TIPOS_DISPONIVEIS, width=14, state="readonly")
-            combo.set(tipo_exibicao)
+            combo.set("string")
             combo.pack(anchor=tk.W, pady=(2, 0))
             self.tipo_combos[col] = combo
 
@@ -264,14 +272,14 @@ class PreviewDialog:
                                         height=12)
         for c in cols_tree:
             self.tree_previa.heading(c, text=c)
-            self.tree_previa.column(c, width=100, minwidth=60)
+            self.tree_previa.column(c, width=120, minwidth=60, stretch=False)
 
         scroll_y2 = ttk.Scrollbar(frame_previa, orient=tk.VERTICAL, command=self.tree_previa.yview)
         scroll_x2 = ttk.Scrollbar(frame_previa, orient=tk.HORIZONTAL, command=self.tree_previa.xview)
         self.tree_previa.configure(yscrollcommand=scroll_y2.set, xscrollcommand=scroll_x2.set)
-        self.tree_previa.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scroll_y2.pack(side=tk.RIGHT, fill=tk.Y)
         scroll_x2.pack(side=tk.BOTTOM, fill=tk.X)
+        self.tree_previa.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
         for _, row in df.head(50).iterrows():
             vals = [str(v) if v is not None else "" for v in row]
@@ -310,10 +318,7 @@ class PreviewDialog:
                 tipo_exibicao = combo.get()
                 if tipo_exibicao:
                     tipo_dtype = self.TIPO_PARA_DTYPE.get(tipo_exibicao, tipo_exibicao)
-                    tipo_raw_original = str(self.df_original[col].dtype)
-                    tipo_original_exib = self.DTYPE_PARA_TIPO.get(tipo_raw_original, tipo_raw_original)
-                    if tipo_exibicao != tipo_original_exib:
-                        tipos[col] = tipo_dtype
+                    tipos[col] = tipo_dtype
         config = {"colunas_selecionadas": selecionadas, "tipos": tipos}
         self.callback(self.nome_arquivo, config)
         self.janela.destroy()
@@ -329,62 +334,33 @@ class ConversorParquet:
         self.root.geometry("820x620")
         self.root.minsize(650, 450)
 
-        self.pasta_entrada = tk.StringVar()
-        self.pasta_saida = tk.StringVar()
         self.arquivos_encontrados = []
         self._processando = False
+        self._cancelar = False
         self._criar_widgets()
-        self._definir_pasta_padrao()
-
-    def _definir_pasta_padrao(self):
-        padrao = os.path.join(achar_downloads(), "Entrada")
-        os.makedirs(padrao, exist_ok=True)
-        self.pasta_entrada.set(padrao)
-        padrao_saida = os.path.join(achar_downloads(), "Saida")
-        os.makedirs(padrao_saida, exist_ok=True)
-        self.pasta_saida.set(padrao_saida)
 
     def _criar_widgets(self):
         main_frame = ttk.Frame(self.root, padding="10")
         main_frame.pack(fill=tk.BOTH, expand=True)
 
-        # ── Origem ──
-        frame_origem = ttk.LabelFrame(main_frame, text="Pasta de Entrada", padding="5")
+        # ── Seleção de Arquivos ──
+        frame_origem = ttk.LabelFrame(main_frame, text="Arquivos de Entrada", padding="5")
         frame_origem.pack(fill=tk.X, pady=(0, 8))
-        lbl_info = ttk.Label(
-            frame_origem,
-            text="Coloque os arquivos nesta pasta e clique em Escanear:",
-            foreground="#555"
-        )
-        lbl_info.pack(anchor=tk.W, pady=(0, 3))
 
-        entrada_frame = ttk.Frame(frame_origem)
-        entrada_frame.pack(fill=tk.X)
-        self.entry_pasta = ttk.Entry(entrada_frame, textvariable=self.pasta_entrada)
-        self.entry_pasta.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
+        btn_frame = ttk.Frame(frame_origem)
+        btn_frame.pack(fill=tk.X)
 
-        ttk.Button(entrada_frame, text="Escolher Pasta",
-                   command=self._escolher_pasta).pack(side=tk.LEFT)
+        ttk.Button(btn_frame, text="Selecionar Arquivos",
+                   command=self._selecionar_arquivos).pack(side=tk.LEFT, padx=(0, 5))
+        ttk.Button(btn_frame, text="Limpar Lista",
+                   command=self._limpar_lista).pack(side=tk.LEFT, padx=(0, 5))
 
-        # ── Saída ──
-        frame_saida = ttk.LabelFrame(main_frame, text="Pasta de Saída", padding="5")
-        frame_saida.pack(fill=tk.X, pady=(0, 8))
-
-        saida_frame = ttk.Frame(frame_saida)
-        saida_frame.pack(fill=tk.X)
-        self.entry_pasta_saida = ttk.Entry(saida_frame, textvariable=self.pasta_saida)
-        self.entry_pasta_saida.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
-
-        ttk.Button(saida_frame, text="Escolher Pasta",
-                   command=self._escolher_pasta_saida).pack(side=tk.LEFT)
+        self.lbl_qtd = ttk.Label(btn_frame, text="Nenhum arquivo selecionado", foreground="#555")
+        self.lbl_qtd.pack(side=tk.LEFT, padx=(10, 0))
 
         # ── Opções ──
         frame_opcoes = ttk.LabelFrame(main_frame, text="Opções", padding="5")
         frame_opcoes.pack(fill=tk.X, pady=(0, 8))
-
-        self.var_subpastas = tk.BooleanVar(value=True)
-        ttk.Checkbutton(frame_opcoes, text="Incluir subpastas",
-                        variable=self.var_subpastas).pack(side=tk.LEFT, padx=(0, 20))
 
         ttk.Label(frame_opcoes, text="Engine Excel:").pack(side=tk.LEFT, padx=(0, 4))
         self.var_engine = tk.StringVar(value="openpyxl")
@@ -401,20 +377,22 @@ class ConversorParquet:
         cb_comp.pack(side=tk.LEFT)
 
         # ── Lista de Arquivos ──
-        frame_lista = ttk.LabelFrame(main_frame, text="Arquivos Encontrados", padding="5")
+        frame_lista = ttk.LabelFrame(main_frame, text="Arquivos Selecionados", padding="5")
         frame_lista.pack(fill=tk.BOTH, expand=True, pady=(0, 8))
 
-        colunas = ("arquivo", "tamanho", "tipo", "status")
+        colunas = ("arquivo", "pasta", "tamanho", "tipo", "status")
         self.tree = ttk.Treeview(frame_lista, columns=colunas, show="headings",
                                  selectmode="extended", height=12)
         self.tree.heading("arquivo", text="Arquivo")
+        self.tree.heading("pasta", text="Pasta")
         self.tree.heading("tamanho", text="Tamanho")
         self.tree.heading("tipo", text="Tipo")
         self.tree.heading("status", text="Status")
-        self.tree.column("arquivo", width=360)
-        self.tree.column("tamanho", width=90, anchor=tk.CENTER)
-        self.tree.column("tipo", width=120, anchor=tk.CENTER)
-        self.tree.column("status", width=140, anchor=tk.CENTER)
+        self.tree.column("arquivo", width=200)
+        self.tree.column("pasta", width=250)
+        self.tree.column("tamanho", width=80, anchor=tk.CENTER)
+        self.tree.column("tipo", width=100, anchor=tk.CENTER)
+        self.tree.column("status", width=100, anchor=tk.CENTER)
 
         scroll_y = ttk.Scrollbar(frame_lista, orient=tk.VERTICAL, command=self.tree.yview)
         self.tree.configure(yscrollcommand=scroll_y.set)
@@ -426,21 +404,17 @@ class ConversorParquet:
         frame_acoes = ttk.Frame(main_frame)
         frame_acoes.pack(fill=tk.X, pady=(0, 8))
 
-        self.btn_escanear = ttk.Button(frame_acoes, text="🔍 Escanear",
-                                       command=self._escanear)
-        self.btn_escanear.pack(side=tk.LEFT, padx=(0, 5))
-
-        self.btn_converter = ttk.Button(frame_acoes, text="▶ Converter Tudo",
+        self.btn_converter = ttk.Button(frame_acoes, text="Converter Tudo",
                                         command=self._converter_todos, state=tk.DISABLED)
         self.btn_converter.pack(side=tk.LEFT, padx=(0, 5))
 
-        self.btn_visualizar = ttk.Button(frame_acoes, text="👁 Visualizar",
+        self.btn_cancelar = ttk.Button(frame_acoes, text="Cancelar",
+                                       command=self._cancelar_conversao, state=tk.DISABLED)
+        self.btn_cancelar.pack(side=tk.LEFT, padx=(0, 5))
+
+        self.btn_visualizar = ttk.Button(frame_acoes, text="Visualizar",
                                          command=self._visualizar, state=tk.DISABLED)
         self.btn_visualizar.pack(side=tk.LEFT, padx=(0, 5))
-
-        self.btn_abrir_entrada = ttk.Button(frame_acoes, text="📂 Abrir Entrada",
-                                            command=lambda: os.startfile(self.pasta_entrada.get()))
-        self.btn_abrir_entrada.pack(side=tk.RIGHT, padx=(0, 0))
 
         # ── Progresso ──
         frame_prog = ttk.LabelFrame(main_frame, text="Progresso", padding="5")
@@ -468,92 +442,66 @@ class ConversorParquet:
         self.txt_log.insert(tk.END, f"[{datetime.now():%H:%M:%S}] {msg}\n")
         self.txt_log.see(tk.END)
         self.txt_log.configure(state=tk.DISABLED)
-        self.root.update_idletasks()
 
-    # ── PASTA ──
-    def _escolher_pasta(self):
-        from tkinter import filedialog
-        pasta = filedialog.askdirectory(title="Selecione a pasta com os arquivos")
-        if pasta:
-            self.pasta_entrada.set(pasta)
-            self.arquivos_encontrados = []
-            self._limpar_tree()
-            self.btn_converter.configure(state=tk.DISABLED)
-            self.btn_visualizar.configure(state=tk.DISABLED)
-            self._log(f"Pasta selecionada: {pasta}")
-
-    def _escolher_pasta_saida(self):
-        from tkinter import filedialog
-        pasta = filedialog.askdirectory(title="Selecione a pasta de saída")
-        if pasta:
-            self.pasta_saida.set(pasta)
-            self._log(f"Pasta de saída: {pasta}")
-
-    def _limpar_tree(self):
-        for item in self.tree.get_children():
-            self.tree.delete(item)
-
-    # ── ESCANEAR ──
-    def _escanear(self):
-        pasta = self.pasta_entrada.get()
-        if not pasta or not os.path.isdir(pasta):
-            messagebox.showwarning("Aviso", "A pasta de entrada não existe.")
+    # ── SELEÇÃO DE ARQUIVOS ──
+    def _selecionar_arquivos(self):
+        caminhos = filedialog.askopenfilenames(
+            title="Selecione os arquivos para converter",
+            filetypes=FILTROS_FILEDIALOG,
+        )
+        if not caminhos:
             return
 
-        self._limpar_tree()
-        self.arquivos_encontrados = []
-        self.btn_escanear.configure(state=tk.DISABLED)
-        self.btn_converter.configure(state=tk.DISABLED)
-        self.btn_visualizar.configure(state=tk.DISABLED)
-        self.lbl_status.configure(text="Escaneando...")
-        self.progresso.configure(mode="indeterminate")
-        self.progresso.start()
+        exts_validas = set(EXTENSOES.keys())
+        adicionados = 0
+        ja_existentes = {a["caminho"] for a in self.arquivos_encontrados}
 
-        def escanear():
-            try:
-                incluir = self.var_subpastas.get()
-                for raiz, _, arquivos in os.walk(pasta) if incluir else [(pasta, [], os.listdir(pasta))]:
-                    for nome in sorted(arquivos):
-                        caminho = os.path.join(raiz, nome)
-                        if not os.path.isfile(caminho):
-                            continue
-                        ext = os.path.splitext(nome)[1].lower()
-                        if ext not in EXTENSOES:
-                            continue
-                        rel = os.path.relpath(caminho, pasta)
-                        self.arquivos_encontrados.append({
-                            "caminho": caminho,
-                            "nome": rel,
-                            "tamanho": os.path.getsize(caminho),
-                            "tipo": EXTENSOES[ext],
-                            "status": ""
-                        })
-                        self.root.after(0, self._inserir_tree, rel,
-                                        os.path.getsize(caminho),
-                                        EXTENSOES[ext], "")
-            except Exception as e:
-                self._log(f"Erro ao escanear: {e}")
-            finally:
-                self.root.after(0, self._pos_escanear)
+        for caminho in caminhos:
+            if caminho in ja_existentes:
+                continue
+            ext = os.path.splitext(caminho)[1].lower()
+            if ext not in exts_validas:
+                continue
+            nome = os.path.basename(caminho)
+            pasta = os.path.dirname(caminho)
+            self.arquivos_encontrados.append({
+                "caminho": caminho,
+                "nome": nome,
+                "pasta": pasta,
+                "tamanho": os.path.getsize(caminho),
+                "tipo": EXTENSOES[ext],
+                "status": "",
+            })
+            self.tree.insert("", tk.END, values=(
+                nome, pasta, formatar_tamanho(os.path.getsize(caminho)),
+                EXTENSOES[ext], ""
+            ))
+            adicionados += 1
 
-        threading.Thread(target=escanear, daemon=True).start()
+        self._atualizar_estado_lista()
+        if adicionados > 0:
+            self._log(f"{adicionados} arquivo(s) adicionado(s)")
 
-    def _inserir_tree(self, nome, tamanho, tipo, status):
-        self.tree.insert("", tk.END, values=(
-            nome, formatar_tamanho(tamanho), tipo, status
-        ))
+    def _limpar_lista(self):
+        self.arquivos_encontrados.clear()
+        for item in self.tree.get_children():
+            self.tree.delete(item)
+        self._atualizar_estado_lista()
+        self._log("Lista limpa")
 
-    def _pos_escanear(self):
-        self.progresso.stop()
-        self.progresso.configure(mode="determinate", value=0)
-        self.btn_escanear.configure(state=tk.NORMAL)
+    def _atualizar_estado_lista(self):
         total = len(self.arquivos_encontrados)
-        self.lbl_status.configure(text=f"{total} arquivo(s) encontrado(s)")
-        if total > 0:
-            self.btn_converter.configure(state=tk.NORMAL)
-            self.btn_visualizar.configure(state=tk.NORMAL)
-        self._log(f"Escaneamento concluído: {total} arquivo(s)")
+        self.lbl_qtd.configure(text=f"{total} arquivo(s) selecionado(s)")
+        estado = tk.NORMAL if total > 0 else tk.DISABLED
+        self.btn_converter.configure(state=estado)
+        self.btn_visualizar.configure(state=estado)
 
+    # ── CANCELAR ──
+    def _cancelar_conversao(self):
+        self._cancelar = True
+        self._log("Conversão cancelada pelo usuário")
+
+    # ── VISUALIZAR ──
     def _on_tree_double_click(self, event):
         self._visualizar()
 
@@ -567,7 +515,8 @@ class ConversorParquet:
         if not valores:
             return
         nome = valores[0]
-        arq = next((a for a in self.arquivos_encontrados if a["nome"] == nome), None)
+        arq = next((a for a in self.arquivos_encontrados if a["nome"] == nome
+                     and a["pasta"] == valores[1]), None)
         if arq is None:
             return
 
@@ -638,81 +587,117 @@ class ConversorParquet:
                 info = f"{len(colunas)} col"
                 if tipos:
                     info += f", {len(tipos)} tipado(s)"
-                self._atualizar_status(nome_arquivo, f"Config: {info}")
+                self._atualizar_status(nome_arquivo, arq["pasta"], f"Config: {info}")
                 self._log(f"Config aplicada: {nome_arquivo} -> {info}")
                 break
+
+    # ── PROGRESSO BASEADO EM TEMPO ──
+    # Mapeamento: tempo_decorrido(seg) -> percentual
+    CURVA_PROGRESSO = [
+        (10,  5),
+        (30,  25),
+        (40,  55),
+        (60,  80),
+        (80,  99),
+    ]
+
+    def _calcular_progresso_tempo(self, elapsed):
+        if elapsed <= 0:
+            return 0
+        prev_t, prev_p = 0, 0
+        for t, p in self.CURVA_PROGRESSO:
+            if elapsed <= t:
+                frac = (elapsed - prev_t) / (t - prev_t)
+                return prev_p + frac * (p - prev_p)
+            prev_t, prev_p = t, p
+        return 99
+
+    def _iniciar_timer_progresso(self):
+        self._tempo_inicio = time.time()
+        self._atualizar_timer_progresso()
+
+    def _atualizar_timer_progresso(self):
+        if not self._processando:
+            return
+        elapsed = time.time() - self._tempo_inicio
+        pct = self._calcular_progresso_tempo(elapsed)
+        self.progresso.configure(value=pct, maximum=100)
+        self.lbl_status.configure(text=f"Convertendo... ({pct:.0f}%)")
+        self.root.after(500, self._atualizar_timer_progresso)
 
     # ── CONVERSÃO ──
     def _converter_todos(self):
         if self._processando or not self.arquivos_encontrados:
             return
         self._processando = True
+        self._cancelar = False
 
-        pasta_saida = self.pasta_saida.get().strip()
-        if not pasta_saida or not os.path.isdir(pasta_saida):
-            pasta_saida = os.path.join(achar_downloads(), "Saida")
-            os.makedirs(pasta_saida, exist_ok=True)
-
-        self._log(f"Pasta de saída: {pasta_saida}")
-        self._log(f"Convertendo {len(self.arquivos_encontrados)} arquivo(s)...")
-
-        self.btn_escanear.configure(state=tk.DISABLED)
         self.btn_converter.configure(state=tk.DISABLED)
         self.btn_visualizar.configure(state=tk.DISABLED)
-        self.progresso.configure(value=0, maximum=len(self.arquivos_encontrados))
+        self.btn_cancelar.configure(state=tk.NORMAL)
 
-        def rodar():
-            for i, arq in enumerate(self.arquivos_encontrados):
-                self.root.after(0, self._atualizar_status, arq["nome"], "Convertendo...")
-                self.root.after(0, self._set_status,
-                                f"({i+1}/{len(self.arquivos_encontrados)}) {arq['nome']}")
-                try:
-                    self._converter_um(arq, pasta_saida)
-                    self.root.after(0, self._atualizar_status, arq["nome"], "OK")
-                    self.root.after(0, self._log, f"OK: {arq['nome']}")
-                except Exception as e:
-                    self.root.after(0, self._atualizar_status, arq["nome"], "Erro")
-                    self.root.after(0, self._log, f"ERRO: {arq['nome']} -> {e}")
-                self.root.after(0, self._step_progresso)
-            self.root.after(0, self._pos_converter, pasta_saida)
+        self.progresso.configure(value=0, maximum=100)
+        self._log(f"Convertendo {len(self.arquivos_encontrados)} arquivo(s)...")
 
-        threading.Thread(target=rodar, daemon=True).start()
+        self._indice_atual = 0
+        self._iniciar_timer_progresso()
+        self._converter_proximo()
 
-    def _atualizar_status(self, nome, status):
+    def _converter_proximo(self):
+        if self._cancelar or self._indice_atual >= len(self.arquivos_encontrados):
+            self._pos_converter()
+            return
+
+        i = self._indice_atual
+        arq = self.arquivos_encontrados[i]
+
+        self._atualizar_status(arq["nome"], arq["pasta"], "Convertendo...")
+
+        def executar():
+            try:
+                self._converter_um(arq)
+                self.root.after(0, self._on_conversao_ok, arq)
+            except Exception as e:
+                self.root.after(0, self._on_conversao_erro, arq, str(e))
+
+        threading.Thread(target=executar, daemon=True).start()
+
+    def _on_conversao_ok(self, arq):
+        self._atualizar_status(arq["nome"], arq["pasta"], "OK")
+        self._log(f"OK: {arq['nome']}")
+        self._indice_atual += 1
+        self._converter_proximo()
+
+    def _on_conversao_erro(self, arq, erro):
+        self._atualizar_status(arq["nome"], arq["pasta"], "Erro")
+        self._log(f"ERRO: {arq['nome']} -> {erro}")
+        self._indice_atual += 1
+        self._converter_proximo()
+
+    def _atualizar_status(self, nome, pasta, status):
         for item in self.tree.get_children():
             v = self.tree.item(item, "values")
-            if v and v[0] == nome:
+            if v and v[0] == nome and v[1] == pasta:
                 self.tree.set(item, "status", status)
                 break
 
-    def _step_progresso(self):
-        self.progresso.step(1)
-        self.root.update_idletasks()
-
-    def _set_status(self, texto):
-        self.lbl_status.configure(text=texto)
-
-    def _pos_converter(self, pasta_saida):
+    def _pos_converter(self):
         self._processando = False
-        self.progresso.configure(value=0)
-        self.btn_escanear.configure(state=tk.NORMAL)
+        self.progresso.configure(value=100)
         self.btn_converter.configure(state=tk.NORMAL)
         self.btn_visualizar.configure(state=tk.NORMAL if self.arquivos_encontrados else tk.DISABLED)
+        self.btn_cancelar.configure(state=tk.DISABLED)
         self.lbl_status.configure(text="Conversão concluída!")
         self._log("Conversão concluída!")
-
-        msg = messagebox.askyesno(
-            "Concluído",
-            f"Conversão finalizada!\nArquivos salvos em:\n{pasta_saida}\n\nAbrir pasta?"
-        )
-        if msg:
-            os.startfile(pasta_saida)
+        if self._cancelar:
+            self.lbl_status.configure(text="Conversão cancelada")
 
     # ── CONVERTER UM ARQUIVO ──
-    def _converter_um(self, arq, pasta_saida):
+    def _converter_um(self, arq):
         caminho = arq["caminho"]
         ext = os.path.splitext(caminho)[1].lower()
         nome_base = sanitizar(os.path.splitext(arq["nome"])[0])
+        pasta_saida = arq["pasta"]
         compressao = self.var_compressao.get()
         if compressao == "nenhuma":
             compressao = None
@@ -730,6 +715,10 @@ class ConversorParquet:
                     try:
                         if tipo == "datetime64[ns]":
                             df[col] = pd.to_datetime(df[col], errors="coerce")
+                        elif tipo == "money":
+                            df[col] = pd.to_numeric(df[col], errors="coerce").round(2)
+                        elif tipo == "date":
+                            df[col] = pd.to_datetime(df[col], errors="coerce").dt.strftime("%Y-%m-%d")
                         else:
                             df[col] = df[col].astype(tipo, errors="ignore")
                     except Exception:
