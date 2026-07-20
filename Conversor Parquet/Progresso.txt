@@ -74,5 +74,22 @@ ESTRUTURA DO PROGRAMA
 [2024-06-12] COMMIT E PUSH PARA GITHUB
 ────────────────────────────────────────────────────────────────────────────────
  Commit: "Adiciona Conversor para Parquet - interface tkinter + executável"
- Enviado para: origin/master
+  Enviado para: origin/master
+────────────────────────────────────────────────────────────────────────────────
+
+[2024-06-12] SISTEMA DE PERFIS DE CONVERSÃO
+────────────────────────────────────────────────────────────────────────────────
+  Motivo: Arquivos com muitas colunas (50+) exigem reconfiguração manual
+  toda vez. Perfis permitem salvar e reaplicar configurações.
+
+  Funcionalidades implementadas:
+    - Classe PerfilManager: CRUD completo de perfis (salvar/carregar/excluir/renomear)
+    - Armazenamento em arquivo perfis.json (junto ao executável)
+    - Seção "Perfis de Conversão" na interface:
+      * Combobox com lista de perfis salvos
+      * Botões: Carregar, Salvar, Salvar Como, Excluir, Renomear
+    - Fluxo: Pré-visualizar > Configurar colunas/tipos > Aplicar > Salvar Perfil
+    - Ao carregar perfil: aplica colunas_selecionadas + tipos a todos os arquivos
+    - Perfil salva: colunas selecionadas, mapeamento de tipos, compressão, engine
+    - Confirmação antes de sobrescrever/excluir perfil existente
 ────────────────────────────────────────────────────────────────────────────────

@@ -1,7 +1,7 @@
 import os
 import sys
 import tkinter as tk
-from tkinter import ttk, messagebox, filedialog
+from tkinter import ttk, messagebox, filedialog, simpledialog
 from datetime import datetime
 import threading
 import json
@@ -175,6 +175,56 @@ EXTENSOES = {
     '.parquet': 'Parquet',
 }
 
+# ──────────────────────────────────────────────────────────────────────
+# GERENCIAMENTO DE PERFIS
+# ──────────────────────────────────────────────────────────────────────
+class PerfilManager:
+    def __init__(self):
+        if getattr(sys, 'frozen', False):
+            self._base_dir = os.path.dirname(sys.executable)
+        else:
+            self._base_dir = os.path.dirname(os.path.abspath(__file__))
+        self._arquivo = os.path.join(self._base_dir, "perfis.json")
+        self._perfis = self._carregar()
+
+    def _carregar(self):
+        if os.path.exists(self._arquivo):
+            try:
+                with open(self._arquivo, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+            except (json.JSONDecodeError, IOError):
+                return {}
+        return {}
+
+    def _salvar(self):
+        with open(self._arquivo, 'w', encoding='utf-8') as f:
+            json.dump(self._perfis, f, ensure_ascii=False, indent=2)
+
+    def listar(self):
+        return sorted(self._perfis.keys())
+
+    def obter(self, nome):
+        return self._perfis.get(nome, {}).copy()
+
+    def salvar_perfil(self, nome, config):
+        self._perfis[nome] = config.copy()
+        self._salvar()
+
+    def excluir(self, nome):
+        if nome in self._perfis:
+            del self._perfis[nome]
+            self._salvar()
+            return True
+        return False
+
+    def renomear(self, nome_antigo, nome_novo):
+        if nome_antigo in self._perfis and nome_novo not in self._perfis:
+            self._perfis[nome_novo] = self._perfis.pop(nome_antigo)
+            self._salvar()
+            return True
+        return False
+
+
 FILTROS_FILEDIALOG = [
     ("Todos os suportados", " ".join(f"*{ext}" for ext in EXTENSOES)),
     ("Excel", "*.xlsx *.xlsm *.xls"),
@@ -337,6 +387,8 @@ class ConversorParquet:
         self.arquivos_encontrados = []
         self._processando = False
         self._cancelar = False
+        self._perfil_mgr = PerfilManager()
+        self._ultima_config = None
         self._criar_widgets()
 
     def _criar_widgets(self):
@@ -375,6 +427,30 @@ class ConversorParquet:
                                values=["snappy", "gzip", "brotli", "lz4", "zstd", "nenhuma"],
                                state="readonly", width=10)
         cb_comp.pack(side=tk.LEFT)
+
+        # ── Perfis ──
+        frame_perfis = ttk.LabelFrame(main_frame, text="Perfis de Conversão", padding="5")
+        frame_perfis.pack(fill=tk.X, pady=(0, 8))
+
+        perfis_row = ttk.Frame(frame_perfis)
+        perfis_row.pack(fill=tk.X)
+
+        ttk.Label(perfis_row, text="Perfil:").pack(side=tk.LEFT, padx=(0, 4))
+        self.var_perfil = tk.StringVar()
+        self.cb_perfis = ttk.Combobox(perfis_row, textvariable=self.var_perfil,
+                                       values=self._perfil_mgr.listar(), width=30)
+        self.cb_perfis.pack(side=tk.LEFT, padx=(0, 10))
+
+        ttk.Button(perfis_row, text="Carregar",
+                   command=self._carregar_perfil).pack(side=tk.LEFT, padx=(0, 3))
+        ttk.Button(perfis_row, text="Salvar",
+                   command=self._salvar_perfil).pack(side=tk.LEFT, padx=(0, 3))
+        ttk.Button(perfis_row, text="Salvar Como",
+                   command=self._salvar_perfil_como).pack(side=tk.LEFT, padx=(0, 3))
+        ttk.Button(perfis_row, text="Excluir",
+                   command=self._excluir_perfil).pack(side=tk.LEFT, padx=(0, 3))
+        ttk.Button(perfis_row, text="Renomear",
+                   command=self._renomear_perfil).pack(side=tk.LEFT)
 
         # ── Lista de Arquivos ──
         frame_lista = ttk.LabelFrame(main_frame, text="Arquivos Selecionados", padding="5")
@@ -496,6 +572,91 @@ class ConversorParquet:
         self.btn_converter.configure(state=estado)
         self.btn_visualizar.configure(state=estado)
 
+    def _atualizar_combo_perfis(self):
+        self.cb_perfis['values'] = self._perfil_mgr.listar()
+
+    def _carregar_perfil(self):
+        nome = self.var_perfil.get().strip()
+        if not nome:
+            messagebox.showinfo("Aviso", "Selecione um perfil no campo ao lado.")
+            return
+        config = self._perfil_mgr.obter(nome)
+        if not config:
+            messagebox.showerror("Erro", f"Perfil '{nome}' não encontrado.")
+            return
+        for arq in self.arquivos_encontrados:
+            arq["colunas_config"] = config.copy()
+        colunas = config.get("colunas_selecionadas", [])
+        tipos = config.get("tipos", {})
+        info = f"{len(colunas)} col"
+        if tipos:
+            info += f", {len(tipos)} tipado(s)"
+        self._log(f"Perfil '{nome}' carregado: {info} -> aplicado a {len(self.arquivos_encontrados)} arquivo(s)")
+        for arq in self.arquivos_encontrados:
+            self._atualizar_status(arq["nome"], arq["pasta"], f"Perfil: {info}")
+
+    def _salvar_perfil(self):
+        nome = self.var_perfil.get().strip()
+        if not nome:
+            self._salvar_perfil_como()
+            return
+        if self._ultima_config is None:
+            messagebox.showinfo("Aviso", "Configure um arquivo primeiro (Pré-visualizar > Aplicar).")
+            return
+        if nome in self._perfil_mgr.listar():
+            if not messagebox.askyesno("Confirmar", f"Perfil '{nome}' já existe. Sobrescrever?"):
+                return
+        self._perfil_mgr.salvar_perfil(nome, self._ultima_config)
+        self._atualizar_combo_perfis()
+        self.cb_perfis.set(nome)
+        self._log(f"Perfil '{nome}' salvo")
+
+    def _salvar_perfil_como(self):
+        if self._ultima_config is None:
+            messagebox.showinfo("Aviso", "Configure um arquivo primeiro (Pré-visualizar > Aplicar).")
+            return
+        nome = tk.simpledialog.askstring("Salvar Perfil", "Nome do novo perfil:",
+                                         parent=self.root)
+        if not nome or not nome.strip():
+            return
+        nome = nome.strip()
+        if nome in self._perfil_mgr.listar():
+            if not messagebox.askyesno("Confirmar", f"Perfil '{nome}' já existe. Sobrescrever?"):
+                return
+        self._perfil_mgr.salvar_perfil(nome, self._ultima_config)
+        self._atualizar_combo_perfis()
+        self.cb_perfis.set(nome)
+        self._log(f"Perfil '{nome}' criado e salvo")
+
+    def _excluir_perfil(self):
+        nome = self.var_perfil.get().strip()
+        if not nome:
+            messagebox.showinfo("Aviso", "Selecione um perfil para excluir.")
+            return
+        if not messagebox.askyesno("Confirmar", f"Excluir o perfil '{nome}'?"):
+            return
+        if self._perfil_mgr.excluir(nome):
+            self._atualizar_combo_perfis()
+            self.var_perfil.set("")
+            self._log(f"Perfil '{nome}' excluído")
+
+    def _renomear_perfil(self):
+        nome = self.var_perfil.get().strip()
+        if not nome:
+            messagebox.showinfo("Aviso", "Selecione um perfil para renomear.")
+            return
+        novo_nome = tk.simpledialog.askstring("Renomear Perfil", f"Novo nome para '{nome}':",
+                                               parent=self.root)
+        if not novo_nome or not novo_nome.strip():
+            return
+        novo_nome = novo_nome.strip()
+        if self._perfil_mgr.renomear(nome, novo_nome):
+            self._atualizar_combo_perfis()
+            self.cb_perfis.set(novo_nome)
+            self._log(f"Perfil renomeado: '{nome}' -> '{novo_nome}'")
+        else:
+            messagebox.showerror("Erro", f"Já existe um perfil chamado '{novo_nome}'.")
+
     # ── CANCELAR ──
     def _cancelar_conversao(self):
         self._cancelar = True
@@ -581,7 +742,8 @@ class ConversorParquet:
     def _aplicar_config_colunas(self, nome_arquivo, config):
         for arq in self.arquivos_encontrados:
             if arq["nome"] == nome_arquivo:
-                arq["colunas_config"] = config
+                arq["colunas_config"] = config.copy()
+                self._ultima_config = config.copy()
                 colunas = config.get("colunas_selecionadas", [])
                 tipos = config.get("tipos", {})
                 info = f"{len(colunas)} col"
