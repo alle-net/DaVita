@@ -1,0 +1,16 @@
+====================================================================================
+EXTRACAO DO DADOS EC
+====================================================================================
+
+OBJETIVO GERAL:
+ 
+Criar uma rotina que tem como objetivo conectar-se ao banco de dados mysql executar
+uma consulta e salva-la em uma pasta do SharePoint em formato parquet
+
+1 instale as bibliotecas no seu terminal: pandas, pyarrow, SQLAlchemy e o driver do seu banco de dados.
+
+2 configure seu script Python com a string de conexão, o servidor, o nome do banco de dados, o usuário e a senha.
+
+3 crie o código para conectar ao banco, executar a consulta e carregar os dados em um DataFrame.
+4 use a função to_parquet do pandas para salvar o arquivo com a extensão .parquet diretamente na pasta do SharePoint.
+
