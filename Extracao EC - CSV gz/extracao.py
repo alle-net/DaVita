@@ -65,7 +65,7 @@ def extrair_dados(config: dict[str, Any]) -> pd.DataFrame:
     for tentativa in range(1, MAX_TENTATIVAS + 1):
         try:
             with conectar(config) as engine:
-                df = pd.read_sql(query, engine)
+                df = pd.read_sql(query, engine, coerce_float=False)
             df["gravacao"] = datetime.now().strftime("%Y-%m-%d %H:%M")
             return df
         except Exception as e:
