@@ -1,71 +1,100 @@
 import json
+import logging
 import time
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 from urllib.parse import quote_plus
-from sqlalchemy import create_engine
+
 import pandas as pd
+from sqlalchemy import create_engine
+from sqlalchemy.engine import Engine
 
 MAX_TENTATIVAS = 3
 INTERVALO = 2
+CHAVES_OBRIGATORIAS = {"servidor", "banco", "usuario", "query", "pasta_saida"}
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+logger = logging.getLogger(__name__)
 
 
-def carregar_config(caminho_config: str = "Config.json") -> dict:
+def carregar_config(caminho_config: str = "Config.json") -> dict[str, Any]:
     with open(caminho_config, "r", encoding="utf-8") as f:
-        return json.load(f)
+        config = json.load(f)
+
+    _validar_config(config)
+    return config
+
+
+def _validar_config(config: dict[str, Any]) -> None:
+    faltando = CHAVES_OBRIGATORIAS - config.keys()
+    if faltando:
+        raise KeyError(
+            f"Config.json faltando chaves obrigatorias: {', '.join(sorted(faltando))}"
+        )
 
 
 def carregar_query(caminho_query: str) -> str:
     caminho_completo = Path("Querys") / caminho_query
-    with open(caminho_completo, "r", encoding="utf-8") as f:
-        return f.read()
+    return caminho_completo.read_text("utf-8")
 
 
-def criar_conexao(config: dict):
-    senha_encoded = quote_plus(config["senha"])
+@contextmanager
+def conectar(config: dict[str, Any]) -> Iterator[Engine]:
+    senha_encoded = quote_plus(config.get("senha", ""))
     string_conexao = (
         f"mysql+pymysql://{config['usuario']}:{senha_encoded}"
         f"@{config['servidor']}/{config['banco']}"
     )
-    return create_engine(string_conexao)
+    engine = create_engine(string_conexao)
+    try:
+        yield engine
+    finally:
+        engine.dispose()
 
 
-def extrair_dados(config: dict) -> pd.DataFrame:
+def extrair_dados(config: dict[str, Any]) -> pd.DataFrame:
     query = carregar_query(config["query"])
 
     for tentativa in range(1, MAX_TENTATIVAS + 1):
         try:
-            engine = criar_conexao(config)
-            df = pd.read_sql(query, engine)
-            engine.dispose()
+            with conectar(config) as engine:
+                df = pd.read_sql(query, engine)
             df["gravacao"] = datetime.now().strftime("%Y-%m-%d %H:%M")
             return df
         except Exception as e:
             if tentativa < MAX_TENTATIVAS:
-                print(f"Tentativa {tentativa} falhou: {e}")
-                print(f"Tentando novamente em {INTERVALO}s...")
+                logger.warning("Tentativa %d falhou: %s", tentativa, e)
+                logger.info("Tentando novamente em %ds...", INTERVALO)
                 time.sleep(INTERVALO)
             else:
-                raise Exception(f"Falha apos {MAX_TENTATIVAS} tentativas: {e}")
+                logger.error("Falha apos %d tentativas", MAX_TENTATIVAS)
+                raise
 
 
-def salvar_csv_gz(df: pd.DataFrame, config: dict):
+def salvar_csv_gz(df: pd.DataFrame, config: dict[str, Any]) -> Path:
     pasta_saida = Path(config["pasta_saida"])
     pasta_saida.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d-%H%M")
     nome_arquivo = f"EC-{timestamp}.csv.gz"
     caminho_completo = pasta_saida / nome_arquivo
-    df.to_csv(caminho_completo, index=False, compression="gzip")
+    df.to_csv(caminho_completo, index=False, sep=";", compression="gzip")
     return caminho_completo
 
 
-def main():
+def main() -> None:
     config = carregar_config()
-    print("Conectando ao banco de dados...")
+    logger.info("Conectando ao banco de dados...")
     df = extrair_dados(config)
-    print(f"Registros extraidos: {len(df)}")
+    logger.info("Registros extraidos: %d", len(df))
     caminho = salvar_csv_gz(df, config)
-    print(f"Arquivo salvo em: {caminho}")
+    logger.info("Arquivo salvo em: %s", caminho)
 
 
 if __name__ == "__main__":
