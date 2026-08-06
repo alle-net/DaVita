@@ -1,4 +1,4 @@
-SELECT 
+SELECT
   cd_estabelecimento,
   ds_estabelecimento,
   cd_convenio,
@@ -34,19 +34,8 @@ SELECT
   lote,
   protocolo,
   status_autorizacao
- 
-FROM status_conta 
-WHERE dt_periodo_final >= DATE_SUB(DATE_FORMAT(CURDATE(), '%Y-%m-01'), INTERVAL 6 MONTH) #'2026-12-01'
-AND dt_periodo_final <= CURDATE()
-AND ds_etapa <> 'Contas Canceladas'
-AND cd_estabelecimento NOT IN (264,265)
-
-  
--- --   Verificacao comentar ao rodar
--- 
---   AND (
---     ds_etapa = 'Faturado (Titulos)'
---     AND nr_titulo IS NULL
---   )
---   
---   AND ds_etapa IS NULL
+FROM status_conta
+WHERE dt_periodo_final >= CURDATE() - INTERVAL (DAY(CURDATE()) - 1) DAY - INTERVAL 6 MONTH
+  AND dt_periodo_final <= CURDATE()
+  AND ds_etapa <> 'Contas Canceladas'
+  AND cd_estabelecimento NOT IN (264,265)

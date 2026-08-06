@@ -1,4 +1,4 @@
-SELECT 
+SELECT
   cd_estabelecimento,
   ds_estabelecimento,
   cd_convenio,
@@ -34,20 +34,18 @@ SELECT
   lote,
   protocolo,
   status_autorizacao
- 
-  FROM status_conta 
-  WHERE dt_periodo_final >= DATE_SUB(DATE_FORMAT(CURDATE(), '%Y-%m-01'), INTERVAL 6 MONTH)
+FROM status_conta
+WHERE dt_periodo_final >= CURDATE() - INTERVAL (DAY(CURDATE()) - 1) DAY - INTERVAL 6 MONTH
   AND dt_periodo_final <= CURDATE()
   AND ds_etapa <> 'Contas Canceladas'
   AND cd_estabelecimento NOT IN (264,265)
-  
-  AND ds_estabelecimento in (
-  'DaVita Nephron Care Home Care',
-  'DaVita Rien',
-  'DaVita Rien Home Care',
-  'DaVita Nephron Care (Regra Terceira)',
-  'DaVita Campos',
-  'DaVita Macae',
-  'DaVita Tijuca',
-  'DaVita São Cristovão'
+  AND ds_estabelecimento IN (
+    'DaVita Nephron Care Home Care',
+    'DaVita Rien',
+    'DaVita Rien Home Care',
+    'DaVita Nephron Care (Regra Terceira)',
+    'DaVita Campos',
+    'DaVita Macae',
+    'DaVita Tijuca',
+    'DaVita São Cristovão'
   )
