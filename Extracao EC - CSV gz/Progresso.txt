@@ -15,3 +15,28 @@ uma consulta e salva-la em uma pasta do SharePoint em formato CSV compactado (GZ
 
 4 o arquivo sera salvo como EC-YYYYMMDD-HHMM.csv.gz na pasta configurada.
 
+====================================================================================
+ATUALIZACAO 06/08/2026
+====================================================================================
+
+1. PADRONIZACAO DAS QUERYS (EC.sql, ECC.sql, EC_RJ.sql)
+   - Todas usam o MESMO filtro de janela:
+       dt_periodo_final >= CURDATE() - INTERVAL (DAY(CURDATE()) - 1) DAY - INTERVAL 6 MONTH
+       AND dt_periodo_final <= CURDATE()
+       AND ds_etapa <> 'Contas Canceladas'
+       AND cd_estabelecimento NOT IN (264,265)
+   - Inicio da janela = 1o dia do mes 6 meses atras (ex.: 01/02/2026 a 06/08/2026).
+   - Diferenca entre as querys e somente o numero de colunas
+     (ECC = SELECT *, EC/EC_RJ = 35 colunas) e o filtro de estabelecimentos no EC_RJ.
+
+2. DIAGNOSTICO DA DIVERGENCIA DE VALORES
+   - NAO e problema de precisao decimal: linhas em comum entre CSV.gz e export Navicat
+     tem vl_conta identico (0 diferencas).
+   - A divergencia era causada pelo inicio da janela (dia 06 vs dia 01 do mes) e por
+     registros criados/atualizados no banco ENTRE a extracao e o export (banco vivo).
+   - Para comparacao valida, o CSV.gz e o relatorio devem ser gerados no MESMO momento.
+
+3. OBSERVACOES
+   - Config.json (com senha) esta no .gitignore e nao e commitado.
+   - Nao commitar arquivos de dados (xlsx/csv de extracao).
+
