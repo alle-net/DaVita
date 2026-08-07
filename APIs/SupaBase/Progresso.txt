@@ -124,3 +124,147 @@ PRÓXIMOS PASSOS
 Sessão encerrada em: 06/07/2026
 Status: SQL gerado. Aguardando execução no Supabase Dashboard.
 ===============================================================================
+
+===============================================================================
+NOVA SESSÃO — REVISÃO DE ESCOPO (05/08/2026)
+===============================================================================
+
+Solicitação da gerência: simplificar o modelo (modelo estrela original estava
+superdimensionado). Novo formato definido pela gerência:
+
+==============================================================================
+FORMATO DEFINIDO PELA GERÊNCIA
+==============================================================================
+
+Tela Streamlit:
+  - Tela de login (email + senha)
+  - Tela de preenchimento:
+      id (número inteiro)
+      justificativa (texto) — lista dropdown
+      area_responsavel (texto) — lista dropdown
+
+Tabelas aprovadas:
+
+  fDados
+    |_ Id (chave primária, auto-incremento)
+    |_ IdPendencia (inteiro) — campo livre, mas UNIQUE (não pode repetir)
+    |_ IdJustificativa (inteiro)
+    |_ IdAreaResponsavel (inteiro)
+    |_ IdUsuario
+    |_ DataHora
+
+  dJustificativas
+    |_ IdJustificativa (inteiro)
+    |_ DescJustificativa (texto) — 18 valores (abaixo)
+
+  dAreasResponsaveis
+    |_ IdAreaResponsavel (inteiro)
+    |_ NomeAreaResponsavel (texto) — 6 valores (abaixo)
+
+  dUsuarios
+    |_ IdUsuario
+    |_ EmailUsuario
+    |_ SenhaUsuario (hash SHA-256 — login manual)
+
+  ⚠️ NÃO haverá tabela dPendencias — a lista das 40 mil pendências vem de um
+     relatório externo (não precisa ficar no banco).
+
+Valores — dJustificativas (DescJustificativa):
+  1  AGUARDANDO AUDITORIA/SINTESE
+  2  COBRANCA INDEVIDA
+  3  CRITICA NO XML
+  4  ENTREGA NO MES
+  5  ENTREGA NO PROXIMO MES
+  6  FALTA DE GUIA/AUTORIZACAO
+  7  PERDA DE PRAZO
+  8  PROBLEMA NO CADASTRO
+  9  PROBLEMA NO PORTAL DA OPERADORA
+  10 TRATATIVA COMERCIAL
+  11 TRATATIVA JURIDICA
+  12 TRATATIVA OPERACIONAL
+  13 DUPLICIDADE
+  14 GLOSA PREVIA
+  15 FALTA GERAR TITULO
+  16 CONTA FATURADA
+  17 CONTA NAO FATURADA
+  18 NAO AUTORIZADO PELA OPERADORA
+
+Valores — dAreasResponsaveis (NomeAreaResponsavel):
+  1 COMERCIAL
+  2 OPERACAO
+  3 FATURAMENTO
+  4 COMITE JURIDICO
+  5 CENTRAL DE AUTORIZACAO
+  6 CADASTRO
+
+==============================================================================
+FLUXO DE NEGÓCIO (entendido na sessão)
+==============================================================================
+
+- Cada execução gera ~40 MIL linhas de pendências que os colaboradores devem
+  justificar.
+- O colaborador vê o nº da pendência no relatório Excel e informa (no
+  Streamlit) o nº da pendência + justificativa + área responsável.
+- O nº da pendência NÃO pode se repetir → constraint UNIQUE em fDados.IdPendencia.
+- Excel + Power Query = relatório EXTERNO que consome as informações.
+
+==============================================================================
+DECISÕES TÉCNICAS DA SESSÃO
+==============================================================================
+
+1. Modelo: eliminar fDados com modelo estrela + dimensões. Novo modelo:
+   1 fato (fDados) + 3 dimensões (dUsuarios, dJustificativas,
+   dAreasResponsaveis).
+2. fDados.Id → auto-incremento (SERIAL/BIGSERIAL), NÃO digitado.
+3. dAreasResponsaveis: campo chamado "NomeAreaResponsavel" (corrigir typo
+   "NomeJustificativa" do rascunho).
+4. IdPendencia → campo inteiro livre, com UNIQUE (regra da gerência).
+5. Autenticação → LOGIN MANUAL: hash SHA-256 na coluna SenhaUsuario,
+   validação no Python. App usa a service_role key nos secrets do Streamlit
+   (server-side, não exposta ao usuário).
+6. Interface Streamlit → 2 telas: Login + Novo Registro.
+7. Novo Registro inclui campo IdPendencia (aprovado incluir, já que existe a
+   coluna).
+8. Power Query conecta DIRETO ao PostgreSQL (porta 5432 + SSL, driver
+   Npgsql/psqlODBC) — SEM REST API, SEM paginação. 40 mil linhas de uma vez.
+9. Power Query é SOMENTE LEITURA — não grava no banco. Digitação é no
+   Streamlit. Excel é o relatório de leitura.
+10. Bulk INSERT no app: supabase-py aceita lista (lotes de ~500-1000);
+    GET retorna até 1000/request (paginável com Range/offset) — mas Power
+    Query não usa isso.
+11. Link da API (se necessário): REST automático do Supabase
+    (https://<projeto>.supabase.co/rest/v1/fDados?select=*) ou Accept: text/csv.
+    O Streamlit gera o link do APP, não uma API.
+
+==============================================================================
+PENDÊNCIAS EM ABERTO
+==============================================================================
+
+  [x] Executar sql_criacao_tabelas.sql no Supabase Dashboard (07/08, RLS ativado)
+  [x] Conexão com o banco: DIRETA (psycopg, porta 5432 + SSL) — sem REST API
+  [x] Senha em TEXTO PURO (decisão da gestão — sistema interno, sem dados
+      sensíveis; controle simples). Login manual compara direto.
+  [x] Usuários gerenciados SOMENTE pelo painel do Supabase (Table Editor).
+      RLS em dUsuarios sem policies -> anon/authenticated sem acesso.
+      Scripts criar_usuario.py / resetar_senha.py REMOVIDOS.
+  [ ] Configurar credenciais reais em .streamlit/secrets.toml (SUPABASE_DB_URL)
+  [ ] Definir como entram as 40 mil linhas (upload / manual / script) —
+      influencia a tela 2 (upload de arquivo ou só digitação)
+  [ ] Frequência das execuções de 40 mil linhas — impacto nos 500 MB grátis
+      (40 mil linhas ≈ 4-8 MB por execução)
+  [x] Codificar interface Streamlit (Fase 2) — PRONTO, validado (py_compile):
+        app.py, pages/novo_registro.py, pages/meus_registros.py,
+        utils/banco.py, utils/db.py, requirements.txt,
+        .streamlit/secrets.toml (placeholders)
+  [ ] Testar app localmente (streamlit run app.py)
+  [ ] Deploy (Fase 3): Streamlit Community Cloud
+  [ ] Futuro: RLS efetivo por usuário (exige migrar para Supabase Auth + JWT)
+
+===============================================================================
+
+Sessão encerrada em: 07/08/2026
+Status: Fase 1 concluída (tabelas criadas com RLS). Fase 2 codificada com
+conexão DIRETA ao PostgreSQL (psycopg), senha em texto puro (decisão da
+gestão). Pendente: configurar SUPABASE_DB_URL real + criar primeiro usuário +
+testar localmente.
+===============================================================================
