@@ -35,13 +35,36 @@ Private mDictMotivos As Object
 
 Private Const COL_PCT As String = "6;10;10;10;10;7;7;7;10;9;6;6;2"
 
+Private Function ObterControle(ByVal nome As String) As Object
+    On Error Resume Next
+    Set ObterControle = Me.Controls(nome)
+    On Error GoTo 0
+End Function
+
+Private Sub AjustarControle(ByVal nome As String, ByVal left As Double, ByVal top As Double, ByVal width As Double, ByVal height As Double)
+    Dim ctl As Object
+    Set ctl = ObterControle(nome)
+    If Not ctl Is Nothing Then
+        ctl.Left = left
+        ctl.Top = top
+        ctl.Width = width
+        ctl.Height = height
+    End If
+End Sub
+
+Private Sub AjustarCaption(ByVal nome As String, ByVal texto As String)
+    Dim ctl As Object
+    Set ctl = ObterControle(nome)
+    If Not ctl Is Nothing Then ctl.Caption = texto
+End Sub
+
 Private Sub UserForm_Initialize()
     Me.Caption = "Controle Financeiro"
     Me.StartUpPosition = 0
     AjustarLayout
     CarregarDimensoes
     CarregarDados
-    lblUsuarioLogado.Caption = "Usuario: " & modAutenticacao.EmailAtual
+    AjustarCaption "lblUsuarioLogado", "Usuario: " & modAutenticacao.EmailAtual
 End Sub
 
 Private Sub AjustarLayout()
@@ -57,30 +80,16 @@ Private Sub AjustarLayout()
     Me.Left = 0
     Me.Top = 0
 
-    lblUsuarioLogado.Left = 10
-    lblUsuarioLogado.Top = 6
-    lblUsuarioLogado.Width = fW * 0.4
-    lblUsuarioLogado.Height = 20
-
-    lblBuscar.Left = fW * 0.55
-    lblBuscar.Top = 6
-    lblBuscar.Width = 50
-    lblBuscar.Height = 20
-
-    txtBoxBusca.Left = fW * 0.55 + 55
-    txtBoxBusca.Top = 4
-    txtBoxBusca.Width = fW * 0.2
-    txtBoxBusca.Height = 20
+    AjustarControle "lblUsuarioLogado", 10, 6, fW * 0.4, 20
+    AjustarControle "lblBuscar", fW * 0.55, 6, 50, 20
+    AjustarControle "txtBoxBusca", fW * 0.55 + 55, 4, fW * 0.2, 20
 
     lbL = 10
     lbT = 36
     lbW = fW - 20
     lbH = fH - 130
 
-    lstDados.Left = lbL
-    lstDados.Top = lbT + 18
-    lstDados.Width = lbW
-    lstDados.Height = lbH
+    AjustarControle "lstDados", lbL, lbT + 18, lbW, lbH
 
     pcts = Split(COL_PCT, ";")
     For i = 0 To UBound(pcts)
@@ -88,8 +97,13 @@ Private Sub AjustarLayout()
         If cw <> "" Then cw = cw & ";"
         cw = cw & CInt((lbW - 15) * p)
     Next
-    lstDados.ColumnCount = 13
-    lstDados.ColumnWidths = cw
+
+    Dim lst As Object
+    Set lst = ObterControle("lstDados")
+    If Not lst Is Nothing Then
+        lst.ColumnCount = 13
+        lst.ColumnWidths = cw
+    End If
 
     Dim headers As Variant
     headers = Array("lblHdrCompetencia", "lblHdrRegional", "lblHdrUnidade", _
@@ -101,81 +115,38 @@ Private Sub AjustarLayout()
     x = lbL
     For i = 0 To UBound(headers)
         p = CLng(pcts(i)) / 100
-        With Me.Controls(headers(i))
-            .Left = x
-            .Width = (lbW - 15) * p
-            .Top = lbT
-            .Height = 16
-        End With
+        Dim hctl As Object
+        Set hctl = ObterControle(CStr(headers(i)))
+        If Not hctl Is Nothing Then
+            hctl.Left = x
+            hctl.Width = (lbW - 15) * p
+            hctl.Top = lbT
+            hctl.Height = 16
+        End If
         x = x + (lbW - 15) * p
     Next
 
     Dim btnY As Double: btnY = lbT + lbH + 4
-    lblPagina.Left = lbL
-    lblPagina.Top = btnY
-    lblPagina.Width = 120
-    lblPagina.Height = 18
-
-    cmdAnterior.Left = lbL + 125
-    cmdAnterior.Top = btnY - 2
-    cmdAnterior.Width = 80
-    cmdAnterior.Height = 22
-
-    cmdProximo.Left = lbL + 210
-    cmdProximo.Top = btnY - 2
-    cmdProximo.Width = 80
-    cmdProximo.Height = 22
+    AjustarControle "lblPagina", lbL, btnY, 120, 18
+    AjustarControle "cmdAnterior", lbL + 125, btnY - 2, 80, 22
+    AjustarControle "cmdProximo", lbL + 210, btnY - 2, 80, 22
 
     Dim btnRight As Double
     btnRight = fW - 10
-    cmdAdicionar.Left = btnRight - 390
-    cmdAdicionar.Top = btnY - 2
-    cmdAdicionar.Width = 90
-    cmdAdicionar.Height = 22
-
-    cmbEditar.Left = btnRight - 290
-    cmbEditar.Top = btnY - 2
-    cmbEditar.Width = 90
-    cmbEditar.Height = 22
-
-    cmbExcluir.Left = btnRight - 190
-    cmbExcluir.Top = btnY - 2
-    cmbExcluir.Width = 90
-    cmbExcluir.Height = 22
+    AjustarControle "cmdAdicionar", btnRight - 390, btnY - 2, 90, 22
+    AjustarControle "cmbEditar", btnRight - 290, btnY - 2, 90, 22
+    AjustarControle "cmbExcluir", btnRight - 190, btnY - 2, 90, 22
 
     Dim frameTop As Double: frameTop = btnY + 26
     Dim frameH As Double: frameH = fH - frameTop - 6
     Dim frameW As Double: frameW = (fW - 40) / 3
 
-    fmeFaturamento.Left = 10
-    fmeFaturamento.Top = frameTop
-    fmeFaturamento.Width = frameW
-    fmeFaturamento.Height = frameH
-
-    fmeGlosa.Left = frameW + 20
-    fmeGlosa.Top = frameTop
-    fmeGlosa.Width = frameW
-    fmeGlosa.Height = frameH
-
-    fmePerda.Left = 2 * (frameW + 10) + 10
-    fmePerda.Top = frameTop
-    fmePerda.Width = frameW
-    fmePerda.Height = frameH
-
-    lblFaturamento.Left = 5
-    lblFaturamento.Top = 16
-    lblFaturamento.Width = frameW - 10
-    lblFaturamento.Height = frameH - 20
-
-    lblGlosa.Left = 5
-    lblGlosa.Top = 16
-    lblGlosa.Width = frameW - 10
-    lblGlosa.Height = frameH - 20
-
-    lblPerda.Left = 5
-    lblPerda.Top = 16
-    lblPerda.Width = frameW - 10
-    lblPerda.Height = frameH - 20
+    AjustarControle "fmeFaturamento", 10, frameTop, frameW, frameH
+    AjustarControle "fmeGlosa", frameW + 20, frameTop, frameW, frameH
+    AjustarControle "fmePerda", 2 * (frameW + 10) + 10, frameTop, frameW, frameH
+    AjustarControle "lblFaturamento", 5, 16, frameW - 10, frameH - 20
+    AjustarControle "lblGlosa", 5, 16, frameW - 10, frameH - 20
+    AjustarControle "lblPerda", 5, 16, frameW - 10, frameH - 20
 End Sub
 
 Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
@@ -215,7 +186,11 @@ Private Sub CarregarDados()
 End Sub
 
 Private Sub AtualizarGrade()
-    lstDados.Clear
+    Dim lst As Object
+    Set lst = ObterControle("lstDados")
+    If lst Is Nothing Then Exit Sub
+
+    lst.Clear
     If mTotalLinhas = 0 Then Exit Sub
 
     Dim primeiro As Long, ultimo As Long, i As Long
@@ -238,7 +213,7 @@ Private Sub AtualizarGrade()
         valores(10) = FormatarNumero(mDados(i, 11))
         valores(11) = FormatarNumero(mDados(i, 12))
         valores(12) = CStr(mDados(i, 13))
-        lstDados.AddItem Join(valores, vbTab)
+        lst.AddItem Join(valores, vbTab)
     Next i
 End Sub
 
@@ -271,28 +246,36 @@ Private Function FormatarNumero(ByVal v As Variant) As String
 End Function
 
 Private Sub AtualizarNavegacao()
+    Dim ctlPagina As Object, ctlAnterior As Object, ctlProximo As Object
+    Set ctlPagina = ObterControle("lblPagina")
+    Set ctlAnterior = ObterControle("cmdAnterior")
+    Set ctlProximo = ObterControle("cmdProximo")
+
     If mTotalLinhas = 0 Then
-        lblPagina.Caption = "0 registros"
-        cmdAnterior.Enabled = False
-        cmdProximo.Enabled = False
+        If Not ctlPagina Is Nothing Then ctlPagina.Caption = "0 registros"
+        If Not ctlAnterior Is Nothing Then ctlAnterior.Enabled = False
+        If Not ctlProximo Is Nothing Then ctlProximo.Enabled = False
         Exit Sub
     End If
     Dim totalPag As Long
     totalPag = (mTotalLinhas + REG_POR_PAGINA - 1) \ REG_POR_PAGINA
-    lblPagina.Caption = "Pagina " & mPaginaAtual & " de " & totalPag & _
-                        " (" & mTotalLinhas & " registros)"
-    cmdAnterior.Enabled = (mPaginaAtual > 1)
-    cmdProximo.Enabled = (mPaginaAtual < totalPag)
+    If Not ctlPagina Is Nothing Then ctlPagina.Caption = "Pagina " & mPaginaAtual & " de " & totalPag & " (" & mTotalLinhas & " registros)"
+    If Not ctlAnterior Is Nothing Then ctlAnterior.Enabled = (mPaginaAtual > 1)
+    If Not ctlProximo Is Nothing Then ctlProximo.Enabled = (mPaginaAtual < totalPag)
 End Sub
 
 Private Sub ExibirTotalizadores()
     Dim somaFat As Currency, somaPerda As Currency, somaGlosa As Currency
     Dim i As Long
+    Dim ctlFat As Object, ctlPerda As Object, ctlGlosa As Object
+    Set ctlFat = ObterControle("lblFaturamento")
+    Set ctlPerda = ObterControle("lblPerda")
+    Set ctlGlosa = ObterControle("lblGlosa")
 
     If mTotalLinhas = 0 Then
-        lblFaturamento.Caption = "0,00"
-        lblGlosa.Caption = "0,00"
-        lblPerda.Caption = "0,00"
+        If Not ctlFat Is Nothing Then ctlFat.Caption = "0,00"
+        If Not ctlGlosa Is Nothing Then ctlGlosa.Caption = "0,00"
+        If Not ctlPerda Is Nothing Then ctlPerda.Caption = "0,00"
         Exit Sub
     End If
 
@@ -302,9 +285,9 @@ Private Sub ExibirTotalizadores()
         If IsNumeric(mDados(i, 12)) Then somaGlosa = somaGlosa + CCur(mDados(i, 12))
     Next i
 
-    lblFaturamento.Caption = Format(somaFat, "#,##0.00")
-    lblPerda.Caption = Format(somaPerda, "#,##0.00")
-    lblGlosa.Caption = Format(somaGlosa, "#,##0.00")
+    If Not ctlFat Is Nothing Then ctlFat.Caption = Format(somaFat, "#,##0.00")
+    If Not ctlPerda Is Nothing Then ctlPerda.Caption = Format(somaPerda, "#,##0.00")
+    If Not ctlGlosa Is Nothing Then ctlGlosa.Caption = Format(somaGlosa, "#,##0.00")
 End Sub
 
 Private Sub cmdAnterior_Click()
@@ -327,6 +310,9 @@ End Sub
 
 Private Sub txtBoxBusca_Change()
     Dim busca As String
+    Dim lst As Object
+    Set lst = ObterControle("lstDados")
+
     busca = Trim(txtBoxBusca.Value)
     If busca = "" Then
         CarregarDados
@@ -353,13 +339,13 @@ Private Sub txtBoxBusca_Change()
     Next i
 
     If count = 0 Then
-        lstDados.Clear
-        lblPagina.Caption = "Nenhum resultado encontrado"
-        cmdAnterior.Enabled = False
-        cmdProximo.Enabled = False
-        lblFaturamento.Caption = "0,00"
-        lblGlosa.Caption = "0,00"
-        lblPerda.Caption = "0,00"
+        If Not lst Is Nothing Then lst.Clear
+        AjustarCaption "lblPagina", "Nenhum resultado encontrado"
+        If Not ObterControle("cmdAnterior") Is Nothing Then Me.Controls("cmdAnterior").Enabled = False
+        If Not ObterControle("cmdProximo") Is Nothing Then Me.Controls("cmdProximo").Enabled = False
+        AjustarCaption "lblFaturamento", "0,00"
+        AjustarCaption "lblGlosa", "0,00"
+        AjustarCaption "lblPerda", "0,00"
         Exit Sub
     End If
 

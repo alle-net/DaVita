@@ -1,67 +1,38 @@
 ' ============================================================
 ' frmLogin - Code-Behind
-' Cole este codigo no VBA Editor:
-'   ALT+F11 -> frmLogin (doublo clique) -> colar tudo
 ' ============================================================
 
 Option Explicit
 
 Private Sub UserForm_Initialize()
     Me.Caption = "Login - Controle Financeiro"
-    
+
     txtEmail.Value = ""
     txtSenha.Value = ""
     lblMenssagem.Caption = ""
     txtSenha.PasswordChar = "*"
-    
+
     Me.StartUpPosition = 0
     Me.Left = (Application.Width - Me.Width) / 2
     Me.Top = (Application.Height - Me.Height) / 2
-    
+
     txtEmail.SetFocus
 End Sub
 
+Private Sub cmdEntrar_Click()
+    EntrarNoSistema
+End Sub
+
 Private Sub cmbEntrar_Click()
-    Dim email As String, senha As String
-    
-    email = Trim(txtEmail.Value)
-    senha = txtSenha.Value
-    
-    If email = "" Then
-        lblMenssagem.Caption = "Informe o email."
-        txtEmail.SetFocus
-        Exit Sub
-    End If
-    
-    If senha = "" Then
-        lblMenssagem.Caption = "Informe a senha."
-        txtSenha.SetFocus
-        Exit Sub
-    End If
-    
-    cmbEntrar.Enabled = False
-    cmbCancelar.Enabled = False
-    lblMenssagem.Caption = "Autenticando..."
-    DoEvents
-    
-    If modAutenticacao.VerificarCredenciais(email, senha) Then
-        modAutenticacao.EmailAtual = email
-        modAutenticacao.UsuarioAtual = modAutenticacao.ObterIdUsuario(email)
-        Unload Me
-    Else
-        lblMenssagem.Caption = "Email ou senha incorretos."
-        txtSenha.Value = ""
-        txtSenha.SetFocus
-        cmbEntrar.Enabled = True
-        cmbCancelar.Enabled = True
-    End If
+    EntrarNoSistema
+End Sub
+
+Private Sub cmdCancelar_Click()
+    CancelarLogin
 End Sub
 
 Private Sub cmbCancelar_Click()
-    If MsgBox("Deseja realmente sair?", vbQuestion + vbYesNo, "Sair") = vbYes Then
-        modAutenticacao.ResetarSessao
-        Unload Me
-    End If
+    CancelarLogin
 End Sub
 
 Private Sub cmdConfigurar_Click()
@@ -73,6 +44,56 @@ End Sub
 Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
     If CloseMode = 0 Then
         Cancel = True
-        cmbCancelar_Click
+        CancelarLogin
     End If
+End Sub
+
+Private Sub EntrarNoSistema()
+    Dim email As String, senha As String
+
+    email = Trim(txtEmail.Value)
+    senha = txtSenha.Value
+
+    If email = "" Then
+        lblMenssagem.Caption = "Informe o email."
+        txtEmail.SetFocus
+        Exit Sub
+    End If
+
+    If senha = "" Then
+        lblMenssagem.Caption = "Informe a senha."
+        txtSenha.SetFocus
+        Exit Sub
+    End If
+
+    DefinirEstadoBotoes False
+    lblMenssagem.Caption = "Autenticando..."
+    DoEvents
+
+    If modAutenticacao.VerificarCredenciais(email, senha) Then
+        modAutenticacao.EmailAtual = email
+        modAutenticacao.UsuarioAtual = modAutenticacao.ObterIdUsuario(email)
+        Unload Me
+    Else
+        lblMenssagem.Caption = "Email ou senha incorretos."
+        txtSenha.Value = ""
+        txtSenha.SetFocus
+        DefinirEstadoBotoes True
+    End If
+End Sub
+
+Private Sub CancelarLogin()
+    If MsgBox("Deseja realmente sair?", vbQuestion + vbYesNo, "Sair") = vbYes Then
+        modAutenticacao.ResetarSessao
+        Unload Me
+    End If
+End Sub
+
+Private Sub DefinirEstadoBotoes(ByVal enabled As Boolean)
+    On Error Resume Next
+    If TypeName(Me.Controls("cmbEntrar")) <> "Nothing" Then Me.Controls("cmbEntrar").Enabled = enabled
+    If TypeName(Me.Controls("cmdEntrar")) <> "Nothing" Then Me.Controls("cmdEntrar").Enabled = enabled
+    If TypeName(Me.Controls("cmbCancelar")) <> "Nothing" Then Me.Controls("cmbCancelar").Enabled = enabled
+    If TypeName(Me.Controls("cmdCancelar")) <> "Nothing" Then Me.Controls("cmdCancelar").Enabled = enabled
+    On Error GoTo 0
 End Sub
