@@ -8,6 +8,28 @@ def _unique_violation(err: Exception) -> bool:
     return isinstance(err, errors.UniqueViolation)
 
 
+def buscar_quem_justificou(numero_pendencia: int) -> dict | None:
+    with conectar() as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute(
+                'SELECT u."EmailUsuario" FROM "fDados" f '
+                'JOIN "dUsuarios" u ON u."IdUsuario" = f."IdUsuario" '
+                'WHERE f."NumeroPendencia" = %s',
+                (numero_pendencia,),
+            )
+            return cur.fetchone()
+
+
+def _mensagem_duplicada(numero_pendencia: int) -> str:
+    dono = buscar_quem_justificou(numero_pendencia)
+    if dono:
+        return (
+            f"A pendência {numero_pendencia} já foi justificada "
+            f"por {dono['EmailUsuario']}."
+        )
+    return "Número de pendência já registrado."
+
+
 def listar_justificativas() -> list[dict]:
     with conectar() as conn:
         with conn.cursor(row_factory=dict_row) as cur:
@@ -51,7 +73,7 @@ def inserir_registro(
                 return cur.fetchone()
     except errors.UniqueViolation:
         raise PendenciaDuplicadaError(
-            "Numero de pendencia ja registrado"
+            _mensagem_duplicada(numero_pendencia)
         ) from None
 
 
@@ -109,7 +131,7 @@ def atualizar_registro(
                 )
     except errors.UniqueViolation:
         raise PendenciaDuplicadaError(
-            "Numero de pendencia ja registrado"
+            _mensagem_duplicada(numero_pendencia)
         ) from None
 
 

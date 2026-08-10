@@ -247,16 +247,20 @@ PENDÊNCIAS EM ABERTO
   [x] Usuários gerenciados SOMENTE pelo painel do Supabase (Table Editor).
       RLS em dUsuarios sem policies -> anon/authenticated sem acesso.
       Scripts criar_usuario.py / resetar_senha.py REMOVIDOS.
-  [ ] Configurar credenciais reais em .streamlit/secrets.toml (SUPABASE_DB_URL)
+  [x] Configurar credenciais reais em .streamlit/secrets.toml (SUPABASE_DB_URL)
+      ✅ Conexão testada com sucesso (07/08)
+  [x] Codificar interface Streamlit (Fase 2) — PRONTO, validado (py_compile):
+        app.py, pages/novo_registro.py, pages/meus_registros.py,
+        utils/banco.py, utils/db.py, requirements.txt,
+        .streamlit/secrets.toml (credenciais reais)
+  [x] GitHub atualizado (commit 938bcb2 -> origin/master, 07/08)
+  [ ] Confirmar usuário de teste em dUsuarios (Table Editor)
+  [ ] Testar app localmente (streamlit run app.py): login -> Novo Registro ->
+      Meus Registros (editar/excluir) -> validação de nº duplicado
   [ ] Definir como entram as 40 mil linhas (upload / manual / script) —
       influencia a tela 2 (upload de arquivo ou só digitação)
   [ ] Frequência das execuções de 40 mil linhas — impacto nos 500 MB grátis
       (40 mil linhas ≈ 4-8 MB por execução)
-  [x] Codificar interface Streamlit (Fase 2) — PRONTO, validado (py_compile):
-        app.py, pages/novo_registro.py, pages/meus_registros.py,
-        utils/banco.py, utils/db.py, requirements.txt,
-        .streamlit/secrets.toml (placeholders)
-  [ ] Testar app localmente (streamlit run app.py)
   [ ] Deploy (Fase 3): Streamlit Community Cloud
   [ ] Futuro: RLS efetivo por usuário (exige migrar para Supabase Auth + JWT)
 
@@ -265,6 +269,75 @@ PENDÊNCIAS EM ABERTO
 Sessão encerrada em: 07/08/2026
 Status: Fase 1 concluída (tabelas criadas com RLS). Fase 2 codificada com
 conexão DIRETA ao PostgreSQL (psycopg), senha em texto puro (decisão da
-gestão). Pendente: configurar SUPABASE_DB_URL real + criar primeiro usuário +
-testar localmente.
+gestão), usuários gerenciados pelo painel do Supabase. Credenciais reais
+configuradas e conexão validada. GitHub atualizado.
+Pendente: rodar/testar app localmente + deploy (Fase 3).
+===============================================================================
+
+===============================================================================
+NOVA SESSÃO — REVISÃO DE ESCOPO + IMPLEMENTAÇÃO (07/08/2026)
+===============================================================================
+
+Requisitos essenciais definidos pela gestão na sessão:
+  1. CRUD completo: gravar, editar e apagar registros
+  2. Usuário vê/interage SOMENTE com os registros que ele mesmo gravou
+  3. Número da pendência não pode se repetir no banco (UNIQUE global)
+
+Decisões confirmadas (07/08):
+  - Isolamento por usuário: NO CÓDIGO Python (service/postgres bypassa RLS;
+    impossível RLS por usuário com login manual)
+  - Exclusão: DEFINITIVA (hard delete). Nº da pendência volta a ficar livre.
+  - Relatório Excel/Power Query: lê TUDO (visão de gestão) — regra de
+    isolamento vale só no app Streamlit
+  - Senha: TEXTO PURO (gestão: sistema interno, sem dados sensíveis).
+    Recuperação = admin redefinir senha pelo painel. Hash descartado.
+  - Usuários: criados/alterados SOMENTE no painel do Supabase (Table Editor).
+    Scripts criar_usuario.py / resetar_senha.py foram criados e REMOVIDOS.
+  - Conexão: DIRETA ao PostgreSQL (psycopg 3.3.4, porta 5432 + SSL),
+    SEM REST API (supabase-py descartado). Suporte a bulk insert
+    (inserir_registros_em_lote) para lotes futuros.
+
+Implementação (Fase 2) concluída:
+  app.py                -> login (email + senha texto puro) + navegação
+  pages/novo_registro.py-> criar: nº pendência + dropdown justificativa +
+                           dropdown área; trata nº duplicado (23505)
+  pages/meus_registros.py-> listar próprios + editar + excluir (com confirmação)
+  utils/banco.py        -> conexão via SUPABASE_DB_URL (env -> st.secrets ->
+                           secrets.toml)
+  utils/db.py           -> CRUD parametrizado; SELECT/UPDATE/DELETE sempre com
+                           WHERE IdUsuario (isolamento). PendenciaDuplicadaError
+                           para nº repetido.
+  requirements.txt      -> streamlit==1.58.0, pandas==3.0.3,
+                           psycopg[binary]==3.3.4
+
+SQL (Fase 1) — sql_criacao_tabelas.sql reescrito e EXECUTADO no Dashboard:
+  - Identificadores ENTRE ASPAS (preservam case: fDados, dUsuarios, etc.)
+  - 4 tabelas: dUsuarios, dJustificativas (18 seeds), dAreasResponsaveis
+    (6 seeds), fDados (Id BIGSERIAL, NumeroPendencia INTEGER UNIQUE, FKs,
+    DataHora)
+  - Policies UPDATE e DELETE adicionadas em fDados
+  - dUsuarios: RLS habilitado SEM policies -> só o painel modifica
+  - Executado com "Run and enable RLS" (07/08)
+
+Credenciais / ambiente (07/08):
+  - SUPABASE_DB_URL configurada com connection string DIRECT real
+    (postgres: porta 5432, SSL). Senha do banco resetada (mantida fora do git).
+  - Conexão testada OK: SELECT current_database/current_user -> postgres/postgres
+  - Tabelas verificadas: 18 justificativas, 6 áreas
+  - Usuário de teste registrado manualmente no Table Editor (dUsuarios)
+  - venv com Python 3.14.2; psycopg 3.3.4 instalado
+
+Git (07/08):
+  - Commit 938bcb2 "feat(supabase): app Streamlit de justificativas com
+    conexao direta Postgres" enviado a origin/master
+  - Só o projeto SupaBase commitado; mudanças de VBA/TypeScript/Extracao
+    ficaram fora. secrets.toml fora do git (.gitignore).
+  - Pastas APIs/Justificativas movidas para APIs/SupaBase (deletadas no git)
+
+PRÓXIMOS PASSOS (continuar quando retomar):
+  1. Rodar `streamlit run app.py` (ativar venv primeiro)
+  2. Testar fluxo completo: login -> Novo Registro -> Meus Registros
+     (criar, editar, excluir, tentar nº duplicado)
+  3. Definir como entram as 40 mil linhas (define a tela de upload/lote)
+  4. Deploy Fase 3 (Streamlit Community Cloud)
 ===============================================================================
