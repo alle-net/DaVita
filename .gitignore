@@ -5,6 +5,12 @@ Desktop.ini
 # VBA compiled
 *.frx
 
+# VBA FormV1.1 backups / artifacts
+VBA/FormV1.1/*.zip
+VBA/FormV1.1/*_backup.xlsm
+VBA/FormV1.1/vbaProject.bin
+VBA/FormV1.1/xlsm_extracted/
+
 # Temp
 *.tmp
 ~$*
