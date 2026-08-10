@@ -279,3 +279,127 @@ E o retorno e uma funcao de cleanup para remover event listeners.
 =================================================================
 Para continuar, diga "proximo passo" ou o numero da etapa
 =================================================================
+
+=================================================================
+NOVO PROJETO: BancoAnalistas - CRUD Standalone (TypeScript + Express)
+INICIO: 19/06/2026
+=================================================================
+
+=== OBJETIVO ===
+Criar um sistema web standalone (nao Add-in) para CRUD em planilha
+Excel do SharePoint, sincronizada via OneDrive, com autenticacao
+por usuario e controle de status (ativo/inativo).
+
+=== PLANILHA ALVO ===
+URL:
+  https://village365bra.sharepoint.com/sites/CiclodaReceita/
+  Documentos Compartilhados/HOSPITAL/Analise_De_Dados/
+  Base de Dados Analistas/Banco Analistas.xlsx
+
+Acesso: via OneDrive sync (arquivo local)
+Tabelas: todas as dimensoes + tabela "dados"
+
+=== TABELA USUARIOS (dimensao) ===
+Colunas: IdUsuario | Email | Senha (texto puro) | Status (1=ativo, 0=inativo)
+
+=== ARQUITETURA ===
+  Frontend (Vanilla TS + Vite)    localhost:5173
+       ↕ REST + JWT
+  Backend  (Express + TypeScript)  localhost:3000
+       ↕ ExcelJS
+  Arquivo .xlsx (OneDrive sync)
+
+=== STACK ===
+  Frontend: TypeScript + Vite (bundler)
+  Backend:  Node.js + Express + TypeScript
+  Excel:    exceljs (leitura/escrita local)
+  Auth:     jsonwebtoken + comparacao direta (texto puro)
+  Lock:     async-mutex (mutex p/ escrita concorrente)
+  Config:   dotenv (caminho do .xlsx)
+
+=== ESTRUTURA ===
+  BancoAnalistas/
+  ├── frontend/                    # localhost:5173
+  │   ├── src/
+  │   │   ├── main.ts
+  │   │   ├── api/client.ts
+  │   │   ├── components/
+  │   │   │   ├── login.ts
+  │   │   │   ├── dashboard.ts
+  │   │   │   ├── tabela.ts
+  │   │   │   └── form.ts
+  │   │   ├── models/types.ts
+  │   │   └── styles/main.css
+  │   ├── index.html
+  │   └── package.json
+  │
+  ├── backend/
+  │   ├── src/
+  │   │   ├── server.ts
+  │   │   ├── config.ts
+  │   │   ├── routes/
+  │   │   │   ├── auth.ts
+  │   │   │   └── registros.ts
+  │   │   ├── services/
+  │   │   │   ├── excel.service.ts
+  │   │   │   └── auth.service.ts
+  │   │   ├── middleware/auth.ts
+  │   │   └── types.ts
+  │   ├── .env
+  │   ├── package.json
+  │   └── tsconfig.json
+  │
+  └── .gitignore
+
+=== API ENDPOINTS ===
+  Metodo  Rota                         Auth  Descricao
+  POST    /api/auth/login              ❌    { email, senha } → { token, usuario }
+  GET     /api/auth/me                 ✅    Dados do usuario logado
+  GET     /api/tabelas                 ✅    Listar abas da planilha
+  GET     /api/tabelas/:nome           ✅    Listar registros (filtrados por IdUsuario)
+  GET     /api/tabelas/:nome/colunas   ✅    Nomes das colunas
+  POST    /api/tabelas/:nome           ✅    Criar registro
+  PUT     /api/tabelas/:nome/:id       ✅    Atualizar registro
+  DELETE  /api/tabelas/:nome/:id       ✅    Remover linha fisicamente
+
+=== FLUXO DE LOGIN ===
+  1. Frontend → POST /api/auth/login { email, senha }
+  2. Backend le aba "Usuarios" do Excel
+  3. Filtra por Email
+  4. Compara senha (texto puro)
+  5. Verifica Status = 1
+     - Se Status = 0 → 403 "Usuario inativo"
+     - Se Status = 1 → JWT { idUsuario, email }
+  6. Frontend armazena JWT no localStorage
+  7. Redireciona ao dashboard
+
+=== CRUD GENERICO ===
+  - O endpoint /api/tabelas/:nome funciona para QUALQUER aba
+  - Le dinamicamente os cabecalhos (primeira linha da aba)
+  - Cada registro recebe automaticamente:
+    * Id (UUID v4, se nao existir)
+    * IdUsuario (do JWT)
+    * CreatedAt / UpdatedAt (timestamp)
+  - DELETE = remove a linha fisicamente
+
+=== CONCORRENCIA (5-20 usuarios) ===
+  async-mutex:
+    Leituras:  multiplas simultaneas
+    Escritas:  1 por vez (fila)
+    Apos escrita, leitura sempre pega versao atualizada
+
+=== TELAS DO FRONTEND ===
+  1. Login        → Email + Senha
+  2. Dashboard    → Lista abas disponiveis (exceto "Usuarios")
+  3. Tabela       → Grid com botoes Criar/Editar/Excluir
+  4. Formulario   → Dinamico conforme colunas da tabela
+
+=== RECOMENDACAO POS-IMPLANTACAO ===
+  - Migrar senha de texto puro para bcrypt
+  - Adicionar HTTPS no backend
+  - Logs de auditoria (quem criou/alterou o que)
+  - Paginacao nas listagens (se houver muitos registros)
+
+=================================================================
+[PLANO REGISTRADO - AGUARDANDO AUTORIZACAO PARA INICIAR]
+=================================================================
