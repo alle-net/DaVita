@@ -5,17 +5,19 @@ CSS = """
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
 :root {
-  --azul: #1A73E8;
-  --azul-hover: #1765CC;
-  --azul-escuro: #0B2447;
-  --azul-medio: #123B6D;
-  --azul-suave: #E8F0FE;
-  --fundo: #F5F7FA;
-  --texto: #1F2A3D;
-  --texto-suave: #64748B;
-  --borda: #E3E8F0;
+  --azul-900: #0A2540;
+  --azul-800: #14315C;
+  --azul-700: #1D4ED8;
+  --azul-600: #2563EB;
+  --azul-500: #3B82F6;
+  --azul-100: #DBEAFE;
+  --azul-50: #EFF6FF;
+  --fundo: #F8FAFC;
   --branco: #FFFFFF;
-  --perigo: #D93025;
+  --texto: #0F172A;
+  --texto-suave: #64748B;
+  --borda: #E2E8F0;
+  --perigo: #DC2626;
 }
 
 html, body, [class*="css"] {
@@ -32,75 +34,76 @@ html, body, [class*="css"] {
 
 .block-container {
   max-width: 1440px;
-  padding-top: 1.4rem;
-  padding-bottom: 3rem;
+  padding-top: 2.2rem;
+  padding-bottom: 3.5rem;
 }
 
 h1, h2, h3 {
-  color: var(--azul-escuro) !important;
-  font-weight: 800 !important;
+  color: var(--azul-900) !important;
+  font-weight: 700 !important;
   letter-spacing: -0.02em;
 }
 
-/* ===== Sidebar azul ===== */
+/* ===== Sidebar ===== */
 [data-testid="stSidebar"] {
-  background: linear-gradient(180deg, var(--azul-escuro) 0%, var(--azul-medio) 100%);
+  background: var(--azul-900);
 }
 
 [data-testid="stSidebar"] [data-testid="stSidebarContent"] {
-  padding: 0.5rem 0.6rem 0 0.6rem;
+  padding: 1.2rem 1rem 0 1rem;
 }
 
 .sidebar-brand {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
-  padding: 0.4rem 0.6rem 1rem 0.6rem;
-  border-bottom: 1px solid rgba(255,255,255,0.14);
-  margin-bottom: 1rem;
+  gap: 0.65rem;
+  padding: 0.4rem 0.2rem 1.1rem 0.2rem;
+  border-bottom: 1px solid rgba(255,255,255,0.12);
+  margin-bottom: 1.2rem;
 }
 .sidebar-brand .logo {
-  width: 34px;
-  height: 34px;
-  border-radius: 9px;
-  background: linear-gradient(135deg, #4FC3F7, #1A73E8);
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--azul-600);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 800;
-  font-size: 15px;
+  font-weight: 700;
+  font-size: 16px;
   color: #fff;
   flex-shrink: 0;
 }
 .sidebar-brand .nome {
   color: #FFFFFF;
-  font-weight: 700;
+  font-weight: 600;
   font-size: 15px;
-  line-height: 1.2;
+  line-height: 1.3;
 }
 .sidebar-brand .sub {
-  color: #9DB8DC;
+  color: #8FA8C8;
   font-size: 11px;
+  letter-spacing: 0.02em;
 }
 
 .sidebar-user {
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  background: rgba(255,255,255,0.07);
-  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
   border-radius: 12px;
-  padding: 0.55rem 0.7rem;
-  margin-bottom: 1rem;
+  padding: 0.6rem 0.75rem;
+  margin-bottom: 1.2rem;
 }
 .sidebar-user .avatar {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: var(--azul);
+  background: var(--azul-500);
   color: #fff;
-  font-weight: 700;
-  font-size: 14px;
+  font-weight: 600;
+  font-size: 13px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -110,7 +113,7 @@ h1, h2, h3 {
   min-width: 0;
 }
 .sidebar-user .info .label {
-  color: #9DB8DC;
+  color: #8FA8C8;
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -125,83 +128,105 @@ h1, h2, h3 {
 }
 
 [data-testid="stSidebar"] .stButton button {
-  background: rgba(255,255,255,0.08);
-  border: 1px solid rgba(255,255,255,0.16);
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.14);
   border-radius: 10px;
   color: #EAF2FB;
   font-weight: 600;
-  padding: 0.6rem 0.9rem;
+  padding: 0.55rem 0.9rem;
   transition: all 0.15s ease;
 }
 [data-testid="stSidebar"] .stButton button:hover {
-  background: rgba(255,255,255,0.16);
-  border-color: rgba(255,255,255,0.28);
+  background: rgba(255,255,255,0.14);
+  border-color: rgba(255,255,255,0.24);
 }
 [data-testid="stSidebar"] .stButton button[kind="primary"] {
-  background: var(--azul);
-  border-color: var(--azul);
+  background: var(--azul-600);
+  border-color: var(--azul-600);
   color: #fff;
 }
 [data-testid="stSidebar"] .stButton button[kind="primary"]:hover {
-  background: var(--azul-hover);
+  background: var(--azul-700);
+  border-color: var(--azul-700);
 }
 [class*="st-key-nav_sair"] button {
-  background: rgba(217,48,37,0.16) !important;
-  border-color: rgba(217,48,37,0.45) !important;
-  color: #FFB4AB !important;
+  background: rgba(220,38,38,0.14) !important;
+  border-color: rgba(220,38,38,0.35) !important;
+  color: #FECACA !important;
 }
 
-/* ===== Botoes gerais ===== */
+/* ===== Botoes ===== */
 .stButton button {
   border-radius: 10px;
   font-weight: 600;
+  transition: all 0.15s ease;
 }
 .stButton button[kind="primary"] {
-  background: var(--azul);
-  border: 1px solid var(--azul);
+  background: var(--azul-600);
+  border: 1px solid var(--azul-600);
 }
 .stButton button[kind="primary"]:hover {
-  background: var(--azul-hover);
-  border-color: var(--azul-hover);
+  background: var(--azul-700);
+  border-color: var(--azul-700);
 }
 
-/* ===== Cards (containers com borda) ===== */
+/* ===== Cards ===== */
 [data-testid="stVerticalBlockBorderWrapper"] {
   background: var(--branco);
   border: 1px solid var(--borda) !important;
   border-radius: 14px !important;
-  box-shadow: 0 1px 3px rgba(16,42,84,0.05);
+  box-shadow: 0 1px 2px rgba(15,23,42,0.04);
+  transition: box-shadow 0.15s ease;
+}
+
+/* ===== Campos de entrada ===== */
+[data-testid="stTextInput"] input,
+[data-testid="stNumberInput"] input,
+[data-testid="stTextArea"] textarea {
+  border-radius: 10px !important;
+  border-color: var(--borda) !important;
+}
+[data-testid="stTextInput"] input:focus,
+[data-testid="stNumberInput"] input:focus,
+[data-testid="stTextArea"] textarea:focus {
+  border-color: var(--azul-500) !important;
+  box-shadow: 0 0 0 3px rgba(37,99,235,0.12) !important;
+}
+[data-testid="stSelectbox"] [data-baseweb="select"] > div {
+  border-radius: 10px !important;
+  border-color: var(--borda) !important;
 }
 
 /* ===== Login ===== */
 .st-key-login_card {
   max-width: 420px;
-  margin: 1rem auto;
+  margin: 1.2rem auto;
 }
 .st-key-login_card [data-testid="stVerticalBlockBorderWrapper"] {
-  border-radius: 18px !important;
-  box-shadow: 0 10px 30px rgba(11,36,71,0.10);
-  padding: 1.1rem 1rem;
+  border-radius: 16px !important;
+  box-shadow: 0 8px 24px rgba(10,37,64,0.08);
+  padding: 1.4rem 1.2rem;
 }
 
 .login-hero {
   text-align: center;
-  padding: 1.8rem 0 0.6rem;
+  padding: 2.4rem 0 0.8rem;
 }
 .login-hero .tag {
   display: inline-block;
-  background: var(--azul-suave);
-  color: var(--azul);
+  background: var(--azul-50);
+  color: var(--azul-600);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  padding: 0.3rem 0.8rem;
+  padding: 0.3rem 0.85rem;
   border-radius: 999px;
-  margin-bottom: 0.7rem;
+  margin-bottom: 0.8rem;
 }
 .login-hero h1 {
-  margin-bottom: 0.3rem;
+  margin-bottom: 0.4rem;
+  font-size: 2rem;
 }
 .login-hero p {
   color: var(--texto-suave);
@@ -212,13 +237,13 @@ h1, h2, h3 {
 .row-header {
   color: var(--texto-suave);
   font-size: 0.7rem;
-  font-weight: 700;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.09em;
 }
 .pend-num {
-  color: var(--azul-escuro);
-  font-weight: 800;
+  color: var(--azul-900);
+  font-weight: 700;
   font-size: 1rem;
 }
 .pend-data {
@@ -240,22 +265,25 @@ h1, h2, h3 {
   border-radius: 8px;
 }
 [class*="st-key-editar_"] button {
-  color: var(--azul) !important;
-  border-color: rgba(26,115,232,0.4) !important;
-  background: var(--azul-suave) !important;
+  color: var(--azul-600) !important;
+  border-color: rgba(37,99,235,0.35) !important;
+  background: var(--azul-50) !important;
+}
+[class*="st-key-editar_"] button:hover {
+  background: var(--azul-100) !important;
 }
 [class*="st-key-excluir_"] button {
   color: var(--perigo) !important;
-  border-color: rgba(217,48,37,0.4) !important;
-  background: #FDECEA !important;
+  border-color: rgba(220,38,38,0.35) !important;
+  background: #FEF2F2 !important;
 }
 [class*="st-key-excluir_"] button:hover {
-  background: #FBD7D4 !important;
+  background: #FEE2E2 !important;
 }
 
 .empty-state {
   text-align: center;
-  padding: 3.5rem 1rem;
+  padding: 4rem 1rem;
 }
 .empty-state .icone {
   font-size: 2.6rem;
@@ -274,17 +302,18 @@ h1, h2, h3 {
 }
 [class*="st-key-nav_prev"] button,
 [class*="st-key-nav_next"] button {
-  border-color: rgba(26,115,232,0.45) !important;
-  color: var(--azul) !important;
+  border-color: rgba(37,99,235,0.4) !important;
+  color: var(--azul-600) !important;
   background: #fff !important;
 }
 
-/* ===== Formularios ===== */
+/* ===== Formulario ===== */
 [data-testid="stForm"] {
   border: 1px solid var(--borda) !important;
   border-radius: 14px !important;
   background: var(--branco);
-  padding: 0.4rem 1rem 0.9rem !important;
+  padding: 0.4rem 1.1rem 1rem !important;
+  box-shadow: 0 1px 2px rgba(15,23,42,0.04);
 }
 
 .stCaption {
@@ -294,7 +323,7 @@ h1, h2, h3 {
 /* ===== Responsivo ===== */
 @media (max-width: 900px) {
   .block-container {
-    padding: 1rem 0.75rem 2.5rem;
+    padding: 1.2rem 0.75rem 2.5rem;
   }
   [data-testid="stColumn"] {
     min-width: 100% !important;
@@ -305,7 +334,7 @@ h1, h2, h3 {
     margin: 0.6rem auto;
   }
   .login-hero {
-    padding-top: 1rem;
+    padding-top: 1.2rem;
   }
 }
 </style>

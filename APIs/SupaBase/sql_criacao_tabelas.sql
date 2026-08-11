@@ -73,9 +73,9 @@ ON CONFLICT ("NomeAreaResponsavel") DO NOTHING;
 CREATE TABLE "fDados" (
     "Id" BIGSERIAL PRIMARY KEY,
     "NumeroPendencia" INTEGER NOT NULL UNIQUE,
-    "IdUsuario" BIGINT NOT NULL REFERENCES "dUsuarios"("IdUsuario"),
-    "IdJustificativa" BIGINT NOT NULL REFERENCES "dJustificativas"("IdJustificativa"),
-    "IdAreaResponsavel" BIGINT NOT NULL REFERENCES "dAreasResponsaveis"("IdAreaResponsavel"),
+    "IdUsuario" INTEGER NOT NULL REFERENCES "dUsuarios"("IdUsuario"),
+    "IdJustificativa" INTEGER NOT NULL REFERENCES "dJustificativas"("IdJustificativa"),
+    "IdAreaResponsavel" INTEGER NOT NULL REFERENCES "dAreasResponsaveis"("IdAreaResponsavel"),
     "DataHora" TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 

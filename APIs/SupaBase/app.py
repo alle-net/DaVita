@@ -7,8 +7,6 @@ PAGE_SIZE = 25
 st.set_page_config(page_title="Justificativas de Pendências", layout="wide")
 ui.injetar_css()
 
-sessao.iniciar_pagina("app")
-
 
 def fmt_datahora(valor) -> str:
     return valor.strftime("%d/%m/%Y %H:%M")
@@ -374,7 +372,7 @@ def view_novo() -> None:
         a["NomeAreaResponsavel"]: a["IdAreaResponsavel"] for a in areas
     }
 
-    with st.form("form_novo", clear_on_submit=True):
+    with st.form("form_novo"):
         numero_pendencia = st.text_input(
             "Número da Pendência",
             key=f"novo_pendencia_{visita}",
