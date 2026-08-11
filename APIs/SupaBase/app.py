@@ -2,7 +2,7 @@ import streamlit as st
 
 from utils import db, sessao, ui
 
-PAGE_SIZE = 25
+PAGE_SIZE = 15
 
 st.set_page_config(page_title="Justificativas de Pendências", layout="wide")
 ui.injetar_css()
@@ -79,7 +79,7 @@ def sidebar() -> None:
     with st.sidebar:
         st.markdown(
             '<div class="sidebar-brand">'
-            '<span class="logo">J</span>'
+            f'{ui.logo_html()}'
             '<div>'
             '<div class="nome">Justificativas</div>'
             '<div class="sub">Pendências</div>'
@@ -181,34 +181,33 @@ def view_registros() -> None:
     inicio = pagina * PAGE_SIZE
     pagina_registros = registros[inicio : inicio + PAGE_SIZE]
 
-    if total_paginas > 1:
-        c_prev, c_info, c_next = st.columns([1, 2, 1])
-        with c_prev:
-            if st.button(
-                "◀ Anterior",
-                key="nav_prev",
-                use_container_width=True,
-                disabled=pagina == 0,
-            ):
-                st.session_state["pagina_registros"] = pagina - 1
-                st.rerun()
-        with c_info:
-            st.markdown(
-                f'<div style="text-align:center;" class="pag-info">'
-                f"Página {pagina + 1} de {total_paginas} "
-                f"· {len(registros)} registros</div>",
-                unsafe_allow_html=True,
-            )
-        with c_next:
-            if st.button(
-                "Próxima ▶",
-                key="nav_next",
-                use_container_width=True,
-                disabled=pagina >= total_paginas - 1,
-            ):
-                st.session_state["pagina_registros"] = pagina + 1
-                st.rerun()
-        st.markdown("<br>", unsafe_allow_html=True)
+    c_prev, c_info, c_next = st.columns([1, 2, 1])
+    with c_prev:
+        if st.button(
+            "◀ Anterior",
+            key="nav_prev",
+            use_container_width=True,
+            disabled=pagina == 0,
+        ):
+            st.session_state["pagina_registros"] = pagina - 1
+            st.rerun()
+    with c_info:
+        st.markdown(
+            f'<div style="text-align:center;" class="pag-info">'
+            f"Página {pagina + 1} de {total_paginas} "
+            f"· {len(registros)} registros</div>",
+            unsafe_allow_html=True,
+        )
+    with c_next:
+        if st.button(
+            "Próxima ▶",
+            key="nav_next",
+            use_container_width=True,
+            disabled=pagina >= total_paginas - 1,
+        ):
+            st.session_state["pagina_registros"] = pagina + 1
+            st.rerun()
+    st.markdown("<br>", unsafe_allow_html=True)
 
     header = st.columns([1, 3.5, 2.5, 1.8, 0.9, 0.9])
     for col, texto in zip(

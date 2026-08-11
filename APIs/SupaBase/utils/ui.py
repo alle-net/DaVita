@@ -1,4 +1,10 @@
+import base64
+from pathlib import Path
+
 import streamlit as st
+
+RAIZ = Path(__file__).resolve().parent.parent
+CAMINHO_LOGO = RAIZ / "imagens" / "logo claro.png"
 
 CSS = """
 <style>
@@ -46,7 +52,7 @@ h1, h2, h3 {
 
 /* ===== Sidebar ===== */
 [data-testid="stSidebar"] {
-  background: var(--azul-900);
+  background: #0076B6;
 }
 
 [data-testid="stSidebar"] [data-testid="stSidebarContent"] {
@@ -55,11 +61,20 @@ h1, h2, h3 {
 
 .sidebar-brand {
   display: flex;
-  align-items: center;
-  gap: 0.65rem;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.7rem;
   padding: 0.4rem 0.2rem 1.1rem 0.2rem;
   border-bottom: 1px solid rgba(255,255,255,0.12);
   margin-bottom: 1.2rem;
+}
+.sidebar-brand .logo-img {
+  max-width: 100%;
+  max-height: 56px;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.15));
 }
 .sidebar-brand .logo {
   width: 36px;
@@ -343,6 +358,21 @@ h1, h2, h3 {
 
 def injetar_css() -> None:
     st.markdown(CSS, unsafe_allow_html=True)
+
+
+def logo_html() -> str:
+    """HTML do logo da marca, embutido em base64 para funcionar sempre.
+
+    Se o arquivo imagens/logo claro.png não existir, devolve o quadrado
+    com a letra "J" como fallback.
+    """
+    if CAMINHO_LOGO.is_file():
+        dados = base64.b64encode(CAMINHO_LOGO.read_bytes()).decode("ascii")
+        return (
+            '<img class="logo-img" src="data:image/png;base64,'
+            f'{dados}" alt="Logo">'
+        )
+    return '<span class="logo">J</span>'
 
 
 def avatar(email: str) -> str:
