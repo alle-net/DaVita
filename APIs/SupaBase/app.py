@@ -1,3 +1,4 @@
+import hashlib
 import importlib
 from pathlib import Path
 
@@ -6,19 +7,22 @@ from zoneinfo import ZoneInfo
 
 _MODULOS_UTILS = ("ui", "sessao", "db")
 _RAIZ_APP = Path(__file__).resolve().parent
-_ESTADO_ANTERIOR_MODULOS: dict[str, tuple[int, int]] | None = None
+_ESTADO_ANTERIOR_MODULOS: dict[str, str] | None = None
 
 
-def _assinatura_modulos() -> dict[str, tuple[int, int]]:
-    """Snapshot (mtime_ns, tamanho) dos módulos locais de utils/."""
-    assinaturas: dict[str, tuple[int, int]] = {}
+def _assinatura_modulos() -> dict[str, str]:
+    """Hash md5 do conteúdo dos módulos locais de utils/.
+
+    Mais confiável que mtime+tamanho: detecta qualquer mudança de
+    conteúdo, mesmo que um checkout do git preserve timestamps.
+    """
+    assinaturas: dict[str, str] = {}
     for nome in _MODULOS_UTILS:
         caminho = _RAIZ_APP / "utils" / f"{nome}.py"
         try:
-            st_arquivo = caminho.stat()
-            assinaturas[nome] = (st_arquivo.st_mtime_ns, st_arquivo.st_size)
+            assinaturas[nome] = hashlib.md5(caminho.read_bytes()).hexdigest()
         except OSError:
-            assinaturas[nome] = (-1, -1)
+            assinaturas[nome] = ""
     return assinaturas
 
 
