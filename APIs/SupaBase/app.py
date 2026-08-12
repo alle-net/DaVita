@@ -1,15 +1,21 @@
 import streamlit as st
+from zoneinfo import ZoneInfo
 
 from utils import db, sessao, ui
 
 PAGE_SIZE = 15
+FUSO_BRASIL = ZoneInfo("America/Sao_Paulo")
 
 st.set_page_config(page_title="Justificativas de Pendências", layout="wide")
 ui.injetar_css()
 
 
 def fmt_datahora(valor) -> str:
-    return valor.strftime("%d/%m/%Y %H:%M")
+    if valor.tzinfo is None:
+        from datetime import timezone
+
+        valor = valor.replace(tzinfo=timezone.utc)
+    return valor.astimezone(FUSO_BRASIL).strftime("%d/%m/%Y %H:%M")
 
 
 def _flash() -> None:
@@ -141,17 +147,17 @@ def view_registros() -> None:
     sessao.iniciar_pagina("registros")
 
     id_usuario = st.session_state["usuario_id"]
-    registros = db.listar_meus_registros(id_usuario)
+    total = db.contar_meus_registros(id_usuario)
 
     col_titulo, col_acao = st.columns([4, 1])
     with col_titulo:
         st.title("Meus Registros")
-        st.caption(f"{len(registros)} registro(s) justificado(s) por você")
+        st.caption(f"{total} registro(s) justificado(s) por você")
     with col_acao:
         if st.button("＋ Novo Registro", type="primary", use_container_width=True):
             _trocar_view("novo")
 
-    if not registros:
+    if not total:
         st.markdown(
             '<div class="empty-state">'
             '<div class="icone">🗒️</div>'
@@ -172,14 +178,15 @@ def view_registros() -> None:
     opcoes_just = list(id_para_just.values())
     opcoes_area = list(id_para_area.values())
 
-    total_paginas = max(1, -(-len(registros) // PAGE_SIZE))
+    total_paginas = max(1, -(-total // PAGE_SIZE))
     pagina = st.session_state.get("pagina_registros", 0)
     if pagina >= total_paginas:
         pagina = total_paginas - 1
         st.session_state["pagina_registros"] = pagina
 
-    inicio = pagina * PAGE_SIZE
-    pagina_registros = registros[inicio : inicio + PAGE_SIZE]
+    registros = db.listar_meus_registros(
+        id_usuario, limite=PAGE_SIZE, deslocamento=pagina * PAGE_SIZE
+    )
 
     c_prev, c_info, c_next = st.columns([1, 2, 1])
     with c_prev:
@@ -195,7 +202,7 @@ def view_registros() -> None:
         st.markdown(
             f'<div style="text-align:center;" class="pag-info">'
             f"Página {pagina + 1} de {total_paginas} "
-            f"· {len(registros)} registros</div>",
+            f"· {total} registros</div>",
             unsafe_allow_html=True,
         )
     with c_next:
@@ -218,7 +225,7 @@ def view_registros() -> None:
 
     editar_id = st.session_state.get("editar_id")
 
-    for r in pagina_registros:
+    for r in registros:
         if editar_id == r["Id"]:
             _linha_edicao(
                 r, id_usuario, opcoes_just, opcoes_area, id_para_just, id_para_area

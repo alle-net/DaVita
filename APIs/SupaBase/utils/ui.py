@@ -360,6 +360,7 @@ def injetar_css() -> None:
     st.markdown(CSS, unsafe_allow_html=True)
 
 
+@st.cache_data(show_spinner=False, max_entries=4)
 def logo_html() -> str:
     """HTML do logo da marca, embutido em base64 para funcionar sempre.
 

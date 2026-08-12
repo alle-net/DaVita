@@ -4,10 +4,6 @@ from psycopg.rows import dict_row
 from utils.banco import PendenciaDuplicadaError, conectar
 
 
-def _unique_violation(err: Exception) -> bool:
-    return isinstance(err, errors.UniqueViolation)
-
-
 def buscar_quem_justificou(numero_pendencia: int) -> dict | None:
     with conectar() as conn:
         with conn.cursor(row_factory=dict_row) as cur:
@@ -79,30 +75,40 @@ def inserir_registro(
 
 def inserir_registros_em_lote(registros: list[tuple]) -> int:
     """Bulk insert de [(numero_pendencia, id_usuario, id_justificativa,
-    id_area_responsavel), ...]. Ignora pendências já existentes."""
+    id_area_responsavel), ...]. Ignora pendências já existentes e devolve
+    o total de registros efetivamente inseridos."""
     with conectar() as conn:
         with conn.cursor() as cur:
-            cur.execute("SAVEPOINT antes_bulk")
-            for numero, usuario, just, area in registros:
-                try:
-                    cur.execute(
-                        'INSERT INTO "fDados" '
-                        '("NumeroPendencia", "IdUsuario", "IdJustificativa", "IdAreaResponsavel") '
-                        "VALUES (%s, %s, %s, %s)",
-                        (numero, usuario, just, area),
-                    )
-                except errors.UniqueViolation:
-                    cur.execute("ROLLBACK TO SAVEPOINT antes_bulk")
+            cur.executemany(
+                'INSERT INTO "fDados" '
+                '("NumeroPendencia", "IdUsuario", "IdJustificativa", "IdAreaResponsavel") '
+                "VALUES (%s, %s, %s, %s) "
+                'ON CONFLICT ("NumeroPendencia") DO NOTHING',
+                registros,
+            )
             return cur.rowcount
 
 
-def listar_meus_registros(id_usuario: int) -> list[dict]:
+def contar_meus_registros(id_usuario: int) -> int:
+    with conectar() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                'SELECT COUNT(*) FROM "fDados" WHERE "IdUsuario" = %s',
+                (id_usuario,),
+            )
+            return cur.fetchone()[0]
+
+
+def listar_meus_registros(
+    id_usuario: int, limite: int | None = None, deslocamento: int | None = None
+) -> list[dict]:
     with conectar() as conn:
         with conn.cursor(row_factory=dict_row) as cur:
             cur.execute(
                 'SELECT * FROM "fDados" WHERE "IdUsuario" = %s '
-                'ORDER BY "DataHora" DESC',
-                (id_usuario,),
+                'ORDER BY "DataHora" DESC, "Id" DESC '
+                'LIMIT %s OFFSET %s',
+                (id_usuario, limite, deslocamento),
             )
             return cur.fetchall()
 
