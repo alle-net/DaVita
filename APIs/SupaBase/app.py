@@ -1,5 +1,45 @@
+import importlib
+from pathlib import Path
+
 import streamlit as st
 from zoneinfo import ZoneInfo
+
+_MODULOS_UTILS = ("ui", "sessao", "db")
+_RAIZ_APP = Path(__file__).resolve().parent
+_ESTADO_ANTERIOR_MODULOS: dict[str, tuple[int, int]] | None = None
+
+
+def _assinatura_modulos() -> dict[str, tuple[int, int]]:
+    """Snapshot (mtime_ns, tamanho) dos módulos locais de utils/."""
+    assinaturas: dict[str, tuple[int, int]] = {}
+    for nome in _MODULOS_UTILS:
+        caminho = _RAIZ_APP / "utils" / f"{nome}.py"
+        try:
+            st_arquivo = caminho.stat()
+            assinaturas[nome] = (st_arquivo.st_mtime_ns, st_arquivo.st_size)
+        except OSError:
+            assinaturas[nome] = (-1, -1)
+    return assinaturas
+
+
+def _recarregar_utils_se_necessario() -> None:
+    """Recarrega os módulos locais quando os arquivos mudarem.
+
+    O Streamlit re-executa o app.py a cada interação, mas módulos
+    importados ficam em cache no sys.modules. Sem este recarregamento,
+    edições em utils/ (ou um novo commit no Cloud) só valem após
+    reiniciar o processo. O utils/banco.py é preservado de propósito:
+    ele guarda o pool de conexões (reload o destruiria).
+    """
+    global _ESTADO_ANTERIOR_MODULOS
+    atual = _assinatura_modulos()
+    if _ESTADO_ANTERIOR_MODULOS is None or atual != _ESTADO_ANTERIOR_MODULOS:
+        for nome in _MODULOS_UTILS:
+            importlib.reload(importlib.import_module(f"utils.{nome}"))
+        _ESTADO_ANTERIOR_MODULOS = atual
+
+
+_recarregar_utils_se_necessario()
 
 from utils import db, sessao, ui
 
