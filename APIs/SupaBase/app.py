@@ -40,7 +40,7 @@ def _trocar_view(view: str) -> None:
 def view_login() -> None:
     st.markdown(
         '<div class="login-hero">'
-        '<span class="tag">Controle de Pendências</span>'
+        f'{ui.logo_escuro_html()}'
         "<h1>Justificativas de Pendências</h1>"
         "<p>Acesse com seu e-mail corporativo.</p>"
         "</div>",
@@ -86,10 +86,6 @@ def sidebar() -> None:
         st.markdown(
             '<div class="sidebar-brand">'
             f'{ui.logo_html()}'
-            '<div>'
-            '<div class="nome">Justificativas</div>'
-            '<div class="sub">Pendências</div>'
-            "</div>"
             "</div>",
             unsafe_allow_html=True,
         )

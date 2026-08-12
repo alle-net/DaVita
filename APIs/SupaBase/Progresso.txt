@@ -341,3 +341,91 @@ PRÓXIMOS PASSOS (continuar quando retomar):
   3. Definir como entram as 40 mil linhas (define a tela de upload/lote)
   4. Deploy Fase 3 (Streamlit Community Cloud)
 ===============================================================================
+
+===============================================================================
+NOVA SESSÃO — REVISÃO SÊNIOR + OTIMIZAÇÕES (12/08/2026)
+===============================================================================
+
+Revisão de código feita (perspectiva sênior Python) e otimizações aplicadas.
+Esforço principal: NÃO quebrar nada e NÃO alterar layout — app está em uso
+e deploy previsto ainda hoje.
+
+O que foi aplicado (commit ccafb24 → origin/master, 12/08):
+
+  1. CONNECTION POOL (utils/banco.py)
+     - Antes: 1 conexão NOVA por query (view_registros abria 3 por rerun).
+     - Agora: psycopg_pool (min 1 / max 5, autocommit) via st.cache_resource.
+       API conectar() preservada (`with conectar() as conn:`).
+     - obter_url() agora cacheada (lru_cache) — antes relia secrets.toml
+       a cada conexão.
+     - Logger adicionado: falhas de aquisição de conexão são registradas.
+
+  2. FIX REAL — inserir_registros_em_lote (utils/db.py)
+     - Bug: SAVEPOINT/ROLLBACK TO não funciona com autocommit=True (cada
+       execute é transação própria) — o rollback não revertia nada e o
+       rowcount retornava valor errado.
+     - Agora: executemany + ON CONFLICT ("NumeroPendencia") DO NOTHING;
+       retorna o total realmente inserido. (Função sem chamadores hoje,
+       pronta para o lote de 40 mil linhas.)
+
+  3. PAGINAÇÃO NO SQL (utils/db.py + app.py)
+     - Antes: SELECT * + fetchall() de TODOS os registros + paginação em
+       Python (PAGE_SIZE 15).
+     - Agora: contar_meus_registros() (COUNT) + listar_meus_registros()
+       com LIMIT/OFFSET e desempate por Id (ordem idêntica à anterior).
+     - Layout e textos inalterados (contador usa o total real).
+
+  4. CACHE DE DIMENSÕES E LOGO
+     - listar_justificativas/listar_areas: tabelas fixas (18/6 linhas) —
+       agora com st.cache_data(ttl=3600) em utils/db.py.
+     - logo_html() (utils/ui.py): base64 do PNG recalculado a cada rerun
+       — agora cache_data.
+
+  5. TIMEZONE CORRETO (app.py) — fmt_datahora
+     - DataHora é TIMESTAMPTZ (banco em UTC); antes exibia hora UTC (3h
+       atrás do horário de Brasília). Agora converte para
+       America/Sao_Paulo. Formato %d/%m/%Y %H:%M inalterado.
+
+  6. BANCO — ÍNDICES (executado no Supabase, sql_otimizacao_indices.sql)
+     - DROP idx_fdados_datapendencia (redundante: UNIQUE já cria índice)
+     - DROP idx_fdados_usuario (único) → substituído por COMPOSTO
+       idx_fdados_usuario_datahora (IdUsuario, DataHora DESC): cobre a
+       query principal do app sem sort extra.
+     - MANTIDOS: idx_fdados_datahora, idx_fdados_justificativa,
+       idx_fdados_area (Power Query / consultas externas).
+     - Verificado: índices finais corretos no banco.
+
+  7. REQUIREMENTS.TXT
+     - Removido pandas==3.0.3 (não usado no app).
+     - Adicionado psycopg_pool==3.3.1 (instalado no venv).
+
+NÃO APLICADO (decisões conscientes):
+  - Hash de senha: fora do escopo (decisão da gestão — senha texto puro).
+  - Role dedicada no banco (app_justificativas): script pronto em
+    sql_role_aplicacao.sql, mas NÃO executado — exige trocar a credencial
+    em secrets.toml, arriscado no dia do deploy. Ativar depois:
+    1) rodar sql_role_aplicacao.sql no SQL Editor; 2) trocar
+    SUPABASE_DB_URL; 3) reiniciar o Streamlit.
+  - @st.fragment (Editar/Excluir sem rerun global): deixado para depois
+    (muda fluxo de rerun; risco desnecessário no dia do deploy).
+
+VALIDAÇÃO FEITA (12/08):
+  - python -m compileall: OK
+  - Teste E2E no banco REAL: INSERT -> duplicado (PendenciaDuplicadaError
+    com dono) -> UPDATE -> COUNT/paginação -> DELETE -> cleanup. Tudo OK,
+    sem deixar rastro (número de teste 9004xxxxx removido).
+  - Smoke test AppTest (streamlit.testing.v1): login e view registros
+    renderizam sem exceção.
+  - EXPLAIN: com 3 linhas o planner usa Seq Scan (correto); o índice
+    composto entra em ação com volume.
+  - App iniciado local (localhost:8501) e verificado (health 200).
+  - GitHub: commit ccafb24 push → origin/master (12/08).
+
+PRÓXIMOS PASSOS:
+  1. Validar app localmente com login real (usuário de teste dUsuarios)
+  2. Deploy Fase 3 (Streamlit Community Cloud) — lembrar que o Cloud
+     instala via requirements.txt (psycopg_pool já incluído)
+  3. Definir entrada das 40 mil linhas (inserir_registros_em_lote pronto)
+  4. Futuro: ativar role app_justificativas (sql_role_aplicacao.sql)
+  5. Futuro: @st.fragment para evitar rerun completo em Editar/Excluir
+===============================================================================

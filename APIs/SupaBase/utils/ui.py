@@ -4,7 +4,8 @@ from pathlib import Path
 import streamlit as st
 
 RAIZ = Path(__file__).resolve().parent.parent
-CAMINHO_LOGO = RAIZ / "imagens" / "logo claro.png"
+CAMINHO_LOGO_CLARO = RAIZ / "imagens" / "Logo Claro.png"
+CAMINHO_LOGO_ESCURO = RAIZ / "imagens" / "Logo Escuro.png"
 
 CSS = """
 <style>
@@ -67,10 +68,12 @@ h1, h2, h3 {
   padding: 0.4rem 0.2rem 1.1rem 0.2rem;
   border-bottom: 1px solid rgba(255,255,255,0.12);
   margin-bottom: 1.2rem;
+  text-align: center;
+  width: 100%;
 }
 .sidebar-brand .logo-img {
   max-width: 100%;
-  max-height: 56px;
+  max-height: 44px;
   width: auto;
   height: auto;
   object-fit: contain;
@@ -165,9 +168,17 @@ h1, h2, h3 {
   border-color: var(--azul-700);
 }
 [class*="st-key-nav_sair"] button {
-  background: rgba(220,38,38,0.14) !important;
-  border-color: rgba(220,38,38,0.35) !important;
-  color: #FECACA !important;
+  background: #DC2626 !important;
+  border: 1px solid #DC2626 !important;
+  color: #FFFFFF !important;
+  font-weight: 700 !important;
+  box-shadow: 0 2px 10px rgba(220,38,38,0.40) !important;
+}
+[class*="st-key-nav_sair"] button:hover {
+  background: #B91C1C !important;
+  border-color: #B91C1C !important;
+  box-shadow: 0 4px 14px rgba(220,38,38,0.55) !important;
+  transform: translateY(-1px);
 }
 
 /* ===== Botoes ===== */
@@ -226,6 +237,13 @@ h1, h2, h3 {
 .login-hero {
   text-align: center;
   padding: 2.4rem 0 0.8rem;
+}
+.login-hero .login-logo {
+  max-width: 210px;
+  width: 100%;
+  height: auto;
+  margin-bottom: 0.6rem;
+  object-fit: contain;
 }
 .login-hero .tag {
   display: inline-block;
@@ -361,19 +379,32 @@ def injetar_css() -> None:
 
 
 @st.cache_data(show_spinner=False, max_entries=4)
-def logo_html() -> str:
-    """HTML do logo da marca, embutido em base64 para funcionar sempre.
+def _logo_base64(caminho: Path) -> str | None:
+    if caminho.is_file():
+        return base64.b64encode(caminho.read_bytes()).decode("ascii")
+    return None
 
-    Se o arquivo imagens/logo claro.png não existir, devolve o quadrado
-    com a letra "J" como fallback.
-    """
-    if CAMINHO_LOGO.is_file():
-        dados = base64.b64encode(CAMINHO_LOGO.read_bytes()).decode("ascii")
+
+def logo_html() -> str:
+    """Logo claro (sidebar, fundo azul). Fallback: quadrado com letra J."""
+    dados = _logo_base64(CAMINHO_LOGO_CLARO)
+    if dados:
         return (
             '<img class="logo-img" src="data:image/png;base64,'
-            f'{dados}" alt="Logo">'
+            f'{dados}" alt="DaVita">'
         )
     return '<span class="logo">J</span>'
+
+
+def logo_escuro_html() -> str:
+    """Logo escuro (tela de login, fundo claro). Fallback: tag de texto."""
+    dados = _logo_base64(CAMINHO_LOGO_ESCURO)
+    if dados:
+        return (
+            '<img class="login-logo" src="data:image/png;base64,'
+            f'{dados}" alt="DaVita">'
+        )
+    return '<span class="tag">Controle de Pendências</span>'
 
 
 def avatar(email: str) -> str:
