@@ -89,27 +89,90 @@ def inserir_registros_em_lote(registros: list[tuple]) -> int:
             return cur.rowcount
 
 
-def contar_meus_registros(id_usuario: int) -> int:
+def _normalizar_termo(busca: str) -> str:
+    """Limpa o termo de busca: espaços e um '#' inicial (cópia da tabela)."""
+    return busca.strip().lstrip("#").strip()
+
+
+def _eh_numero(termo: str) -> bool:
+    return termo.isascii() and termo.isdigit()
+
+
+def _termo_busca(busca: str) -> str:
+    """Escapa metacaracteres ILIKE (% e _) e devolve o termo com curingas."""
+    escapado = (
+        busca.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    )
+    return f"%{escapado}%"
+
+
+def _clausula_busca() -> str:
+    escape = "ESCAPE '\\'"
+    return (
+        ' AND (j."DescJustificativa" ILIKE %s ' + escape
+        + ' OR a."NomeAreaResponsavel" ILIKE %s ' + escape
+        + " OR to_char(f.\"DataHora\" AT TIME ZONE 'America/Sao_Paulo',"
+        " 'DD/MM/YYYY HH24:MI') ILIKE %s " + escape
+        + " OR (f.\"DataHora\" AT TIME ZONE 'America/Sao_Paulo')::text"
+        " ILIKE %s " + escape + ')'
+    )
+
+
+def _clausula_busca_montada(
+    sql_base: str, params: list, busca: str
+) -> tuple[str, list]:
+    """Acrescenta ao SQL o filtro de busca.
+
+    Termo numérico (ex.: 15 ou #15) -> igualdade exata com o número da
+    pendência (padrão do banco). Qualquer outro termo -> busca parcial
+    (ILIKE) em justificativa, área e data/hora.
+    """
+    termo = _normalizar_termo(busca)
+    if not termo:
+        return sql_base, params
+    if _eh_numero(termo):
+        sql_base += ' AND f."NumeroPendencia"::text = %s'
+        params.append(termo)
+    else:
+        sql_base += _clausula_busca()
+        params.extend([_termo_busca(termo)] * 4)
+    return sql_base, params
+
+
+def contar_meus_registros(id_usuario: int, busca: str | None = None) -> int:
+    sql = (
+        'SELECT COUNT(*) FROM "fDados" f '
+        'LEFT JOIN "dJustificativas" j ON j."IdJustificativa" = f."IdJustificativa" '
+        'LEFT JOIN "dAreasResponsaveis" a ON a."IdAreaResponsavel" = f."IdAreaResponsavel" '
+        'WHERE f."IdUsuario" = %s'
+    )
+    params: list = [id_usuario]
+    sql, params = _clausula_busca_montada(sql, params, busca or "")
     with conectar() as conn:
         with conn.cursor() as cur:
-            cur.execute(
-                'SELECT COUNT(*) FROM "fDados" WHERE "IdUsuario" = %s',
-                (id_usuario,),
-            )
+            cur.execute(sql, params)
             return cur.fetchone()[0]
 
 
 def listar_meus_registros(
-    id_usuario: int, limite: int | None = None, deslocamento: int | None = None
+    id_usuario: int,
+    limite: int | None = None,
+    deslocamento: int | None = None,
+    busca: str | None = None,
 ) -> list[dict]:
+    sql = (
+        'SELECT f.* FROM "fDados" f '
+        'LEFT JOIN "dJustificativas" j ON j."IdJustificativa" = f."IdJustificativa" '
+        'LEFT JOIN "dAreasResponsaveis" a ON a."IdAreaResponsavel" = f."IdAreaResponsavel" '
+        'WHERE f."IdUsuario" = %s'
+    )
+    params: list = [id_usuario]
+    sql, params = _clausula_busca_montada(sql, params, busca or "")
+    sql += ' ORDER BY f."DataHora" DESC, f."Id" DESC LIMIT %s OFFSET %s'
+    params.extend([limite, deslocamento])
     with conectar() as conn:
         with conn.cursor(row_factory=dict_row) as cur:
-            cur.execute(
-                'SELECT * FROM "fDados" WHERE "IdUsuario" = %s '
-                'ORDER BY "DataHora" DESC, "Id" DESC '
-                'LIMIT %s OFFSET %s',
-                (id_usuario, limite, deslocamento),
-            )
+            cur.execute(sql, params)
             return cur.fetchall()
 
 

@@ -1,4 +1,5 @@
 import hashlib
+import html
 import importlib
 from pathlib import Path
 
@@ -76,6 +77,10 @@ def _flash() -> None:
 def _trocar_view(view: str) -> None:
     st.session_state["_view"] = view
     st.rerun()
+
+
+def _busca_alterada() -> None:
+    st.session_state["pagina_registros"] = 0
 
 
 # --------------------------------------------------------------------------
@@ -163,7 +168,7 @@ def confirmar_exclusao() -> None:
     if rid is None:
         st.rerun()
     st.warning(
-        f"Deseja excluir definitivamente a pendência **#{numero}**? "
+        f"Deseja excluir definitivamente a pendência **{numero}**? "
         "Essa ação não pode ser desfeita."
     )
     c1, c2 = st.columns(2)
@@ -187,26 +192,59 @@ def view_registros() -> None:
     sessao.iniciar_pagina("registros")
 
     id_usuario = st.session_state["usuario_id"]
-    total = db.contar_meus_registros(id_usuario)
+    termo = st.session_state.get("busca_registros", "").strip()
+
+    total = db.contar_meus_registros(id_usuario, busca=termo or None)
 
     col_titulo, col_acao = st.columns([4, 1])
     with col_titulo:
         st.title("Meus Registros")
-        st.caption(f"{total} registro(s) justificado(s) por você")
+        if termo:
+            st.caption(f"{total} resultado(s) para a busca")
+        else:
+            st.caption(f"{total} registro(s) justificado(s) por você")
     with col_acao:
         if st.button("＋ Novo Registro", type="primary", use_container_width=True):
             _trocar_view("novo")
 
-    if not total:
-        st.markdown(
-            '<div class="empty-state">'
-            '<div class="icone">🗒️</div>'
-            "<h3>Nenhum registro ainda</h3>"
-            "<p>Use o botão <b>＋ Novo Registro</b> para incluir sua primeira "
-            "pendência justificada.</p>"
-            "</div>",
-            unsafe_allow_html=True,
+    c_busca, c_limpar = st.columns([6, 1])
+    with c_busca:
+        st.text_input(
+            "Buscar",
+            key="busca_registros",
+            placeholder="Nº da pendência (número exato), justificativa, área ou data",
+            label_visibility="collapsed",
+            on_change=_busca_alterada,
         )
+    with c_limpar:
+        if termo and st.button(
+            "✕ Limpar", key="limpar_busca", use_container_width=True
+        ):
+            st.session_state["busca_registros"] = ""
+            st.session_state["pagina_registros"] = 0
+            st.rerun()
+
+    if not total:
+        if termo:
+            st.markdown(
+                '<div class="empty-state">'
+                '<div class="icone">🔍</div>'
+                "<h3>Nenhum registro encontrado</h3>"
+                f"<p>Nenhum registro corresponde a <b>{html.escape(termo)}</b>. "
+                "Ajuste o termo de busca ou use <b>＋ Novo Registro</b>.</p>"
+                "</div>",
+                unsafe_allow_html=True,
+            )
+        else:
+            st.markdown(
+                '<div class="empty-state">'
+                '<div class="icone">🗒️</div>'
+                "<h3>Nenhum registro ainda</h3>"
+                "<p>Use o botão <b>＋ Novo Registro</b> para incluir sua primeira "
+                "pendência justificada.</p>"
+                "</div>",
+                unsafe_allow_html=True,
+            )
         return
 
     justificativas = db.listar_justificativas()
@@ -225,7 +263,10 @@ def view_registros() -> None:
         st.session_state["pagina_registros"] = pagina
 
     registros = db.listar_meus_registros(
-        id_usuario, limite=PAGE_SIZE, deslocamento=pagina * PAGE_SIZE
+        id_usuario,
+        limite=PAGE_SIZE,
+        deslocamento=pagina * PAGE_SIZE,
+        busca=termo or None,
     )
 
     c_prev, c_info, c_next = st.columns([1, 2, 1])
@@ -283,7 +324,7 @@ def _linha_leitura(r: dict, id_para_just: dict, id_para_area: dict) -> None:
     with st.container(border=True):
         c1, c2, c3, c4, c5, c6 = st.columns([1, 3.5, 2.5, 1.8, 0.9, 0.9])
         c1.markdown(
-            f'<span class="pend-num">#{r["NumeroPendencia"]}</span>',
+            f'<span class="pend-num">{r["NumeroPendencia"]}</span>',
             unsafe_allow_html=True,
         )
         c2.markdown(
@@ -331,7 +372,7 @@ def _linha_edicao(
 
     with st.container(border=True):
         st.markdown(
-            f'<span class="row-header">Editando pendência #{r["NumeroPendencia"]}</span>',
+            f'<span class="row-header">Editando pendência {r["NumeroPendencia"]}</span>',
             unsafe_allow_html=True,
         )
         c1, c2, c3 = st.columns(3)
