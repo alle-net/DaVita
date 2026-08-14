@@ -168,7 +168,7 @@ def listar_meus_registros(
     )
     params: list = [id_usuario]
     sql, params = _clausula_busca_montada(sql, params, busca or "")
-    sql += ' ORDER BY f."DataHora" DESC, f."Id" DESC LIMIT %s OFFSET %s'
+    sql += ' ORDER BY f."NumeroPendencia" DESC, f."Id" DESC LIMIT %s OFFSET %s'
     params.extend([limite, deslocamento])
     with conectar() as conn:
         with conn.cursor(row_factory=dict_row) as cur:

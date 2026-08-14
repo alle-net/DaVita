@@ -99,7 +99,7 @@ _JS_BUSCA_VIVA = """
       input.dispatchEvent(
         new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true })
       );
-    }, 250);
+    }, 150);
   });
 })();
 </script>

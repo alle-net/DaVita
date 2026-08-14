@@ -23,6 +23,18 @@ CREATE INDEX IF NOT EXISTS "idx_fdados_usuario_datahora"
     ON "fDados" ("IdUsuario", "DataHora" DESC);
 
 -- ============================================================
+-- Migração 14/08/2026 — app agora lista por NumeroPendencia DESC
+--
+-- A listagem principal (WHERE IdUsuario = ? ORDER BY
+-- "NumeroPendencia" DESC LIMIT/OFFSET) passa a ser coberta por este
+-- índice composto, sem arquivo de ordenação. O índice por DataHora
+-- acima continua válido para consultas externas.
+-- ============================================================
+
+CREATE INDEX IF NOT EXISTS "idx_fdados_usuario_pendencia"
+    ON "fDados" ("IdUsuario", "NumeroPendencia" DESC);
+
+-- ============================================================
 -- Verificação (opcional)
 -- ============================================================
 -- SELECT indexname FROM pg_indexes WHERE tablename = 'fDados' ORDER BY 1;
