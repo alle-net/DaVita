@@ -83,6 +83,41 @@ def _busca_alterada() -> None:
     st.session_state["pagina_registros"] = 0
 
 
+_JS_BUSCA_VIVA = """
+<script>
+(function () {
+  const doc = window.parent.document;
+  const input =
+    doc.querySelector('input[aria-label="Buscar"]') ||
+    doc.querySelector('input[placeholder*="pendência"]');
+  if (!input || input.dataset.buscaViva) return;
+  input.dataset.buscaViva = '1';
+  let timer = null;
+  input.addEventListener('input', function () {
+    clearTimeout(timer);
+    timer = setTimeout(function () {
+      input.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true })
+      );
+    }, 250);
+  });
+})();
+</script>
+"""
+
+
+def _injetar_busca_viva() -> None:
+    """Filtra os registros enquanto o usuário digita.
+
+    O st.text_input nativo só dispara on_change com Enter ou perda de
+    foco. Este script simula o Enter 250 ms após a última tecla, fazendo
+    o filtro acompanhar a digitação (e voltar a mostrar tudo ao limpar o
+    campo). Se o seletor não encontrar o campo, degrada para o
+    comportamento padrão, sem quebrar nada.
+    """
+    st.iframe(_JS_BUSCA_VIVA, height=1)
+
+
 # --------------------------------------------------------------------------
 # Login
 # --------------------------------------------------------------------------
@@ -207,22 +242,14 @@ def view_registros() -> None:
         if st.button("＋ Novo Registro", type="primary", use_container_width=True):
             _trocar_view("novo")
 
-    c_busca, c_limpar = st.columns([6, 1])
-    with c_busca:
-        st.text_input(
-            "Buscar",
-            key="busca_registros",
-            placeholder="Nº da pendência (número exato), justificativa, área ou data",
-            label_visibility="collapsed",
-            on_change=_busca_alterada,
-        )
-    with c_limpar:
-        if termo and st.button(
-            "✕ Limpar", key="limpar_busca", use_container_width=True
-        ):
-            st.session_state["busca_registros"] = ""
-            st.session_state["pagina_registros"] = 0
-            st.rerun()
+    st.text_input(
+        "Buscar",
+        key="busca_registros",
+        placeholder="Nº da pendência (número exato), justificativa, área ou data",
+        label_visibility="collapsed",
+        on_change=_busca_alterada,
+    )
+    _injetar_busca_viva()
 
     if not total:
         if termo:
