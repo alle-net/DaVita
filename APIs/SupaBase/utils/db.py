@@ -8,8 +8,8 @@ def buscar_quem_justificou(numero_pendencia: int) -> dict | None:
     with conectar() as conn:
         with conn.cursor(row_factory=dict_row) as cur:
             cur.execute(
-                'SELECT u."EmailUsuario" FROM "fDados" f '
-                'JOIN "dUsuarios" u ON u."IdUsuario" = f."IdUsuario" '
+                'SELECT u."EmailUsuario" FROM "dados" f '
+                'JOIN "usuarios" u ON u."IdUsuario" = f."IdUsuario" '
                 'WHERE f."NumeroPendencia" = %s',
                 (numero_pendencia,),
             )
@@ -31,7 +31,7 @@ def listar_justificativas() -> list[dict]:
         with conn.cursor(row_factory=dict_row) as cur:
             cur.execute(
                 'SELECT "IdJustificativa", "DescJustificativa" '
-                'FROM "dJustificativas" ORDER BY "IdJustificativa"'
+                'FROM "justificativas" ORDER BY "IdJustificativa"'
             )
             return cur.fetchall()
 
@@ -41,7 +41,7 @@ def listar_areas() -> list[dict]:
         with conn.cursor(row_factory=dict_row) as cur:
             cur.execute(
                 'SELECT "IdAreaResponsavel", "NomeAreaResponsavel" '
-                'FROM "dAreasResponsaveis" ORDER BY "IdAreaResponsavel"'
+                'FROM "areas" ORDER BY "IdAreaResponsavel"'
             )
             return cur.fetchall()
 
@@ -56,7 +56,7 @@ def inserir_registro(
         with conectar() as conn:
             with conn.cursor(row_factory=dict_row) as cur:
                 cur.execute(
-                    'INSERT INTO "fDados" '
+'INSERT INTO "dados" '
                     '("NumeroPendencia", "IdUsuario", "IdJustificativa", "IdAreaResponsavel") '
                     "VALUES (%s, %s, %s, %s) RETURNING *",
                     (
@@ -80,7 +80,7 @@ def inserir_registros_em_lote(registros: list[tuple]) -> int:
     with conectar() as conn:
         with conn.cursor() as cur:
             cur.executemany(
-                'INSERT INTO "fDados" '
+                'INSERT INTO "dados" '
                 '("NumeroPendencia", "IdUsuario", "IdJustificativa", "IdAreaResponsavel") '
                 "VALUES (%s, %s, %s, %s) "
                 'ON CONFLICT ("NumeroPendencia") DO NOTHING',
@@ -141,9 +141,9 @@ def _clausula_busca_montada(
 
 def contar_meus_registros(id_usuario: int, busca: str | None = None) -> int:
     sql = (
-        'SELECT COUNT(*) FROM "fDados" f '
-        'LEFT JOIN "dJustificativas" j ON j."IdJustificativa" = f."IdJustificativa" '
-        'LEFT JOIN "dAreasResponsaveis" a ON a."IdAreaResponsavel" = f."IdAreaResponsavel" '
+        'SELECT COUNT(*) FROM "dados" f '
+        'LEFT JOIN "justificativas" j ON j."IdJustificativa" = f."IdJustificativa" '
+        'LEFT JOIN "areas" a ON a."IdAreaResponsavel" = f."IdAreaResponsavel" '
         'WHERE f."IdUsuario" = %s'
     )
     params: list = [id_usuario]
@@ -161,9 +161,9 @@ def listar_meus_registros(
     busca: str | None = None,
 ) -> list[dict]:
     sql = (
-        'SELECT f.* FROM "fDados" f '
-        'LEFT JOIN "dJustificativas" j ON j."IdJustificativa" = f."IdJustificativa" '
-        'LEFT JOIN "dAreasResponsaveis" a ON a."IdAreaResponsavel" = f."IdAreaResponsavel" '
+        'SELECT f.* FROM "dados" f '
+        'LEFT JOIN "justificativas" j ON j."IdJustificativa" = f."IdJustificativa" '
+        'LEFT JOIN "areas" a ON a."IdAreaResponsavel" = f."IdAreaResponsavel" '
         'WHERE f."IdUsuario" = %s'
     )
     params: list = [id_usuario]
@@ -187,7 +187,7 @@ def atualizar_registro(
         with conectar() as conn:
             with conn.cursor() as cur:
                 cur.execute(
-                    'UPDATE "fDados" SET "NumeroPendencia" = %s, '
+                    'UPDATE "dados" SET "NumeroPendencia" = %s, '
                     '"IdJustificativa" = %s, "IdAreaResponsavel" = %s '
                     'WHERE "Id" = %s AND "IdUsuario" = %s',
                     (
@@ -208,7 +208,7 @@ def excluir_registro(id_registro: int, id_usuario: int) -> None:
     with conectar() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                'DELETE FROM "fDados" WHERE "Id" = %s AND "IdUsuario" = %s',
+                'DELETE FROM "dados" WHERE "Id" = %s AND "IdUsuario" = %s',
                 (id_registro, id_usuario),
             )
 
@@ -217,7 +217,7 @@ def buscar_usuario_por_email(email: str) -> dict | None:
     with conectar() as conn:
         with conn.cursor(row_factory=dict_row) as cur:
             cur.execute(
-                'SELECT * FROM "dUsuarios" WHERE "EmailUsuario" = %s',
+                'SELECT * FROM "usuarios" WHERE "EmailUsuario" = %s',
                 (email,),
             )
             return cur.fetchone()
