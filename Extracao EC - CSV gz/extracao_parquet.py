@@ -50,7 +50,7 @@ def conectar(config: dict[str, Any]) -> Iterator[Engine]:
     senha_encoded = quote_plus(config.get("senha", ""))
     string_conexao = (
         f"mysql+pymysql://{config['usuario']}:{senha_encoded}"
-        f"@{config['servidor']}/{config['banco']}"
+        f"@{config['servidor']}/{config['banco']}?charset=utf8mb4"
     )
     engine = create_engine(string_conexao)
     try:

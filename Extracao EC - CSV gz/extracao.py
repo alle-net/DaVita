@@ -50,7 +50,7 @@ def conectar(config: dict[str, Any]) -> Iterator[Engine]:
     senha_encoded = quote_plus(config.get("senha", ""))
     string_conexao = (
         f"mysql+pymysql://{config['usuario']}:{senha_encoded}"
-        f"@{config['servidor']}/{config['banco']}"
+        f"@{config['servidor']}/{config['banco']}?charset=utf8mb4"
     )
     engine = create_engine(string_conexao)
     try:
@@ -84,7 +84,13 @@ def salvar_csv_gz(df: pd.DataFrame, config: dict[str, Any]) -> Path:
     timestamp = datetime.now().strftime("%Y%m%d-%H%M")
     nome_arquivo = f"EC-{timestamp}.csv.gz"
     caminho_completo = pasta_saida / nome_arquivo
-    df.to_csv(caminho_completo, index=False, sep=";", compression="gzip")
+    df.to_csv(
+        caminho_completo,
+        index=False,
+        sep=";",
+        compression="gzip",
+        encoding="utf-8-sig",
+    )
     return caminho_completo
 
 
