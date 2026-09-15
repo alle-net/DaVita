@@ -1,0 +1,103 @@
+PROGRESSO - Projeto: Extracao EC - Tasy
+========================================
+
+DATA DE CRIACAO: 15/09/2026
+
+CONTEXTO
+--------
+- Projeto localizado em: C:\Alexandre\Repositorios\DaVita\Extracao EC - Tasy
+- Pasta raiz do workspace: C:\Alexandre\Repositorios\DaVita
+- Repositorio git: sim
+- Plataforma: Windows (win32)
+- Shell: PowerShell 5.1
+
+ARQUIVOS PRESENTES NO DIRETORIO
+-------------------------------
+- ListaEstabelecimentos.xlsx (16.496 bytes) - possivelmente lista de estabelecimentos utilizada como entrada.
+
+MISSÂO/PERSONA
+--------------
+- Agir como profissional senior em Python com 10 anos de experiencia.
+- Foco: extratcao de dados envolvendo sistema Tasy (Philips) - provavelmente EHR/ERP hospitalar.
+
+HISTORICO DE CONVERSACAO
+------------------------
+1. Usuario pediu para atuar como profissional senior em Python com 10 anos de experiencia.
+   Resposta: Confirmado e pronto para ajudar.
+
+2. Usuario pediu para criar arquivo txt com toda a conversa e codigo para prosseguir baseado nele,
+   nomeado como progresso.txt.
+   -> Este arquivo foi criado em resposta a esse pedido.
+
+STATUS
+------
+- Etapa inicial. Nenhum codigo desenvolvido ainda.
+- Proximo passo: entender o escopo do trabalho de extracao de EC (possivelmente "Estado de Consumo" / "Extrato de Contas" / "Estabelecimentos Credenciados") do Tasy.
+
+NOTAS PENDENTES / PROXIMOS PASSOS
+---------------------------------
+- Reunir especificacoes com o usuario: o que extrair, de onde (banco do Tasy ou PDFs/planilhas), formato de saida.
+- Definir estrategia de extracao em Python.
+
+3. Usuario apresentou metodo de trabalho em 4 etapas:
+   1. Usuario faz a solicitacao.
+   2. Profissional apresenta as solucoes e aguarda autorizacao.
+   3. Usuario avalia e autoriza a implantacao.
+   4. Profissional executa a acao.
+   -> Combinado.
+
+4. Usuario pediu para manter o arquivo progresso.txt atualizado com toda a conversa.
+   -> Combinado. Este arquivo sera atualizado ao final de cada interacao relevante.
+
+5. Solicitacao: criacao de automacao para extracao de dados do Tasy.
+   Esclarecimentos obtidos:
+   - Origem: Interface grafica do Tasy (UI automation).
+   - Objetivo: dados por estabelecimento (usando ListaEstabelecimentos.xlsx).
+   - Volume: sob demanda (pontual).
+   - Acesso ao Tasy: usuario possui app local E versao web; foi orientado que a melhor
+     opcao para automacao em Python (na epoca de decidir) sera definida na implantacao.
+
+6. Decisao: automacao em Python.
+
+7. ACAO EXECUTADA - Ambiente virtual:
+   - Criado ambiente virtual em .venv (Python 3.14.2, pip 25.3).
+   - Comando: python -m venv .venv
+   - Ativacao: .venv\Scripts\python.exe
+
+8. ACAO EXECUTADA - Arquivo de parametros:
+   - Criado parametros.json com estrutura de configuracao:
+     * tasy: url, usuario, senha, modo_acesso, via
+     * entrada: arquivo_estabelecimentos (ListaEstabelecimentos.xlsx), planilha, coluna
+     * saida: formato (xlsx), diretorio (output), arquivo
+     * automacao: headless, timeout, retentativas, intervalo
+   - Pendente: usuario preencher url/usuario/senha e a coluna correta da planilha.
+
+9. ACAO EXECUTADA - Instalacao de dependencias:
+   Pacotes instalados com sucesso no .venv:
+   - selenium 4.49.0
+   - pandas 3.0.5
+   - openpyxl 3.1.5
+   - numpy 2.5.3 (dependencia do pandas)
+   - Outras dependencias menores (trio, urllib3, etc.)
+   Nota: pyautogui NAO pôde ser instalado (sem wheel binario para Python 3.14).
+          Como o fluxo sera 100% web (Edge), pyautogui nao e necessario.
+   Versao do Microsoft Edge detectada: 153.0.4234.32
+
+10. Usuario preencheu parametros.json com dados reais:
+    - URL do Tasy (SSO Davita, login via digisystem.cloud)
+    - Usuario: Alexandresilva3
+    - Senha informada
+    - Campo navegador adicionado: "edge"
+
+11. ACAO EXECUTADA - Script de login criado e renomeado:
+    - Criado script Tasy_1033.py (renomeado de tasy_login.py a pedido do usuario).
+    - Funcoes: ler parametros.json, abrir Edge, localizar campos, preencher,
+      efetuar login e capturar screenshots em output/.
+
+PROXIMO PASSO (aguardando autorizacao do usuario)
+--------------------------------------------------
+- Executar rodada de teste do login (abre Edge, preenche e salva screenshots).
+
+CLAUDE-03: EXTRAÇÃO DE LISTA DE ESTABELECIMENTOS
+-------------------------------------------------
+[TODO: preencher com detalhes quando o escopo for definido]

@@ -1,0 +1,26 @@
+{
+  "tasy": {
+    "url": "https://sso.davita.com/idp/SSO.saml2?SAMLRequest=fVJBbtswEPyKwLtEyYkUmLANuHGTGnBtI1Jy6KVgyLVNgCJZLpnWvy8lJ0h6aI4czuzMLHaGvNeOLWM4mQf4FQFD9qfXBtn4MSfRG2Y5KmSG94AsCNYuv2%2FYpCiZ8zZYYTX5IPlcwRHBB2UNydarOdltv2529%2Bvtz7psDlLUMp%2FelE1%2BfVOJnF9ND3l9JSHhTQOiIdkTeEzaOUmj0gDECGuDgZuQoHLS5OU0r%2BquqtmkZtfND5KtUh9leBhVpxAcMkoRbSH5iwq8ELanSjratrtiSD8h2f611BdlpDLHz%2Fs8X0jIvnXdPt%2Fv2o5ky7eOt9Zg7MG34F%2BUgMeHzXuGV3%2BpjgrPGKAvhLZR0o7jeencIAFPPaCNXgBSF5%2B1EhRBRK%2FCeQhMh8BU26MyZDEbHmxciV%2B8mYQ0DHpfuJPSyuHYduDN6Ef27HIC21RuvdrbZHPO7qzvefh%2F96qoRkTJ%2FDBSWTToQKiDAplWoLX9feuBB5iT4COQjC4urv%2Fe2uIv&RelayState=https%3A%2F%2Fdavita.digisystem.cloud%2F%23%2Flogin",
+    "usuario": "Alexandresilva3",
+    "senha": "Tj12mpe34*99",
+    "modo_acesso": "web",
+    "via": "navegador",
+    "navegador": "edge"
+  },
+  "entrada": {
+    "arquivo_estabelecimentos": "ListaEstabelecimentos.xlsx",
+    "planilha": "lista",
+    "coluna_estabelecimento": ""
+  },
+  "saida": {
+    "formato": "xlsx",
+    "diretorio": "output",
+    "arquivo": ""
+  },
+  "automacao": {
+    "headless": false,
+    "timeout_segundos": 30,
+    "max_retentativas": 3,
+    "intervalo_entre_coletas_segundos": 2
+  }
+}
