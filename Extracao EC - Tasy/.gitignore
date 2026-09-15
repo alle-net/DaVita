@@ -2,3 +2,6 @@
 output/
 __pycache__/
 *.pyc
+cliques_registrados.txt
+diologos_nativos.log
+dialogos_nativos.log

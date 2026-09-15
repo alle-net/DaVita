@@ -94,9 +94,40 @@ NOTAS PENDENTES / PROXIMOS PASSOS
     - Funcoes: ler parametros.json, abrir Edge, localizar campos, preencher,
       efetuar login e capturar screenshots em output/.
 
-PROXIMO PASSO (aguardando autorizacao do usuario)
---------------------------------------------------
-- Executar rodada de teste do login (abre Edge, preenche e salva screenshots).
+12. Dialogo de certificado apos login:
+    - Usuario confirmou que e uma janela no navegador, com UM unico certificado (do usuario).
+    - Selenium consegue tratar, pois nao e janela nativa do SO.
+13. Ferramenta de gravacao de cliques (Opcao B escolhida pelo usuario):
+    - Criado gravar_cliques.py: abre o Edge, injeta listener JS de click/input,
+      o usuario clica livremente e o script captura seletor CSS + XPath de cada
+      elemento clicado, gravando em cliques_registrados.txt.
+    - Objetivo: simular usuario humano (pausas naturais entre acoes).
+    - Ajuste: em vez de input() (incompativel com terminal de automacao), passa a
+      capturar automaticamente a cada 2s e encerra quando a janela do Edge for fechada.
+
+14. ACOES IMPLANTADAS - Handler de certificado / popups nativos:
+    - Criado certificado_handler.py (Win32 via ctypes):
+      * Enumera janelas do processo msedge.exe (via EnumProcesses + psapi).
+      * Detecta dialog de certificado por titulo/classe e opcionalmente por
+        ausencia de titulo em dialog nativo.
+      * Clica no botao OK (BM_CLICK) ou envia ENTER, e seleciona item na lista.
+      * Roda em thread paralela (start/monitor/stop) enquanto o login ocorre.
+      * Log completo em dialogos_nativos.log.
+    - Tasy_1033.py atualizado:
+      * importa NativeDialogHandler e inicia a vigia (120s) antes do submit.
+      * Usa send_keys(Keys.ENTER) em vez de submit() (evita timeout do renderer).
+      * page_load_strategy = "none" (nao bloqueia durante navegacao).
+      * Loop de 30x (2s) alternando para novas abas e clicando popups HTML.
+      * Screenshots 01..04 de evidencia.
+      * Log no console com progresso [1/4]..[4/4].
+
+15. CORRIGIDO (2026-09-15):
+    - Indentacao de Tasy_1033.py corrigida (duplo dialog_handler + espacamento).
+
+STATUS FINAL DA SESSAO
+-----------------------
+- Fluxo manual confirmado: SSO -> popup download -> certificado -> dentro do sistema.
+- Handler Win32 em teste, aguardando proxima rodada de validacao completa.
 
 CLAUDE-03: EXTRAÇÃO DE LISTA DE ESTABELECIMENTOS
 -------------------------------------------------
