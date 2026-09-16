@@ -124,11 +124,30 @@ NOTAS PENDENTES / PROXIMOS PASSOS
 15. CORRIGIDO (2026-09-15):
     - Indentacao de Tasy_1033.py corrigida (duplo dialog_handler + espacamento).
 
-STATUS FINAL DA SESSAO
------------------------
+STATUS FINAL DA SESSAO 15/09
+-----------------------------
 - Fluxo manual confirmado: SSO -> popup download -> certificado -> dentro do sistema.
 - Handler Win32 em teste, aguardando proxima rodada de validacao completa.
 
-CLAUDE-03: EXTRAÇÃO DE LISTA DE ESTABELECIMENTOS
--------------------------------------------------
-[TODO: preencher com detalhes quando o escopo for definido]
+SESSAO 16/09
+------------
+16. LOGIN FUNCIONANDO:
+    - Script Tasy_1033.py loga com sucesso no Tasy (SSO DaVita -> digisystem.cloud).
+    - page_load_strategy = "none" (evita timeout na navegacao SSO).
+    - Submit via JS: driver.execute_script("arguments[0].form.submit();", password_field)
+    - Handler Win32 (certificado_handler.py) detecta e clica no dialog de certificado.
+    - click_ok_in_popup trata popup HTML (checkbox do-not-ask-again + botao Fechar/OK).
+    - handle_user_selection adicionado para tratar tela intermediaria de selecao de usuario.
+    - Apos login, URL muda de sso.davita.com para davita.digisystem.cloud.
+
+17. GRAVACAO DE CLIQUES:
+    - gravar_cliques.py registra clicks/inputs com CSS/XPath em cliques_registrados.txt.
+    - Sessoes gravadas: login + checkbox + botao Fechar.
+    - Fluxo pos-login (navegacao ate relatorio 1033) ainda NAO foi gravado.
+
+DECISAO IMPORTANTE: LOGIN JA FUNCIONA - NAO MEXER NO FLUXO DE LOGIN
+----------------------------------------------------------------------
+- Todo cuidado ao alterar Tasy_1033.py ou certificado_handler.py.
+- O login ja esta validado e funcionando.
+- Alteracoes futuras devem ser pontuais e testadas antes de commitar.
+- Proximo passo: gravar/navegar ate relatorio 1033 e implementar extracao.

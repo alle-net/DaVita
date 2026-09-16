@@ -1,7 +1,19 @@
 ﻿import json
+import subprocess
+import sys
 import time
 from datetime import datetime
 from pathlib import Path
+
+# ── Auto-detect venv ────────────────────────────────────────────────────────
+_SCRIPT_DIR = Path(__file__).resolve().parent
+_VENV_PYTHON = _SCRIPT_DIR / ".venv" / "Scripts" / "python.exe"
+if sys.prefix == sys.base_prefix and _VENV_PYTHON.exists():
+    # Não estamos no venv — relança com o Python do venv
+    print(f"[VENV] Reinterpretando com {_VENV_PYTHON} ...")
+    result = subprocess.run([str(_VENV_PYTHON)] + sys.argv, cwd=str(_SCRIPT_DIR))
+    raise SystemExit(result.returncode)
+# ─────────────────────────────────────────────────────────────────────────────
 
 from selenium import webdriver
 from selenium.webdriver.common.by import By
