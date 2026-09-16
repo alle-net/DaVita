@@ -7,6 +7,7 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.edge.options import Options
+from selenium.common.exceptions import WebDriverException
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
@@ -26,9 +27,20 @@ def make_driver(timeout: int) -> webdriver.Edge:
     options = Options()
     options.add_argument("--start-maximized")
     options.add_argument("--disable-notifications")
+    options.add_argument(
+        '--auto-select-certificate-for-urls=' + json.dumps([
+            {
+                "pattern": "https://cert.sso.davita.com/*",
+                "filter": {
+                    "ISSUER": {"CN": "DaVita.corp Intermediate CA"}
+                },
+            }
+        ])
+    )
     options.page_load_strategy = "none"
     driver = webdriver.Edge(options=options)
     driver.set_page_load_timeout(timeout)
+    driver.command_executor.set_timeout(min(timeout, 10))
     return driver
 
 
@@ -93,6 +105,80 @@ def click_ok_in_popup(driver, timeout: int) -> bool:
     return False
 
 
+def close_recorded_dialog(driver, timeout: int) -> bool:
+    """Fecha o dialogo HTML registrado durante a navegacao manual."""
+    try:
+        button = WebDriverWait(driver, timeout).until(
+            EC.element_to_be_clickable(
+                (
+                    By.CSS_SELECTOR,
+                    "#ngdialog1 tasy-wdlgpanel-button button.gwt-Button.btn-gray",
+                )
+            )
+        )
+        if button.text.strip().lower() == "fechar":
+            button.click()
+            print("[INFO] Dialogo HTML registrado fechado")
+            return True
+    except Exception:
+        pass
+    return False
+
+
+def handle_user_selection(driver, timeout: int) -> bool:
+    """Trata tela de seleção de usuário pós-login"""
+    print("[INFO] Verificando tela de seleção de usuário...")
+    try:
+        # Procura por elementos típicos da tela de seleção de usuário
+        user_select = find_element(
+            driver,
+            timeout,
+            (By.XPATH, "//select[contains(@id,'user') or contains(@name,'user')]"),
+            (By.XPATH, "//div[contains(@class,'user')]//select"),
+            (By.XPATH, "//*[contains(text(),'Selecione') or contains(text(),'Usuário')]//following::select[1]"),
+            (By.CSS_SELECTOR, "select"),
+        )
+        if user_select:
+            print("[INFO] Dropdown de usuário encontrado, selecionando...")
+            from selenium.webdriver.support.ui import Select
+            Select(user_select).select_by_index(1)  # Primeira opção válida
+            time.sleep(1)
+
+        # Clica OK/Confirmar
+        for txt in ["ok", "OK", "Ok", "confirmar", "Confirmar", "avançar", "Avançar"]:
+            try:
+                btn = WebDriverWait(driver, timeout).until(
+                    EC.element_to_be_clickable(
+                        (By.XPATH, f"//button[normalize-space(translate(.,'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'))='{txt.lower()}']")
+                    )
+                )
+                btn.click()
+                print(f"[INFO] Botão '{txt}' clicado na seleção de usuário")
+                return True
+            except Exception:
+                continue
+        # Fallback genérico
+        btn = find_element(
+            driver,
+            timeout,
+            (By.CSS_SELECTOR, "button.gwt-Button"),
+            (By.XPATH, "//button[contains(., 'OK') or contains(., 'Ok') or contains(., 'Confirmar')]"),
+        )
+        if btn:
+            btn.click()
+            return True
+    except Exception as e:
+        print(f"[INFO] Tela de usuário não detectada ou já passada: {e}")
+    return False
+
+
+def read_current_url(driver) -> str:
+    try:
+        return driver.current_url or ""
+    except (WebDriverException, OSError, ConnectionError):
+        return ""
+
+
 def main() -> None:
     params = load_params()
     tasy = params["tasy"]
@@ -111,7 +197,10 @@ def main() -> None:
     try:
         print("[1/4] Abrindo sistema...")
         driver.get(url)
-        time.sleep(3)
+        WebDriverWait(driver, auto["timeout_segundos"]).until(
+            lambda d: d.execute_script("return document.readyState") == "complete"
+        )
+        time.sleep(1)
         take_screenshot(driver, "01_pagina_inicial")
 
         user_field = find_element(
@@ -145,7 +234,7 @@ def main() -> None:
 
         dialog_handler.start(timeout=120)
         print("[3/4] Enviando login (aguardando certificado)...")
-        password_field.send_keys(Keys.ENTER)
+        driver.execute_script("arguments[0].form.submit();", password_field)
 
         logado = False
         for attempt in range(30):
@@ -156,14 +245,16 @@ def main() -> None:
                     driver.switch_to.window(handles[-1])
                     print(f"[INFO] Nova aba detectada: {handles[-1]}")
                 click_ok_in_popup(driver, 3)
+                close_recorded_dialog(driver, 3)
+                handle_user_selection(driver, 3)
             except Exception:
                 pass
             try:
-                url_atual = driver.current_url or ""
+                url_atual = read_current_url(driver)
                 if url_atual and "login" not in url_atual.lower() and url_atual != url:
                     logado = True
                     break
-            except Exception:
+            except (WebDriverException, OSError, ConnectionError):
                 continue
             print(f"    ... aguardando ({attempt + 1}/30)")
 

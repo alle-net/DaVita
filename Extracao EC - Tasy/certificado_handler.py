@@ -31,6 +31,8 @@ RTITLE_DEFAULTS = [
 BUTTON_OK = re.compile(r"\bok\b|confirmar|aceitar|avan", re.I)
 BUTTON_CANCEL = re.compile(r"cancel|cancelar", re.I)
 LIST_CLASS = re.compile(r"ListBox|ComboBox|Listview|SysListView32", re.I)
+CERTIFICATE_WINDOW = re.compile(r"selecionar um certificado|select a certificate", re.I)
+CERTIFICATE_USER = re.compile(r"ALEXANDRESILVA3", re.I)
 
 
 class NativeDialogHandler:
@@ -92,7 +94,9 @@ class NativeDialogHandler:
             buf = ctypes.create_unicode_buffer(260)
             size = ctypes.c_ulong(260)
             try:
-                ret = psapi.QueryFullProcessImageNameW(hproc, 0, buf, ctypes.byref(size))
+                ret = kernel32.QueryFullProcessImageNameW(
+                    hproc, 0, buf, ctypes.byref(size)
+                )
             except Exception:
                 ret = 0
             kernel32.CloseHandle(hproc)
@@ -109,14 +113,18 @@ class NativeDialogHandler:
         def cb(hwnd, _):
             if not user32.IsWindowVisible(hwnd):
                 return True
-            pid = self._window_pid(hwnd)
-            if self.edge_pids and pid not in self.edge_pids:
-                pass
             title = self._window_title(hwnd)
             cls = self._window_class(hwnd)
-            if title.strip() and any(p.search(title) for p in self.patterns):
+            title_matches = title.strip() and any(
+                p.search(title) for p in self.patterns
+            )
+            if title_matches:
                 found.append(hwnd)
-            elif cls in ("#32770", "Dialog") and not title.strip():
+            elif (
+                cls in ("#32770", "Dialog")
+                and not title.strip()
+                and self._window_pid(hwnd) in self.edge_pids
+            ):
                 found.append(hwnd)
             return True
 
@@ -201,6 +209,66 @@ class NativeDialogHandler:
     def _press_enter(self, hwnd) -> None:
         self._send_key(hwnd, VK_RETURN)
 
+    def _handle_with_ui_automation(self) -> bool:
+        """Controla o seletor moderno do Edge usando Windows UI Automation."""
+        try:
+            from pywinauto import Desktop
+
+            desktop = Desktop(backend="uia")
+            dialog_windows = []
+            for top_window in desktop.windows():
+                dialog_windows.extend(
+                    control
+                    for control in top_window.descendants()
+                    if control.element_info.control_type == "Window"
+                    and CERTIFICATE_WINDOW.search(control.window_text())
+                )
+
+            for window in dialog_windows:
+                if not window.is_visible():
+                    continue
+
+                self._log(
+                    f"Dialogo UIA detectado | titulo='{window.window_text()}'"
+                )
+                controls = window.descendants()
+                user_item = next(
+                    (
+                        control
+                        for control in controls
+                        if control.element_info.control_type == "List"
+                        and CERTIFICATE_USER.search(control.window_text())
+                    ),
+                    None,
+                )
+                if user_item is not None:
+                    user_item.click_input()
+                    self.last_action = "selecionou_certificado_UIA"
+                    self._log("Acao UIA: certificado do usuario selecionado")
+                else:
+                    self._log("Acao UIA: certificado do usuario nao encontrado")
+                    return False
+
+                ok_button = next(
+                    (
+                        control
+                        for control in controls
+                        if control.element_info.control_type == "Button"
+                        and control.window_text().strip().upper() == "OK"
+                    ),
+                    None,
+                )
+                if ok_button is not None:
+                    ok_button.click_input()
+                    self.last_action = "clicou_OK_UIA"
+                    self._log("Acao UIA: botao OK clicado")
+                    return True
+
+                self._log("Acao UIA: botao OK nao encontrado")
+        except Exception as exc:
+            self._log(f"UIA indisponivel ou dialogo ainda nao pronto: {exc}")
+        return False
+
     def monitor(self, timeout: float = 90.0) -> None:
         start = time.time()
         self._collect_edge_pids()
@@ -211,6 +279,8 @@ class NativeDialogHandler:
             if time.time() - start > timeout:
                 self._log("Timeout da vigia de dialogs alcancado")
                 break
+            self._collect_edge_pids()
+            self._handle_with_ui_automation()
             candidates = self._find_candidate_windows()
             for hwnd in candidates:
                 if hwnd in self.detected:
