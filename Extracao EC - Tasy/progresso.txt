@@ -145,9 +145,40 @@ SESSAO 16/09
     - Sessoes gravadas: login + checkbox + botao Fechar.
     - Fluxo pos-login (navegacao ate relatorio 1033) ainda NAO foi gravado.
 
+18. PYWINAUTO / AMBIENTE VIRTUAL (2026-09-16):
+    - pywinauto 0.6.9 JA ESTAVA instalado no .venv.
+    - Erro "No module named 'pywinauto'" no log era causado pelo script executado
+      com o Python global (WindowsApps\python.exe) em vez do Python do .venv.
+    - Adicionado auto-detect de venv no topo do Tasy_1033.py:
+      * Se sys.prefix == sys.base_prefix (fora do venv) e .venv\Scripts\python.exe
+        existe, o script relanca a si mesmo com o Python do venv.
+      * Fluxo: subprocess.run([venv_python] + sys.argv) + raise SystemExit.
+    - Validado: Python global detecta "fora do venv"; venv Python detecta "dentro".
+    - Teste executado com sucesso (script abriu o Edge, login funcionou).
+
+19. COMMIT (2026-09-16):
+    - Commit 93d33ce: "Tasy_1033: auto-detect venv para garantir pywinauto disponivel"
+    - Enviado para origin/master no GitHub.
+
 DECISAO IMPORTANTE: LOGIN JA FUNCIONA - NAO MEXER NO FLUXO DE LOGIN
 ----------------------------------------------------------------------
 - Todo cuidado ao alterar Tasy_1033.py ou certificado_handler.py.
 - O login ja esta validado e funcionando.
 - Alteracoes futuras devem ser pontuais e testadas antes de commitar.
+- Agora o script pode ser executado com `python Tasy_1033.py` de qualquer lugar
+  (auto-detect de venv garante o uso do .venv\Scripts\python.exe).
 - Proximo passo: gravar/navegar ate relatorio 1033 e implementar extracao.
+
+PROXIMA SESSAO (PENDENCIAS ACORDADAS)
+--------------------------------------
+1. AUTOMATIZAR FECHAMENTO DOS 2 POPUPS QUE APARECEM APOS O LOGIN:
+   - Usuario confirmou que aparecem DOIS popups assim que loga no sistema.
+   - Usar gravar_cliques.py para identificar o CSS/XPath de cada um,
+     ou inspecionar via azeita (desenvolvedores).
+   - Provavelmente sao gwt-Button / ngdialog (como os ja tratados).
+2. NAVEGAR ATE O RELATORIO 1033:
+   - Gravar com gravar_cliques.py o caminho: menu -> submenu -> relatorio 1033.
+   - Registrar os cliques em cliques_registrados.txt.
+3. APOS NAVEGACAO MAPEADA:
+   - Implementar extracao por estabelecimento (ListaEstabelecimentos.xlsx, 148 itens).
+   - Consolidar resultados em CSV gzipado.
