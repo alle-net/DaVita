@@ -208,3 +208,38 @@ SESSAO 17/09 - OTIMIZACAO AUTORIZADA
     - Usuario escolheu mapear navegacao. Aguardando gravacao com
       gravar_cliques.py do caminho menu -> relatorio 1033 com filtros
       (estabelecimento, Inicio, Final) e formato de exportacao.
+
+24. SESSAO 17/09 - FECHADOR GENERICO DE POPUPS (AUTORIZADO PASSO A PASSO):
+    - Usuario: ao logar abrem 2 popups; quer fecha-los e depois navegar ao 1033.
+    - Escolhas: fechador generico + navegacao via busca superior.
+    - Autorizacao parcial: implantar APENAS o fechar popups generico agora.
+    - ACAO EXECUTADA - Tasy_1033.py:
+      * Nova funcao fechar_popups_pos_login(timeout_total=15): loop com
+        find_elements imediatos (sem waits longos), fecha em sequencia:
+        botoes Fechar/OK/Okay/Entendi/gwt-Button/btn-gray dentro de
+        ngdialog/dialog + icones .ngdialog-close/[aria-label=Fechar]/X.
+        Marca do-not-ask-again se visivel. Clique normal + fallback JS.
+      * Integrada no main apos login: screenshots 03a_antes_popup e
+        03b_apos_popup + log de qtd fechada. Login anterior preservado.
+      * Validado: py_compile OK.
+    - PROXIMO (pendente de autorizacao): navegar_1033_via_busca().
+
+25. SESSAO 17/09 - POPUPS REAIS IDENTIFICADOS (PRINT DO USUARIO):
+    - Teste: fechador generico fechou 0. Print mostra 2 popups distintos:
+      a) Bubble nativo do Edge (topo-esq): "davita.digisystem.cloud quer
+         Acessar outros aplicativos e servicos" [Bloquear/Permitir] — fora do DOM.
+      b) Dialog HTML central "TasyNative" com [Nao perguntar novamente] +
+         [Abrir o processo de download] [Fechar] + X — sem classe gwt/ngdialog.
+    - Causa raiz: (a) Selenium nao alcanca UI do navegador; (b) trava antiga
+      exigia ancestor ngdialog/dialog ou classe gwt-Button, e checkbox so por
+      ID do-not-ask-again — TasyNative nao tem nenhum dos dois.
+    - ACAO EXECUTADA (autorizada):
+      * make_driver: --deny-permission-prompts + --disable-features=
+        PermissionChip,PermissionPredictionService + prefs notifications=2,
+        automatic_downloads=1, protocol_handler=2 (suprime bubble a/b).
+      * fechar_popups_pos_login: texto manda (Fechar/OK/Okay/Entendi sempre
+        fecha, sem exigir ancestor); checkbox por texto "nao perguntar";
+        nunca clica em "Abrir o processo de download".
+      * Nova diagnosticar_popups(): grava botoes/inputs visiveis em
+        output/diagnostico_popups.txt (ANTES/DEPOIS) + screenshots 03a/03b.
+      * Validado: py_compile OK.

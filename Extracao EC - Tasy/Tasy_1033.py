@@ -39,6 +39,15 @@ def make_driver(timeout: int) -> webdriver.Edge:
     options = Options()
     options.add_argument("--start-maximized")
     options.add_argument("--disable-notifications")
+    # Suprime bubble "Bloquear/Permitir — Acessar outros aplicativos"
+    # (permissao de protocolo externo / app). Auto-nega sem exibir o bubble.
+    options.add_argument("--deny-permission-prompts")
+    options.add_argument("--disable-features=PermissionChip,PermissionPredictionService")
+    options.add_experimental_option("prefs", {
+        "profile.default_content_setting_values.notifications": 2,
+        "profile.default_content_setting_values.automatic_downloads": 1,
+        "profile.default_content_setting_values.protocol_handler": 2,
+    })
     options.add_argument(
         '--auto-select-certificate-for-urls=' + json.dumps([
             {
@@ -139,6 +148,144 @@ def close_recorded_dialog(driver, timeout: int = 2) -> bool:
     except Exception:
         pass
     return False
+
+
+def fechar_popups_pos_login(driver, timeout_total: int = 15, per_wait: float = 1.0) -> int:
+    """Fechador generico dos 2 popups pos-login (ngdialog / gwt / dialog).
+
+    Estrategia sem waits longos: usa find_elements (retorno imediato) em loop
+    ate timeout_total, fechando em sequencia. Retorna qtd fechada.
+    Nao mexe no fluxo de login — so fecha o que estiver visivel.
+    """
+    xpath_botoes = (
+        "//button[normalize-space(translate(.,'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'))='fechar']"
+        " | //button[normalize-space(translate(.,'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'))='ok']"
+        " | //button[normalize-space(translate(.,'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'))='okay']"
+        " | //button[normalize-space(translate(.,'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'))='entendi']"
+        " | //button[contains(@class,'gwt-Button')]"
+        " | //button[contains(@class,'btn-gray')]"
+    )
+    css_close_icons = [
+        ".ngdialog-close",
+        "[class*='ngdialog-close']",
+        "[class*='dialog-close']",
+        "button[aria-label='Fechar']",
+        "button[aria-label='Close']",
+        "[title='Fechar']",
+    ]
+    deadline = time.time() + timeout_total
+    fechados = 0
+    while time.time() < deadline:
+        if not is_driver_alive(driver):
+            break
+        clicou_nesta_passada = False
+        # Marca "nao perguntar / nao perguntar novamente" por ID ou por texto
+        # (TasyNative usa checkbox sem id, so com label "Não perguntar novamente")
+        try:
+            for cb in driver.find_elements(By.XPATH, "//input[@type='checkbox']"):
+                try:
+                    if not cb.is_displayed():
+                        continue
+                    marcar = False
+                    if cb.get_attribute("id") == "do-not-ask-again":
+                        marcar = True
+                    else:
+                        try:
+                            label_txt = (
+                                cb.find_element(By.XPATH, "./following-sibling::*[1]").text
+                                + " " + cb.find_element(By.XPATH, "./parent::*").text
+                            ).lower()
+                            if "n" in label_txt and "perguntar" in label_txt:
+                                marcar = True
+                        except Exception:
+                            pass
+                    if marcar and not cb.is_selected():
+                        cb.click()
+                        print("[POPUP] Checkbox 'nao perguntar' marcado")
+                except Exception:
+                    pass
+        except Exception:
+            pass
+        # Diagnostico: despeja botoes visiveis 1x por passada sem popup fechado
+        # (ajuda a mapear o seletor exato do TasyNative)
+        # 1) Botoes Fechar/OK/gwt — texto manda, independente de ancestor
+        # (o TasyNative nao usa ngdialog/gwt-Button, entao a trava antiga
+        # impedia o clique; agora texto esperado sempre fecha)
+        try:
+            botoes = driver.find_elements(By.XPATH, xpath_botoes)
+        except Exception:
+            botoes = []
+        for btn in botoes:
+            try:
+                if not btn.is_displayed() or not btn.is_enabled():
+                    continue
+                txt = (btn.text or "").strip().lower()
+                if txt not in ("fechar", "ok", "okay", "entendi"):
+                    # So aceita gwt/btn-gray fora da lista se estiver em dialog
+                    cls = (btn.get_attribute("class") or "").lower()
+                    if "gwt-button" not in cls and "btn-gray" not in cls:
+                        continue
+                # Nunca clicar em "Abrir o processo de download" (nao esta no xpath)
+                try:
+                    btn.click()
+                except Exception:
+                    driver.execute_script("arguments[0].click();", btn)
+                fechados += 1
+                clicou_nesta_passada = True
+                print(f"[POPUP] Fechado ({fechados}): '{txt or btn.get_attribute('class')}'")
+                time.sleep(1.0)
+                break  # revarre a pagina para pegar o 2o popup em sequencia
+            except Exception:
+                continue
+        if clicou_nesta_passada:
+            continue
+        # 2) Icones X de fechar (sem wait)
+        for css in css_close_icons:
+            try:
+                for el in driver.find_elements(By.CSS_SELECTOR, css):
+                    try:
+                        if el.is_displayed() and el.is_enabled():
+                            try:
+                                el.click()
+                            except Exception:
+                                driver.execute_script("arguments[0].click();", el)
+                            fechados += 1
+                            clicou_nesta_passada = True
+                            print(f"[POPUP] Fechado via icone ({fechados}): '{css}'")
+                            time.sleep(1.0)
+                            break
+                    except Exception:
+                        continue
+                if clicou_nesta_passada:
+                    break
+            except Exception:
+                continue
+        if clicou_nesta_passada:
+            continue
+        time.sleep(per_wait)
+    return fechados
+
+
+def diagnosticar_popups(driver, tag: str) -> None:
+    """Lista botoes/inputs visiveis para mapear o seletor exato (TasyNative)."""
+    try:
+        OUTPUT_DIR.mkdir(exist_ok=True)
+        path = OUTPUT_DIR / "diagnostico_popups.txt"
+        with open(path, "a", encoding="utf-8") as f:
+            f.write(f"\n===== {tag} {datetime.now():%Y-%m-%d %H:%M:%S} =====\n")
+            for btn in driver.find_elements(By.XPATH, "//button | //input[@type='checkbox'] | //a[contains(@class,'close')]"):
+                try:
+                    if not btn.is_displayed():
+                        continue
+                    f.write(
+                        f"tag={btn.tag_name} text={(btn.text or '').strip()[:80]!r} "
+                        f"id={btn.get_attribute('id')!r} class={btn.get_attribute('class')!r}\n"
+                    )
+                except Exception:
+                    continue
+        print(f"[DIAG] Botoes visiveis registrados em {path.name}")
+    except Exception as e:
+        print(f"[DIAG] Falha no diagnostico: {e}")
 
 
 def handle_user_selection(driver, timeout: int = 2) -> bool:
@@ -300,6 +447,16 @@ def main() -> None:
             pass
 
         if is_driver_alive(driver):
+            print("[3.5/4] Fechando popups pos-login (generico, 15s)...")
+            take_screenshot(driver, "03a_antes_popup")
+            try:
+                diagnosticar_popups(driver, "ANTES")
+                n_popup = fechar_popups_pos_login(driver, timeout_total=15)
+                print(f"[INFO] Popups fechados: {n_popup}")
+                diagnosticar_popups(driver, "DEPOIS")
+            except Exception as e:
+                print(f"[AVISO] Falha no fechador generico: {e}")
+            take_screenshot(driver, "03b_apos_popup")
             take_screenshot(driver, "03_pos_login")
             time.sleep(2)
             take_screenshot(driver, "04_final")
