@@ -182,3 +182,29 @@ PROXIMA SESSAO (PENDENCIAS ACORDADAS)
 3. APOS NAVEGACAO MAPEADA:
    - Implementar extracao por estabelecimento (ListaEstabelecimentos.xlsx, 148 itens).
    - Consolidar resultados em CSV gzipado.
+
+SESSAO 17/09 - OTIMIZACAO AUTORIZADA
+------------------------------------
+20. Usuario reportou: login demorando muito + console continua tentando achar
+    certificado mesmo apos fechar o navegador. Pediu analise SEM alteracao previa,
+    depois autorizou implantar melhorias propostas.
+21. ACAO EXECUTADA - Tasy_1033.py:
+    - find_element: per_locator=2s com deadline total (antes: 30s por locator).
+    - click_ok_in_popup / handle_user_selection / close_recorded_dialog:
+      1 wait unico com XPath UNION em vez de 4-7 waits sequenciais. Timeout 1-2s.
+    - Loop pos-login: sleep 1.5s, timeouts internos 1s, is_driver_alive() a cada
+      iteracao. Se navegador fechado -> break + return sem screenshots.
+    - dialog_handler.stop() imediato apos logado/break (antes: so no finally).
+      Vigia reduzida de 120s para 60s. driver.quit() com try/except.
+    - Adicionado helper is_driver_alive() via window_handles.
+22. ACAO EXECUTADA - certificado_handler.py:
+    - scan_interval 0.4s -> 1.0s; pid_refresh_seg=5s (antes: EnumProcesses 1024
+      a cada ciclo); uia_cooldown_seg=10s apos OK.
+    - pywinauto Desktop importado 1x e reutilizado (_get_desktop).
+    - _log_once() evita spam de "No module named pywinauto" (cooldown 30s).
+    - monitor() pula varredura Win32 durante cooldown pos-sucesso.
+    - Validado: py_compile OK nos 3 scripts.
+23. PENDENTE PROXIMA ETAPA (mapear navegacao 1033):
+    - Usuario escolheu mapear navegacao. Aguardando gravacao com
+      gravar_cliques.py do caminho menu -> relatorio 1033 com filtros
+      (estabelecimento, Inicio, Final) e formato de exportacao.

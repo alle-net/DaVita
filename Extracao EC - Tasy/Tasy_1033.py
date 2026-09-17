@@ -56,15 +56,30 @@ def make_driver(timeout: int) -> webdriver.Edge:
     return driver
 
 
-def find_element(driver, timeout: int, *locators):
-    wait = WebDriverWait(driver, timeout)
+def find_element(driver, timeout: int, *locators, per_locator: float = 2.0):
+    """Busca rapida: timeout total respeitado, cada locator tenta no max per_locator."""
+    deadline = time.time() + timeout
     for by, value in locators:
+        remaining = deadline - time.time()
+        if remaining <= 0:
+            break
         try:
-            element = wait.until(EC.element_to_be_clickable((by, value)))
+            element = WebDriverWait(driver, min(per_locator, remaining)).until(
+                EC.element_to_be_clickable((by, value))
+            )
             return element
         except Exception:
             continue
     return None
+
+
+def is_driver_alive(driver) -> bool:
+    """Retorna False se o usuario fechou o navegador / sessao caiu."""
+    try:
+        _ = driver.window_handles
+        return True
+    except Exception:
+        return False
 
 
 def take_screenshot(driver, name: str) -> Path:
@@ -75,49 +90,38 @@ def take_screenshot(driver, name: str) -> Path:
     return path
 
 
-def click_ok_in_popup(driver, timeout: int) -> bool:
-    checkbox = find_element(
-        driver,
-        timeout,
-        (By.ID, "do-not-ask-again"),
-        (By.XPATH, "//input[@type='checkbox']"),
-    )
-    if checkbox:
+def click_ok_in_popup(driver, timeout: int = 2) -> bool:
+    # 1 wait unico para checkbox (curto, nao bloqueia)
+    try:
+        checkbox = WebDriverWait(driver, 1).until(
+            EC.element_to_be_clickable((By.ID, "do-not-ask-again"))
+        )
         if not checkbox.is_selected():
             try:
                 checkbox.click()
             except Exception:
                 pass
-
-    for txt in ["ok", "OK", "Ok", "okay"]:
-        try:
-            btn = WebDriverWait(driver, timeout).until(
-                EC.element_to_be_clickable(
-                    (By.XPATH, f"//button[normalize-space(translate(.,'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'))='{txt.lower()}']")
-                )
-            )
-            btn.click()
-            return True
-        except Exception:
-            continue
-
-    try:
-        btn = find_element(
-            driver,
-            timeout,
-            (By.CSS_SELECTOR, "button.gwt-Button"),
-            (By.XPATH, "//button[contains(., 'OK')]"),
-            (By.XPATH, "//button[contains(., 'Ok')]"),
-        )
-        if btn:
-            btn.click()
-            return True
     except Exception:
         pass
-    return False
+
+    # 1 wait unico com UNION de XPaths (ok/okay/fechar) — em vez de 4+ waits
+    xpath_union = (
+        "//button[normalize-space(translate(.,'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'))='ok']"
+        " | //button[normalize-space(translate(.,'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'))='okay']"
+        " | //button[normalize-space(translate(.,'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'))='fechar']"
+        " | //button[contains(@class,'gwt-Button')]"
+    )
+    try:
+        btn = WebDriverWait(driver, timeout).until(
+            EC.element_to_be_clickable((By.XPATH, xpath_union))
+        )
+        btn.click()
+        return True
+    except Exception:
+        return False
 
 
-def close_recorded_dialog(driver, timeout: int) -> bool:
+def close_recorded_dialog(driver, timeout: int = 2) -> bool:
     """Fecha o dialogo HTML registrado durante a navegacao manual."""
     try:
         button = WebDriverWait(driver, timeout).until(
@@ -137,51 +141,39 @@ def close_recorded_dialog(driver, timeout: int) -> bool:
     return False
 
 
-def handle_user_selection(driver, timeout: int) -> bool:
-    """Trata tela de seleção de usuário pós-login"""
-    print("[INFO] Verificando tela de seleção de usuário...")
+def handle_user_selection(driver, timeout: int = 2) -> bool:
+    """Trata tela de seleção de usuário pós-login (versao rapida, 1-2 waits)."""
     try:
-        # Procura por elementos típicos da tela de seleção de usuário
         user_select = find_element(
             driver,
-            timeout,
+            1,
             (By.XPATH, "//select[contains(@id,'user') or contains(@name,'user')]"),
-            (By.XPATH, "//div[contains(@class,'user')]//select"),
-            (By.XPATH, "//*[contains(text(),'Selecione') or contains(text(),'Usuário')]//following::select[1]"),
             (By.CSS_SELECTOR, "select"),
+            per_locator=1.0,
         )
         if user_select:
             print("[INFO] Dropdown de usuário encontrado, selecionando...")
             from selenium.webdriver.support.ui import Select
-            Select(user_select).select_by_index(1)  # Primeira opção válida
-            time.sleep(1)
-
-        # Clica OK/Confirmar
-        for txt in ["ok", "OK", "Ok", "confirmar", "Confirmar", "avançar", "Avançar"]:
             try:
-                btn = WebDriverWait(driver, timeout).until(
-                    EC.element_to_be_clickable(
-                        (By.XPATH, f"//button[normalize-space(translate(.,'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'))='{txt.lower()}']")
-                    )
-                )
-                btn.click()
-                print(f"[INFO] Botão '{txt}' clicado na seleção de usuário")
-                return True
+                Select(user_select).select_by_index(1)
+                time.sleep(0.5)
             except Exception:
-                continue
-        # Fallback genérico
-        btn = find_element(
-            driver,
-            timeout,
-            (By.CSS_SELECTOR, "button.gwt-Button"),
-            (By.XPATH, "//button[contains(., 'OK') or contains(., 'Ok') or contains(., 'Confirmar')]"),
+                pass
+
+        xpath_union = (
+            "//button[normalize-space(translate(.,'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'))='ok']"
+            " | //button[normalize-space(translate(.,'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'))='confirmar']"
+            " | //button[normalize-space(translate(.,'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'))='avançar']"
+            " | //button[contains(@class,'gwt-Button')]"
         )
-        if btn:
-            btn.click()
-            return True
-    except Exception as e:
-        print(f"[INFO] Tela de usuário não detectada ou já passada: {e}")
-    return False
+        btn = WebDriverWait(driver, timeout).until(
+            EC.element_to_be_clickable((By.XPATH, xpath_union))
+        )
+        btn.click()
+        print("[INFO] Botão de confirmação clicado na seleção de usuário")
+        return True
+    except Exception:
+        return False
 
 
 def read_current_url(driver) -> str:
@@ -244,21 +236,29 @@ def main() -> None:
         password_field.send_keys(senha)
         take_screenshot(driver, "02_login_preenchido")
 
-        dialog_handler.start(timeout=120)
+        dialog_handler.start(timeout=60)
         print("[3/4] Enviando login (aguardando certificado)...")
         driver.execute_script("arguments[0].form.submit();", password_field)
 
         logado = False
-        for attempt in range(30):
-            time.sleep(2)
+        browser_fechado = False
+        max_attempts = 30
+        for attempt in range(max_attempts):
+            time.sleep(1.5)
+            # Se o usuario fechou o navegador, encerra imediatamente
+            if not is_driver_alive(driver):
+                print("[ENCERRADO] Janela do navegador fechada pelo usuario.")
+                browser_fechado = True
+                break
             try:
                 handles = driver.window_handles
                 if len(handles) > 1:
                     driver.switch_to.window(handles[-1])
                     print(f"[INFO] Nova aba detectada: {handles[-1]}")
-                click_ok_in_popup(driver, 3)
-                close_recorded_dialog(driver, 3)
-                handle_user_selection(driver, 3)
+                # Timeouts curtos (1s) — nao bloqueiam o loop
+                click_ok_in_popup(driver, 1)
+                close_recorded_dialog(driver, 1)
+                handle_user_selection(driver, 1)
             except Exception:
                 pass
             try:
@@ -267,29 +267,52 @@ def main() -> None:
                     logado = True
                     break
             except (WebDriverException, OSError, ConnectionError):
+                # Sessao caiu junto com o navegador
+                if not is_driver_alive(driver):
+                    print("[ENCERRADO] Sessao perdida (navegador fechado).")
+                    browser_fechado = True
+                    break
                 continue
-            print(f"    ... aguardando ({attempt + 1}/30)")
+            print(f"    ... aguardando ({attempt + 1}/{max_attempts})")
+
+        # Certificado ja foi tratado ou login concluiu -> para a vigia na hora
+        dialog_handler.stop()
+
+        if browser_fechado:
+            print("[FIM] Encerrado pelo usuario, sem screenshots finais.")
+            return
 
         if logado:
             print("LOGIN APARENTEMENTE OK")
-            print(f"URL atual: {driver.current_url}")
+            try:
+                print(f"URL atual: {driver.current_url}")
+            except Exception:
+                pass
         else:
             print("ATENCAO: pode ainda estar na tela de login ou popup pendente")
 
         try:
-            handles = driver.window_handles
-            if len(handles) > 1:
-                driver.switch_to.window(handles[-1])
+            if is_driver_alive(driver):
+                handles = driver.window_handles
+                if len(handles) > 1:
+                    driver.switch_to.window(handles[-1])
         except Exception:
             pass
 
-        take_screenshot(driver, "03_pos_login")
-        time.sleep(3)
-        take_screenshot(driver, "04_final")
+        if is_driver_alive(driver):
+            take_screenshot(driver, "03_pos_login")
+            time.sleep(2)
+            take_screenshot(driver, "04_final")
         print("[4/4] FLUXO CONCLUIDO")
     finally:
-        dialog_handler.stop()
-        driver.quit()
+        try:
+            dialog_handler.stop()
+        except Exception:
+            pass
+        try:
+            driver.quit()
+        except Exception:
+            pass
 
 
 if __name__ == "__main__":

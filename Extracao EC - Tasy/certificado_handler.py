@@ -36,13 +36,22 @@ CERTIFICATE_USER = re.compile(r"ALEXANDRESILVA3", re.I)
 
 
 class NativeDialogHandler:
-    def __init__(self, title_patterns=None, scan_interval=0.4):
+    def __init__(self, title_patterns=None, scan_interval=1.0,
+                 pid_refresh_seg=5.0, uia_cooldown_seg=10.0):
         self.patterns = title_patterns or RTITLE_DEFAULTS
         self.scan_interval = scan_interval
+        self.pid_refresh_seg = pid_refresh_seg
+        self.uia_cooldown_seg = uia_cooldown_seg
         self.edge_pids = set()
         self._stop = threading.Event()
         self.detected = []
         self.last_action = ""
+        self._last_pid_collect = 0.0
+        self._last_uia_ok = 0.0
+        self._last_uia_error = ""
+        self._last_uia_error_time = 0.0
+        self._desktop = None
+        self._pywinauto_ok = None
 
     def _log(self, msg: str) -> None:
         with open(LOG_PATH, "a", encoding="utf-8") as f:
@@ -209,12 +218,41 @@ class NativeDialogHandler:
     def _press_enter(self, hwnd) -> None:
         self._send_key(hwnd, VK_RETURN)
 
-    def _handle_with_ui_automation(self) -> bool:
-        """Controla o seletor moderno do Edge usando Windows UI Automation."""
+    def _get_desktop(self):
+        """Importa pywinauto uma unica vez e reutiliza o objeto Desktop."""
+        if self._pywinauto_ok is False:
+            return None
+        if self._desktop is not None:
+            return self._desktop
         try:
             from pywinauto import Desktop
 
-            desktop = Desktop(backend="uia")
+            self._desktop = Desktop(backend="uia")
+            self._pywinauto_ok = True
+            return self._desktop
+        except Exception as exc:
+            self._pywinauto_ok = False
+            self._log_once(f"UIA indisponivel: {exc}")
+            return None
+
+    def _log_once(self, msg: str, cooldown: float = 30.0) -> None:
+        """Evita spam de log: repete a mesma mensagem no max a cada cooldown."""
+        now = time.time()
+        if msg == self._last_uia_error and (now - self._last_uia_error_time) < cooldown:
+            return
+        self._last_uia_error = msg
+        self._last_uia_error_time = now
+        self._log(msg)
+
+    def _handle_with_ui_automation(self) -> bool:
+        """Controla o seletor moderno do Edge usando Windows UI Automation."""
+        # Cooldown apos sucesso: nao precisa varrer tudo a cada 1s
+        if time.time() - self._last_uia_ok < self.uia_cooldown_seg:
+            return True
+        try:
+            desktop = self._get_desktop()
+            if desktop is None:
+                return False
             dialog_windows = []
             for top_window in desktop.windows():
                 dialog_windows.extend(
@@ -261,17 +299,19 @@ class NativeDialogHandler:
                 if ok_button is not None:
                     ok_button.click_input()
                     self.last_action = "clicou_OK_UIA"
+                    self._last_uia_ok = time.time()
                     self._log("Acao UIA: botao OK clicado")
                     return True
 
                 self._log("Acao UIA: botao OK nao encontrado")
         except Exception as exc:
-            self._log(f"UIA indisponivel ou dialogo ainda nao pronto: {exc}")
+            self._log_once(f"UIA indisponivel ou dialogo ainda nao pronto: {exc}")
         return False
 
     def monitor(self, timeout: float = 90.0) -> None:
         start = time.time()
         self._collect_edge_pids()
+        self._last_pid_collect = time.time()
         self._log(
             f"Inicio vigia | edge_pids={sorted(self.edge_pids)} | timeout={timeout}s"
         )
@@ -279,15 +319,24 @@ class NativeDialogHandler:
             if time.time() - start > timeout:
                 self._log("Timeout da vigia de dialogs alcancado")
                 break
-            self._collect_edge_pids()
+            # Coleta de PIDs cara: so a cada pid_refresh_seg
+            if time.time() - self._last_pid_collect >= self.pid_refresh_seg:
+                self._collect_edge_pids()
+                self._last_pid_collect = time.time()
             self._handle_with_ui_automation()
+            # Se ja tratou certificado via UIA, reduz varredura Win32
+            if time.time() - self._last_uia_ok < self.uia_cooldown_seg:
+                time.sleep(self.scan_interval)
+                continue
             candidates = self._find_candidate_windows()
             for hwnd in candidates:
+                if self._stop.is_set():
+                    break
                 if hwnd in self.detected:
                     continue
                 self.detected.append(hwnd)
                 self._handle_dialog(hwnd)
-                time.sleep(2.0)
+                time.sleep(1.0)
             time.sleep(self.scan_interval)
         self._log("Vigia de dialogs encerrada")
 
