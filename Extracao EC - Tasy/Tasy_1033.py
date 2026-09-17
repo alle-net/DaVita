@@ -548,39 +548,127 @@ def navegar_ate_relatorio_1033(driver, timeout: int = 20) -> bool:
         return False
     time.sleep(3)
     take_screenshot(driver, "05e_resultado_filtro")
-    # 6) Duplo clique no nome do relatorio
-    alvo = None
-    for xp in (f"//*[contains(.,'CATE-1033')]",
-               f"//*[contains(.,'{RELATORIO_NOME[:30]}')]"):
+    # 6) Abrir o relatorio (com verificacao real de navegacao)
+    # BUG ANTIGO: //*[contains(.,'CATE-1033')] casa ANCESTRAIS (body/divs)
+    # grandes primeiro -> duplo clique no container nao faz nada, mas
+    # logava sucesso. Screenshots 06_* provaram que continuava na Lista.
+    def _relatorio_abriu() -> bool:
+        """True se saiu da Lista e entrou nos Parametros do relatorio."""
+        try:
+            body_txt = (driver.find_element(By.TAG_NAME, "body").text or "").lower()
+        except Exception:
+            return False
+        marcadores_fortes = (
+            "filtros avançados", "filtros avancados", "filtro avançado",
+            "estabelecimento", "títulos", "titulos",
+            "período da conta", "periodo da conta",
+        )
+        return any(m in body_txt for m in marcadores_fortes)
+
+    # Candidatos FOLHA: contains(text(),...) nao casa ancestral como contains(.,...)
+    candidatos = []
+    for xp in (
+        "//*[contains(text(),'CATE-1033')]",
+        f"//*[contains(text(),'{RELATORIO_NOME[:30]}')]",
+    ):
         try:
             for el in driver.find_elements(By.XPATH, xp):
                 try:
-                    if el.is_displayed() and "CATE-1033" in (el.text or ""):
-                        alvo = el
-                        break
+                    if not el.is_displayed():
+                        continue
+                    txt = (el.text or "").strip()
+                    if "CATE-1033" not in txt and RELATORIO_NOME[:20] not in txt:
+                        continue
+                    # prefere o no mais especifico (texto mais curto = mais folha)
+                    candidatos.append((len(txt), el))
                 except Exception:
                     continue
-            if alvo is not None:
-                break
         except Exception:
             continue
-    if alvo is None:
+    # ordena: menor texto primeiro (linha/celula, nao o body inteiro)
+    candidatos.sort(key=lambda t: t[0])
+    # remove duplicados do mesmo elemento
+    vistos = set()
+    alvos = []
+    for _, el in candidatos:
+        try:
+            key = el.id
+        except Exception:
+            continue
+        if key not in vistos:
+            vistos.add(key)
+            alvos.append(el)
+    if not alvos:
         print("[ERRO] Relatorio CATE-1033 nao encontrado na grade")
         take_screenshot(driver, "erro_relatorio_nao_achado")
         return False
+    print(f"[NAV] {len(alvos)} candidato(s) folha para CATE-1033")
+    alvo = alvos[0]
     try:
-        ActionChains(driver).double_click(alvo).perform()
-        print("[NAV] Duplo clique no relatorio CATE-1033")
+        driver.execute_script("arguments[0].scrollIntoView({block:'center'});", alvo)
+        time.sleep(0.5)
     except Exception:
+        pass
+
+    aberto = False
+    for tentativa in range(1, 4):
         try:
-            safe_click(driver, alvo)
-            time.sleep(1)
-            safe_click(driver, alvo)
+            # re-resolve o alvo (evita stale) — pega o 1o visivel de novo
+            try:
+                els = driver.find_elements(By.XPATH, "//*[contains(text(),'CATE-1033')]")
+                for e in sorted(els, key=lambda x: len((x.text or ""))):
+                    try:
+                        if e.is_displayed() and "CATE-1033" in (e.text or ""):
+                            alvo = e
+                            break
+                    except Exception:
+                        continue
+            except Exception:
+                pass
+            if tentativa == 1:
+                # 1) click simples p/ selecionar + duplo clique ActionChains
+                safe_click(driver, alvo)
+                time.sleep(1.0)
+                ActionChains(driver).double_click(alvo).perform()
+                print(f"[NAV] Tentativa {tentativa}: click + duplo clique ActionChains")
+            elif tentativa == 2:
+                # 2) duplo clique + ENTER (Tasy costuma abrir com Enter)
+                ActionChains(driver).double_click(alvo).perform()
+                time.sleep(0.8)
+                alvo.send_keys(Keys.ENTER)
+                print(f"[NAV] Tentativa {tentativa}: duplo clique + ENTER")
+            else:
+                # 3) click simples + botao Visualizar (visivel no rodape da Lista)
+                safe_click(driver, alvo)
+                time.sleep(1.0)
+                print(f"[NAV] Tentativa {tentativa}: click + botao Visualizar")
+                if not clicar_por_texto(driver, 5, "Visualizar", tag="button"):
+                    # fallback: duplo clique via JS (dispara dblclick nativo)
+                    try:
+                        driver.execute_script(
+                            "var e1=new MouseEvent('dblclick',{bubbles:true,cancelable:true});"
+                            "arguments[0].dispatchEvent(e1);", alvo)
+                    except Exception:
+                        pass
+            time.sleep(3)
+            take_screenshot(driver, f"06_tentativa_{tentativa}")
+            if _relatorio_abriu():
+                print(f"[NAV] Relatorio CATE-1033 ABERTO (tentativa {tentativa})")
+                aberto = True
+                break
+            else:
+                print(f"[NAV] Tentativa {tentativa} nao saiu da Lista, retry...")
         except Exception as e:
-            print(f"[ERRO] Duplo clique falhou: {e}")
-            return False
-    time.sleep(3)
+            print(f"[NAV] Tentativa {tentativa} falhou: {e}")
+            time.sleep(2)
     take_screenshot(driver, "06_relatorio_aberto")
+    if not aberto:
+        print("[ERRO] Relatorio nao abriu apos 3 tentativas — continua na Lista. Veja 06_tentativa_*.png")
+        try:
+            diagnosticar_popups(driver, "RELATORIO_NAO_ABRIU")
+        except Exception:
+            pass
+        return False
     return True
 
 
@@ -631,31 +719,73 @@ def preencher_datas_e_titulos(driver, inicio: str, fim: str) -> bool:
                     pass
         except Exception:
             pass
-    # Titulos = ambos (radio)
+    # Titulos = Ambos (radio) — robusto: associa input ao texto vizinho
     try:
-        radios = driver.find_elements(By.XPATH,
-            "//label[contains(translate(.,'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'ambos')]"
-            " | //span[contains(translate(.,'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'ambos')]"
-            " | //input[@type='radio'][contains(translate(@value,'AMBOS','ambos'),'ambos')]")
-        for r in radios:
+        marcado = False
+        for inp in driver.find_elements(By.XPATH, "//input[@type='radio']"):
             try:
-                if r.is_displayed():
-                    if r.tag_name.lower() == "input":
-                        if not r.is_selected():
-                            safe_click(driver, r)
-                    else:
+                if not inp.is_displayed():
+                    continue
+                try:
+                    ctx = (
+                        (inp.find_element(By.XPATH, "./parent::*").text or "")
+                        + " " + (inp.find_element(By.XPATH, "./following-sibling::*[1]").text or "")
+                        + " " + (inp.get_attribute("value") or "")
+                        + " " + (inp.find_element(By.XPATH, "./parent::label").text or "")
+                    ).lower()
+                except Exception:
+                    try:
+                        ctx = ((inp.get_attribute("value") or "") + " " + (inp.find_element(By.XPATH, "./following::*[1]").text or "")).lower()
+                    except Exception:
+                        continue
+                if "ambos" in ctx:
+                    try:
+                        driver.execute_script("arguments[0].scrollIntoView({block:'center'});", inp)
+                        time.sleep(0.3)
+                    except Exception:
+                        pass
+                    if not inp.is_selected():
                         try:
-                            inp = r.find_element(By.XPATH, ".//input[@type='radio'] | ./preceding::input[@type='radio'][1]")
-                            if not inp.is_selected():
-                                safe_click(driver, inp)
-                            else:
-                                pass
+                            inp.click()
                         except Exception:
-                            safe_click(driver, r)
-                    print("[FILTRO] Titulos=ambos marcado")
-                    break
+                            driver.execute_script("arguments[0].click();", inp)
+                        time.sleep(0.5)
+                    # verifica de verdade
+                    try:
+                        if inp.is_selected():
+                            print("[FILTRO] Titulos=Ambos marcado (verificado)")
+                            marcado = True
+                            break
+                    except Exception:
+                        marcado = True
+                        break
             except Exception:
                 continue
+        if not marcado:
+            # fallback: clica no label/span "Ambos" via JS
+            for xp in (
+                "//label[contains(translate(.,'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'ambos')]",
+                "//span[contains(translate(.,'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'ambos')]",
+            ):
+                try:
+                    for r in driver.find_elements(By.XPATH, xp):
+                        try:
+                            if r.is_displayed():
+                                driver.execute_script("arguments[0].click();", r)
+                                time.sleep(0.5)
+                                print("[FILTRO] Titulos=Ambos clicado via label (fallback)")
+                                marcado = True
+                                break
+                        except Exception:
+                            continue
+                    if marcado:
+                        break
+                except Exception:
+                    continue
+        if not marcado:
+            print("[AVISO] Radio 'Ambos' nao confirmado — veja 06b_filtros_base.png")
+    except Exception as e:
+        print(f"[AVISO] Falha radio Ambos: {e}")
     except Exception:
         pass
     take_screenshot(driver, "06b_filtros_base")
@@ -663,9 +793,9 @@ def preencher_datas_e_titulos(driver, inicio: str, fim: str) -> bool:
 
 
 def selecionar_estabelecimento(driver, nome: str, timeout: int = 20) -> bool:
-    """Passos 9-10: Filtros avancados > buscar estabelecimento > Selecionar."""
+    """Passos 9-10: Filtro avancado (singular, link canto inferior) > buscar > Selecionar."""
     print(f"[EXT] Selecionando estabelecimento '{nome}'...")
-    if not clicar_por_texto(driver, 10, "Filtros avançados", "Filtros avancados", tag="*"):
+    if not clicar_por_texto(driver, 10, "Filtro avançado", "Filtro avancado", "Filtros avançados", "Filtros avancados", tag="*"):
         print("[ERRO] 'Filtros avancados' nao encontrado")
         take_screenshot(driver, "erro_filtros_avancados")
         return False
