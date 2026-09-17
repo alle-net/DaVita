@@ -1,4 +1,6 @@
 ﻿import json
+import re
+import shutil
 import subprocess
 import sys
 import time
@@ -16,6 +18,7 @@ if sys.prefix == sys.base_prefix and _VENV_PYTHON.exists():
 # ─────────────────────────────────────────────────────────────────────────────
 
 from selenium import webdriver
+from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.edge.options import Options
@@ -28,6 +31,71 @@ from certificado_handler import NativeDialogHandler
 BASE_DIR = Path(__file__).resolve().parent
 PARAMS_PATH = BASE_DIR / "parametros.json"
 OUTPUT_DIR = BASE_DIR / "output"
+RELATORIO_NOME = "DaVita - Etapa Conta - Por Periodo da Conta (CATE-1033)"
+RELATORIO_CODIGO = "1033"
+
+
+def pasta_downloads_1033() -> Path:
+    """Pasta 1033 na area de Downloads (passo 9 do roteiro)."""
+    p = Path.home() / "Downloads" / "1033"
+    p.mkdir(parents=True, exist_ok=True)
+    return p
+
+
+def sanitizar_nome(nome: str) -> str:
+    n = re.sub(r"[\\/:*?\"<>|]+", "_", nome.strip())
+    n = re.sub(r"\s+", " ", n).strip()
+    return n[:120] if n else "estabelecimento"
+
+
+def safe_click(driver, el) -> bool:
+    try:
+        el.click()
+        return True
+    except Exception:
+        try:
+            driver.execute_script("arguments[0].scrollIntoView({block:'center'});", el)
+            time.sleep(0.3)
+            driver.execute_script("arguments[0].click();", el)
+            return True
+        except Exception:
+            return False
+
+
+def clicar_por_texto(driver, timeout: int, *textos, tag: str = "button") -> bool:
+    """Clica no primeiro elemento visivel cujo texto exato (case-insensitive) bata."""
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        for txt in textos:
+            try:
+                els = driver.find_elements(
+                    By.XPATH,
+                    f"//{tag}[normalize-space(translate(.,'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'))='{txt.lower()}']",
+                )
+                for el in els:
+                    try:
+                        if el.is_displayed() and el.is_enabled() and safe_click(driver, el):
+                            print(f"[NAV] Clicado {tag} '{txt}'")
+                            return True
+                    except Exception:
+                        continue
+            except Exception:
+                pass
+        # fallback parcial: contem o texto
+        for txt in textos:
+            try:
+                els = driver.find_elements(By.XPATH, f"//{tag}[contains(translate(.,'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'{txt.lower()}')]")
+                for el in els:
+                    try:
+                        if el.is_displayed() and el.is_enabled() and safe_click(driver, el):
+                            print(f"[NAV] Clicado {tag} (contem) '{txt}'")
+                            return True
+                    except Exception:
+                        continue
+            except Exception:
+                pass
+        time.sleep(0.5)
+    return False
 
 
 def load_params() -> dict:
@@ -43,10 +111,15 @@ def make_driver(timeout: int) -> webdriver.Edge:
     # (permissao de protocolo externo / app). Auto-nega sem exibir o bubble.
     options.add_argument("--deny-permission-prompts")
     options.add_argument("--disable-features=PermissionChip,PermissionPredictionService")
+    dl_dir = str(Path.home() / "Downloads")
     options.add_experimental_option("prefs", {
         "profile.default_content_setting_values.notifications": 2,
         "profile.default_content_setting_values.automatic_downloads": 1,
         "profile.default_content_setting_values.protocol_handler": 2,
+        "download.default_directory": dl_dir,
+        "download.prompt_for_download": False,
+        "download.directory_upgrade": True,
+        "safebrowsing.enabled": True,
     })
     options.add_argument(
         '--auto-select-certificate-for-urls=' + json.dumps([
@@ -162,8 +235,6 @@ def fechar_popups_pos_login(driver, timeout_total: int = 15, per_wait: float = 1
         " | //button[normalize-space(translate(.,'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'))='ok']"
         " | //button[normalize-space(translate(.,'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'))='okay']"
         " | //button[normalize-space(translate(.,'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'))='entendi']"
-        " | //button[contains(@class,'gwt-Button')]"
-        " | //button[contains(@class,'btn-gray')]"
     )
     css_close_icons = [
         ".ngdialog-close",
@@ -220,11 +291,9 @@ def fechar_popups_pos_login(driver, timeout_total: int = 15, per_wait: float = 1
                 if not btn.is_displayed() or not btn.is_enabled():
                     continue
                 txt = (btn.text or "").strip().lower()
+                # Restrito a textos exatos (evita falso positivo 'copiar url')
                 if txt not in ("fechar", "ok", "okay", "entendi"):
-                    # So aceita gwt/btn-gray fora da lista se estiver em dialog
-                    cls = (btn.get_attribute("class") or "").lower()
-                    if "gwt-button" not in cls and "btn-gray" not in cls:
-                        continue
+                    continue
                 # Nunca clicar em "Abrir o processo de download" (nao esta no xpath)
                 try:
                     btn.click()
@@ -321,6 +390,404 @@ def handle_user_selection(driver, timeout: int = 2) -> bool:
         return True
     except Exception:
         return False
+
+
+def carregar_estabelecimentos() -> list:
+    """Le ListaEstabelecimentos.xlsx (aba Lista). Retorna [{nome, inicio, fim}]."""
+    import pandas as pd
+
+    params = load_params()
+    entrada = params.get("entrada", {})
+    xlsx = BASE_DIR / entrada.get("arquivo_estabelecimentos", "ListaEstabelecimentos.xlsx")
+    # Nome da aba case-insensitive ('lista' vs 'Lista')
+    aba_cfg = (entrada.get("planilha", "lista") or "lista")
+    try:
+        xls_abas = pd.ExcelFile(xlsx)
+        real = next((s for s in xls_abas.sheet_names if s.lower() == aba_cfg.lower()), aba_cfg)
+    except Exception:
+        real = aba_cfg
+    df = pd.read_excel(xlsx, sheet_name=real)
+    df.columns = [str(c).strip() for c in df.columns]
+    # Coluna de nome: tenta ds_estabelecimento ou primeira coluna
+    col_nome = None
+    for cand in ("ds_estabelecimento", "estabelecimento", "nome", "unidade"):
+        for c in df.columns:
+            if c.lower() == cand:
+                col_nome = c
+                break
+    if col_nome is None:
+        col_nome = df.columns[0]
+    col_ini = next((c for c in df.columns if c.lower() in ("inicio", "início", "dt_inicio", "data_inicio")), None)
+    col_fim = next((c for c in df.columns if c.lower() in ("final", "fim", "dt_fim", "data_fim")), None)
+    # Fallback global da aba Parametros
+    ini_global = fim_global = None
+    try:
+        xls = pd.read_excel(xlsx, sheet_name=None)
+        for aba in xls.values():
+            aba.columns = [str(c).strip() for c in aba.columns]
+            cmap = {c.lower(): c for c in aba.columns}
+            if "inicio" in cmap or "início" in cmap:
+                ci = cmap.get("inicio", cmap.get("início"))
+                cf = cmap.get("final", cmap.get("fim"))
+                ini_global = aba.iloc[0][ci]
+                fim_global = aba.iloc[0][cf] if cf else None
+                break
+    except Exception:
+        pass
+
+    def fmt(v, fallback):
+        v = v if v is not None and str(v) != "nan" else fallback
+        if v is None:
+            return ""
+        try:
+            d = pd.to_datetime(v, dayfirst=True)
+            return d.strftime("%d/%m/%Y")
+        except Exception:
+            return str(v).strip()
+
+    lista = []
+    for _, row in df.iterrows():
+        nome = str(row[col_nome]).strip()
+        if not nome or nome.lower() == "nan":
+            continue
+        ini = fmt(row[col_ini] if col_ini else None, ini_global)
+        fim = fmt(row[col_fim] if col_fim else None, fim_global)
+        lista.append({"nome": nome, "inicio": ini, "fim": fim})
+    print(f"[DADOS] {len(lista)} estabelecimentos carregados de {xlsx.name}")
+    return lista
+
+
+def navegar_ate_relatorio_1033(driver, timeout: int = 20) -> bool:
+    """Passos 1-6: Utilitarios > Impressao de relatorios > codigo 1033 > filtro > duplo clique."""
+    print("[5/7] Navegando ate impressao de relatorios...")
+    take_screenshot(driver, "05a_home")
+    # 1) Aba Utilitarios
+    if not clicar_por_texto(driver, 10, "Utilitários", "Utilitarios", tag="*"):
+        print("[ERRO] Aba Utilitarios nao encontrada")
+        take_screenshot(driver, "erro_aba_utilitarios")
+        return False
+    time.sleep(1.5)
+    take_screenshot(driver, "05b_utilitarios")
+    # 2) Impressao de relatorios
+    ok = clicar_por_texto(driver, 10, "Impressão de relatórios", "Impressao de relatorios", "Impressao de Relatorios", tag="*")
+    if not ok:
+        # tenta via busca superior como fallback
+        print("[NAV] Tentando via busca superior 'Impressao de relatorios'...")
+        try:
+            busca = find_element(driver, 8,
+                (By.XPATH, "//input[@type='text']"),
+                (By.XPATH, "//input[not(@type) or @type='search']"),
+                (By.CSS_SELECTOR, "input"),
+                per_locator=2.0)
+            if busca:
+                busca.clear()
+                busca.send_keys("Impressao de relatorios")
+                time.sleep(2)
+                clicar_por_texto(driver, 5, "Impressão de relatórios", "Impressao de relatorios", tag="*")
+        except Exception:
+            pass
+    time.sleep(2)
+    take_screenshot(driver, "05c_impressao")
+    # 3) Textbox codigo = 1033
+    codigo_ok = False
+    for xp in ("//input[contains(translate(@placeholder,'CODIGO','codigo'),'codigo')]",
+               "//label[contains(translate(.,'CODIGO','codigo'),'digo')]/following::input[1]",
+               "//span[contains(translate(.,'CODIGO','codigo'),'digo')]/following::input[1]",
+               "//input[@type='text']"):
+        try:
+            els = driver.find_elements(By.XPATH, xp)
+            for el in els:
+                try:
+                    if el.is_displayed() and el.is_enabled():
+                        el.clear()
+                        el.send_keys(RELATORIO_CODIGO)
+                        codigo_ok = True
+                        print(f"[NAV] Codigo 1033 digitado ({xp[:40]})")
+                        break
+                except Exception:
+                    continue
+            if codigo_ok:
+                break
+        except Exception:
+            continue
+    if not codigo_ok:
+        print("[ERRO] Textbox codigo nao encontrado")
+        take_screenshot(driver, "erro_codigo_1033")
+        return False
+    time.sleep(1)
+    # 4) Check 'Relatorios do Usuario' / 'Relatórios do Usuário'
+    try:
+        for xp in ("//label[contains(translate(.,'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'relat') and contains(translate(.,'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'usu')]",
+                   "//span[contains(translate(.,'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'relat') and contains(translate(.,'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'usu')]"):
+            for lab in driver.find_elements(By.XPATH, xp):
+                try:
+                    if lab.is_displayed():
+                        try:
+                            cb = lab.find_element(By.XPATH, "./preceding::input[@type='checkbox'][1] | .//input[@type='checkbox']")
+                        except Exception:
+                            cb = None
+                        if cb is not None:
+                            try:
+                                if not cb.is_selected():
+                                    safe_click(driver, cb)
+                                print("[NAV] Check Relatorios do Usuario marcado")
+                            except Exception:
+                                safe_click(driver, lab)
+                        else:
+                            safe_click(driver, lab)
+                        break
+                except Exception:
+                    continue
+    except Exception:
+        pass
+    take_screenshot(driver, "05d_filtro_1033")
+    # 5) Botao Filtrar
+    if not clicar_por_texto(driver, 10, "Filtrar", tag="button"):
+        print("[ERRO] Botao Filtrar nao encontrado")
+        take_screenshot(driver, "erro_filtrar")
+        return False
+    time.sleep(3)
+    take_screenshot(driver, "05e_resultado_filtro")
+    # 6) Duplo clique no nome do relatorio
+    alvo = None
+    for xp in (f"//*[contains(.,'CATE-1033')]",
+               f"//*[contains(.,'{RELATORIO_NOME[:30]}')]"):
+        try:
+            for el in driver.find_elements(By.XPATH, xp):
+                try:
+                    if el.is_displayed() and "CATE-1033" in (el.text or ""):
+                        alvo = el
+                        break
+                except Exception:
+                    continue
+            if alvo is not None:
+                break
+        except Exception:
+            continue
+    if alvo is None:
+        print("[ERRO] Relatorio CATE-1033 nao encontrado na grade")
+        take_screenshot(driver, "erro_relatorio_nao_achado")
+        return False
+    try:
+        ActionChains(driver).double_click(alvo).perform()
+        print("[NAV] Duplo clique no relatorio CATE-1033")
+    except Exception:
+        try:
+            safe_click(driver, alvo)
+            time.sleep(1)
+            safe_click(driver, alvo)
+        except Exception as e:
+            print(f"[ERRO] Duplo clique falhou: {e}")
+            return False
+    time.sleep(3)
+    take_screenshot(driver, "06_relatorio_aberto")
+    return True
+
+
+def preencher_datas_e_titulos(driver, inicio: str, fim: str) -> bool:
+    """Passo 7-8: datas Inicio/Final + titulos=ambos."""
+    print(f"[6/7] Preenchendo periodo {inicio} a {fim} + titulos=ambos...")
+    ok_ini = ok_fim = False
+    for label, valor, flag in (("inicio", inicio, "ini"), ("final", inicio and fim, "fim")):
+        _ = flag
+    # Localiza inputs de data por label proximo
+    for rotulo, valor in (("inicio", inicio), ("início", inicio), ("final", fim), ("fim", fim)):
+        if not valor:
+            continue
+        try:
+            labs = driver.find_elements(By.XPATH,
+                f"//label[contains(translate(.,'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'{rotulo}')]"
+                f" | //span[contains(translate(.,'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'{rotulo}')]")
+            for lab in labs:
+                try:
+                    if not lab.is_displayed():
+                        continue
+                    inp = lab.find_element(By.XPATH, "./following::input[1]")
+                    if inp.is_displayed() and inp.is_enabled():
+                        inp.clear()
+                        inp.send_keys(valor)
+                        inp.send_keys(Keys.TAB)
+                        print(f"[FILTRO] {rotulo}={valor}")
+                        if rotulo.startswith("ini") or "nici" in rotulo:
+                            ok_ini = True
+                        else:
+                            ok_fim = True
+                        break
+                except Exception:
+                    continue
+        except Exception:
+            continue
+    # Fallback: dois primeiros inputs de data visiveis
+    if not (ok_ini and ok_fim):
+        try:
+            datas = [e for e in driver.find_elements(By.XPATH, "//input[contains(@placeholder,'/') or @type='text']") if e.is_displayed()]
+            vals = [v for v in (inicio, fim) if v]
+            for el, v in zip(datas[:2], vals):
+                try:
+                    el.clear()
+                    el.send_keys(v)
+                    el.send_keys(Keys.TAB)
+                except Exception:
+                    pass
+        except Exception:
+            pass
+    # Titulos = ambos (radio)
+    try:
+        radios = driver.find_elements(By.XPATH,
+            "//label[contains(translate(.,'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'ambos')]"
+            " | //span[contains(translate(.,'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'ambos')]"
+            " | //input[@type='radio'][contains(translate(@value,'AMBOS','ambos'),'ambos')]")
+        for r in radios:
+            try:
+                if r.is_displayed():
+                    if r.tag_name.lower() == "input":
+                        if not r.is_selected():
+                            safe_click(driver, r)
+                    else:
+                        try:
+                            inp = r.find_element(By.XPATH, ".//input[@type='radio'] | ./preceding::input[@type='radio'][1]")
+                            if not inp.is_selected():
+                                safe_click(driver, inp)
+                            else:
+                                pass
+                        except Exception:
+                            safe_click(driver, r)
+                    print("[FILTRO] Titulos=ambos marcado")
+                    break
+            except Exception:
+                continue
+    except Exception:
+        pass
+    take_screenshot(driver, "06b_filtros_base")
+    return True
+
+
+def selecionar_estabelecimento(driver, nome: str, timeout: int = 20) -> bool:
+    """Passos 9-10: Filtros avancados > buscar estabelecimento > Selecionar."""
+    print(f"[EXT] Selecionando estabelecimento '{nome}'...")
+    if not clicar_por_texto(driver, 10, "Filtros avançados", "Filtros avancados", tag="*"):
+        print("[ERRO] 'Filtros avancados' nao encontrado")
+        take_screenshot(driver, "erro_filtros_avancados")
+        return False
+    time.sleep(2)
+    take_screenshot(driver, "07a_filtros_avancados")
+    # Busca o estabelecimento (input de pesquisa dentro do modal)
+    digitado = False
+    for xp in ("//div[contains(@class,'modal') or contains(@class,'dialog')]//input[@type='text']",
+               "//input[contains(translate(@placeholder,'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'estabelec') or contains(translate(@placeholder,'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'pesquis') or contains(translate(@placeholder,'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'buscar')]",
+               "//input[@type='text']"):
+        try:
+            for el in driver.find_elements(By.XPATH, xp):
+                try:
+                    if el.is_displayed() and el.is_enabled():
+                        el.clear()
+                        el.send_keys(nome)
+                        time.sleep(1.5)
+                        digitado = True
+                        break
+                except Exception:
+                    continue
+            if digitado:
+                break
+        except Exception:
+            continue
+    # Tenta clicar na linha do estabelecimento (radio/checkbox/linha)
+    deadline = time.time() + timeout
+    selecionado = False
+    while time.time() < deadline and not selecionado:
+        try:
+            linhas = driver.find_elements(By.XPATH, f"//*[contains(translate(.,'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'{nome.lower()[:15]}')]")
+            for ln in linhas:
+                try:
+                    if not ln.is_displayed():
+                        continue
+                    # clica no input associado ou na linha
+                    try:
+                        inp = ln.find_element(By.XPATH, ".//input[@type='radio' or @type='checkbox'] | ./preceding::input[1]")
+                        safe_click(driver, inp)
+                        selecionado = True
+                        break
+                    except Exception:
+                        if ln.tag_name in ("tr", "div", "span", "td", "label"):
+                            safe_click(driver, ln)
+                            selecionado = True
+                            break
+                except Exception:
+                    continue
+        except Exception:
+            pass
+        if not selecionado:
+            time.sleep(1)
+    if not selecionado:
+        print(f"[ERRO] Estabelecimento '{nome}' nao selecionado na lista")
+        take_screenshot(driver, "erro_estab_nao_achado")
+        return False
+    time.sleep(1)
+    take_screenshot(driver, "07b_estab_marcado")
+    if not clicar_por_texto(driver, 10, "Selecionar", tag="button"):
+        print("[ERRO] Botao Selecionar nao encontrado")
+        return False
+    time.sleep(2)
+    return True
+
+
+def solicitar_csv_e_baixar(driver, download_dir: Path, timeout: int = 90) -> Path | None:
+    """Passo 11: Visualizar > janela CSV > Continuar > aguarda download novo."""
+    antes = {p.name for p in download_dir.glob("*.csv")} | {p.name for p in download_dir.glob("*.crdownload")}
+    if not clicar_por_texto(driver, 15, "Visualizar", tag="button"):
+        print("[ERRO] Botao Visualizar nao encontrado")
+        take_screenshot(driver, "erro_visualizar")
+        return None
+    time.sleep(3)
+    take_screenshot(driver, "08a_pos_visualizar")
+    # Janela: selecionar CSV (radio/combo/botao)
+    try:
+        clicado_csv = clicar_por_texto(driver, 8, "CSV", tag="*")
+        if clicado_csv:
+            print("[DOWN] Formato CSV selecionado")
+    except Exception:
+        pass
+    time.sleep(1)
+    take_screenshot(driver, "08b_csv")
+    if not clicar_por_texto(driver, 10, "Continuar", "Confirmar", "OK", tag="button"):
+        print("[ERRO] Botao Continuar nao encontrado")
+        take_screenshot(driver, "erro_continuar")
+        return None
+    print("[DOWN] Aguardando download do CSV...")
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        if not is_driver_alive(driver):
+            break
+        try:
+            cr = list(download_dir.glob("*.crdownload"))
+            csvs = sorted(download_dir.glob("*.csv"), key=lambda p: p.stat().st_mtime, reverse=True)
+            novos = [c for c in csvs if c.name not in antes]
+            if novos and not cr:
+                # estabilidade: tamanho nao muda por 2s
+                t1 = novos[0].stat().st_size
+                time.sleep(2)
+                if novos[0].stat().st_size == t1:
+                    print(f"[DOWN] Arquivo pronto: {novos[0].name}")
+                    return novos[0]
+        except Exception:
+            pass
+        time.sleep(2)
+    print("[ERRO] Timeout aguardando CSV")
+    take_screenshot(driver, "erro_download_timeout")
+    return None
+
+
+def mover_para_1033(origem: Path, nome_estab: str) -> Path:
+    """Passo 12: move para ~/Downloads/1033 renomeado com nome do estabelecimento."""
+    destino_dir = pasta_downloads_1033()
+    destino = destino_dir / f"{sanitizar_nome(nome_estab)}.csv"
+    i = 1
+    while destino.exists():
+        destino = destino_dir / f"{sanitizar_nome(nome_estab)}_{i}.csv"
+        i += 1
+    shutil.move(str(origem), str(destino))
+    print(f"[ARQ] Movido -> {destino}")
+    return destino
 
 
 def read_current_url(driver) -> str:
@@ -460,7 +927,60 @@ def main() -> None:
             take_screenshot(driver, "03_pos_login")
             time.sleep(2)
             take_screenshot(driver, "04_final")
-        print("[4/4] FLUXO CONCLUIDO")
+
+        # ── FLUXO 1033 (passos 1-13 do roteiro) ──
+        if not is_driver_alive(driver):
+            print("[FIM] Navegador fechado antes do 1033.")
+            return
+        extracao_cfg = params.get("extracao", {})
+        limite_teste = int(extracao_cfg.get("limite_teste", 1))  # modo teste: 1 estab primeiro
+        intervalo = int(auto.get("intervalo_entre_coletas_segundos", 2))
+        download_dir = Path.home() / "Downloads"
+        pasta1033 = pasta_downloads_1033()
+        print(f"[CFG] Pasta 1033: {pasta1033} | limite_teste={limite_teste}")
+
+        if not navegar_ate_relatorio_1033(driver, timeout=20):
+            print("[FIM] Falha na navegacao ate o 1033. Veja screenshots 05*.")
+            take_screenshot(driver, "erro_fluxo_1033")
+            return
+
+        estabelecimentos = carregar_estabelecimentos()
+        if limite_teste and limite_teste > 0:
+            estabelecimentos = estabelecimentos[:limite_teste]
+            print(f"[MODO TESTE] Executando apenas {len(estabelecimentos)} estabelecimento(s). "
+                  f"Para rodar os 148, ajuste extracao.limite_teste=0 em parametros.json")
+        # Filtros base (passo 7-8) com o periodo do 1o estabelecimento
+        if estabelecimentos:
+            preencher_datas_e_titulos(driver, estabelecimentos[0]["inicio"], estabelecimentos[0]["fim"])
+
+        ok_count = fail = 0
+        for idx, est in enumerate(estabelecimentos, 1):
+            if not is_driver_alive(driver):
+                print("[ENCERRADO] Navegador fechado durante o loop.")
+                break
+            print(f"\n===== [{idx}/{len(estabelecimentos)}] {est['nome']} "
+                  f"({est['inicio']} a {est['fim']}) =====")
+            try:
+                # Periodo pode variar por estabelecimento
+                preencher_datas_e_titulos(driver, est["inicio"], est["fim"])
+                if not selecionar_estabelecimento(driver, est["nome"]):
+                    print(f"[FALHA] {est['nome']}: nao selecionou")
+                    fail += 1
+                    continue
+                baixado = solicitar_csv_e_baixar(driver, download_dir)
+                if not baixado:
+                    print(f"[FALHA] {est['nome']}: sem download")
+                    fail += 1
+                    continue
+                mover_para_1033(baixado, est["nome"])
+                ok_count += 1
+                take_screenshot(driver, f"09_ok_{sanitizar_nome(est['nome'])[:30]}")
+            except Exception as e:
+                print(f"[FALHA] {est['nome']}: {e}")
+                take_screenshot(driver, "erro_estabelecimento")
+                fail += 1
+            time.sleep(intervalo)
+        print(f"\n[4/4] FLUXO 1033 CONCLUIDO — ok={ok_count} falhas={fail} pasta={pasta1033}")
     finally:
         try:
             dialog_handler.stop()

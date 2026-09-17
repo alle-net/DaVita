@@ -22,5 +22,9 @@
     "timeout_segundos": 30,
     "max_retentativas": 3,
     "intervalo_entre_coletas_segundos": 2
+  },
+  "extracao": {
+    "limite_teste": 1,
+    "relatorio_codigo": "1033"
   }
 }

@@ -243,3 +243,41 @@ SESSAO 17/09 - OTIMIZACAO AUTORIZADA
       * Nova diagnosticar_popups(): grava botoes/inputs visiveis em
         output/diagnostico_popups.txt (ANTES/DEPOIS) + screenshots 03a/03b.
       * Validado: py_compile OK.
+
+26. SESSAO 17/09 - FLUXO 1033 COMPLETO (AUTORIZADO):
+    Roteiro do usuario (13 passos) implementado em Tasy_1033.py:
+    1 Utilitarios (aba) > 2 Impressao de relatorios > 3 textbox codigo=1033
+    > 4 check Relatorios do Usuario > 5 Filtrar > 6 duplo clique
+    'DaVita - Etapa Conta - Por Periodo da Conta (CATE-1033)' (ActionChains).
+    7 datas Inicio/Final por estabelecimento (dd/mm/yyyy da ListaEstabeleci-
+    mentos.xlsx, fallback aba Parametros) > 8 titulos=ambos (radio).
+    9 pasta ~/Downloads/1033 criada (pasta_downloads_1033).
+    9-10 Filtros avancados > buscar estabelecimento > Selecionar.
+    11 Visualizar > janela CSV > Continuar > espera download (.crdownload
+    some + .csv estabiliza 2s, timeout 90s).
+    12 move ~/Downloads/*.csv novo -> ~/Downloads/1033/<Estabelecimento>.csv
+    (sanitizado, sufixo _1 se existir).
+    13 loop do passo 10 em diante p/ todos; intervalo de automacao; contador
+    ok/falhas; screenshots 05a-09_* e erros erro_*.
+    - Modo teste: extracao.limite_teste=1 em parametros.json (rode 1 estab
+      primeiro; zere para os 148). Login/popups preservados.
+    - Validado: JSON OK, pandas OK, py_compile OK. SEM commit (aguardar teste).
+
+27. SESSAO 17/09 - ERRO pos-duplo-clique (ValueError sheet 'lista'):
+    Log: navegacao 1-6 OK (Utilitarios > Impressao > 1033 > Filtrar > duplo
+    clique CATE-1033), depois crash em carregar_estabelecimentos: planilha
+    'lista' (minuscula no parametros.json) vs 'Lista' (real) — pandas e
+    case-sensitive. + falso positivo do fechador: clicou 'copiar url'
+    (classe btn-gray) como se fosse popup.
+    - CORRECAO (autorizada): aba resolvida via ExcelFile + match
+      case-insensitive; xpath do fechador restrito a textos exatos
+      Fechar/OK/Okay/Entendi (removidos unions por classe gwt/btn-gray)
+      + checagem txt exata no loop.
+    - Validado: py_compile OK; leitura real resolvida p/ 'Lista' (148,3).
+
+28. SESSAO 17/09 - TESTE 2 NAO FUNCIONOU (SEM LOG, PC SERA REINICIADO):
+    - Usuario reportou falha apos as 2 correcoes, sem enviar log desta vez.
+    - Estado salvo e commitado sem diagnostico novo; pendente usuario enviar
+      apos reiniciar: trecho do console + screenshot erro_* + diagnostico.
+    - Hipoteses p/ proxima sessao: seletor de datas/titulos, Filtros avancados,
+      Visualizar/CSV/Continuar ou espera de download.
