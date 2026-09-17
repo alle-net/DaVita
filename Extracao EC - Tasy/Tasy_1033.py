@@ -64,37 +64,42 @@ def safe_click(driver, el) -> bool:
 
 def clicar_por_texto(driver, timeout: int, *textos, tag: str = "button") -> bool:
     """Clica no primeiro elemento visivel cujo texto exato (case-insensitive) bata."""
+    # Otimizacao: tag="*" varria o DOM inteiro (//*) 2x por passada — muito
+    # lento na home do Tasy. Agora tenta tags clicaveis primeiro.
+    tags = ["a", "button", "div", "span", "li"] if tag == "*" else [tag]
     deadline = time.time() + timeout
     while time.time() < deadline:
-        for txt in textos:
-            try:
-                els = driver.find_elements(
-                    By.XPATH,
-                    f"//{tag}[normalize-space(translate(.,'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'))='{txt.lower()}']",
-                )
-                for el in els:
-                    try:
-                        if el.is_displayed() and el.is_enabled() and safe_click(driver, el):
-                            print(f"[NAV] Clicado {tag} '{txt}'")
-                            return True
-                    except Exception:
-                        continue
-            except Exception:
-                pass
-        # fallback parcial: contem o texto
-        for txt in textos:
-            try:
-                els = driver.find_elements(By.XPATH, f"//{tag}[contains(translate(.,'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'{txt.lower()}')]")
-                for el in els:
-                    try:
-                        if el.is_displayed() and el.is_enabled() and safe_click(driver, el):
-                            print(f"[NAV] Clicado {tag} (contem) '{txt}'")
-                            return True
-                    except Exception:
-                        continue
-            except Exception:
-                pass
-        time.sleep(0.5)
+        for t in tags:
+            for txt in textos:
+                try:
+                    els = driver.find_elements(
+                        By.XPATH,
+                        f"//{t}[normalize-space(translate(.,'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'))='{txt.lower()}']",
+                    )
+                    for el in els:
+                        try:
+                            if el.is_displayed() and el.is_enabled() and safe_click(driver, el):
+                                print(f"[NAV] Clicado {t} '{txt}'")
+                                return True
+                        except Exception:
+                            continue
+                except Exception:
+                    pass
+        # fallback parcial: contem o texto (so nas mesmas tags)
+        for t in tags:
+            for txt in textos:
+                try:
+                    els = driver.find_elements(By.XPATH, f"//{t}[contains(translate(.,'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'{txt.lower()}')]")
+                    for el in els:
+                        try:
+                            if el.is_displayed() and el.is_enabled() and safe_click(driver, el):
+                                print(f"[NAV] Clicado {t} (contem) '{txt}'")
+                                return True
+                        except Exception:
+                            continue
+                except Exception:
+                    pass
+        time.sleep(0.3)
     return False
 
 
@@ -246,6 +251,7 @@ def fechar_popups_pos_login(driver, timeout_total: int = 15, per_wait: float = 1
     ]
     deadline = time.time() + timeout_total
     fechados = 0
+    passadas_sem_popup = 0
     while time.time() < deadline:
         if not is_driver_alive(driver):
             break
@@ -307,6 +313,7 @@ def fechar_popups_pos_login(driver, timeout_total: int = 15, per_wait: float = 1
             except Exception:
                 continue
         if clicou_nesta_passada:
+            passadas_sem_popup = 0
             continue
         # 2) Icones X de fechar (sem wait)
         for css in css_close_icons:
@@ -330,7 +337,13 @@ def fechar_popups_pos_login(driver, timeout_total: int = 15, per_wait: float = 1
             except Exception:
                 continue
         if clicou_nesta_passada:
+            passadas_sem_popup = 0
             continue
+        passadas_sem_popup += 1
+        # Early-exit: 2 passadas seguidas sem nada = sem mais popups.
+        # Evita ficar parado os 15s cheios apos fechar (era a lentidao pos-popup).
+        if passadas_sem_popup >= 2:
+            break
         time.sleep(per_wait)
     return fechados
 
@@ -393,7 +406,12 @@ def handle_user_selection(driver, timeout: int = 2) -> bool:
 
 
 def carregar_estabelecimentos() -> list:
-    """Le ListaEstabelecimentos.xlsx (aba Lista). Retorna [{nome, inicio, fim}]."""
+    """Le ListaEstabelecimentos.xlsx (aba Lista). Retorna [{nome}].
+
+    Periodo agora e GLOBAL em parametros.json > extracao.periodo
+    (data_inicio/data_fim) para reuso entre fluxos. Colunas inicio/fim
+    na planilha sao ignoradas se ainda existirem.
+    """
     import pandas as pd
 
     params = load_params()
@@ -417,76 +435,34 @@ def carregar_estabelecimentos() -> list:
                 break
     if col_nome is None:
         col_nome = df.columns[0]
-    col_ini = next((c for c in df.columns if c.lower() in ("inicio", "início", "dt_inicio", "data_inicio")), None)
-    col_fim = next((c for c in df.columns if c.lower() in ("final", "fim", "dt_fim", "data_fim")), None)
-    # Fallback global da aba Parametros
-    ini_global = fim_global = None
-    try:
-        xls = pd.read_excel(xlsx, sheet_name=None)
-        for aba in xls.values():
-            aba.columns = [str(c).strip() for c in aba.columns]
-            cmap = {c.lower(): c for c in aba.columns}
-            if "inicio" in cmap or "início" in cmap:
-                ci = cmap.get("inicio", cmap.get("início"))
-                cf = cmap.get("final", cmap.get("fim"))
-                ini_global = aba.iloc[0][ci]
-                fim_global = aba.iloc[0][cf] if cf else None
-                break
-    except Exception:
-        pass
-
-    def fmt(v, fallback):
-        v = v if v is not None and str(v) != "nan" else fallback
-        if v is None:
-            return ""
-        try:
-            d = pd.to_datetime(v, dayfirst=True)
-            return d.strftime("%d/%m/%Y")
-        except Exception:
-            return str(v).strip()
 
     lista = []
     for _, row in df.iterrows():
         nome = str(row[col_nome]).strip()
         if not nome or nome.lower() == "nan":
             continue
-        ini = fmt(row[col_ini] if col_ini else None, ini_global)
-        fim = fmt(row[col_fim] if col_fim else None, fim_global)
-        lista.append({"nome": nome, "inicio": ini, "fim": fim})
+        lista.append({"nome": nome})
     print(f"[DADOS] {len(lista)} estabelecimentos carregados de {xlsx.name}")
     return lista
 
 
 def navegar_ate_relatorio_1033(driver, timeout: int = 20) -> bool:
-    """Passos 1-6: Utilitarios > Impressao de relatorios > codigo 1033 > filtro > duplo clique."""
+    """Passos 1-6: direto Utilitarios > Impressao de relatorios > codigo 1033 > filtro > abrir."""
     print("[5/7] Navegando ate impressao de relatorios...")
     take_screenshot(driver, "05a_home")
-    # 1) Aba Utilitarios
-    if not clicar_por_texto(driver, 10, "Utilitários", "Utilitarios", tag="*"):
+    # 1) Aba Utilitarios (direto, timeout curto)
+    if not clicar_por_texto(driver, 5, "Utilitários", "Utilitarios", tag="*"):
         print("[ERRO] Aba Utilitarios nao encontrada")
         take_screenshot(driver, "erro_aba_utilitarios")
         return False
-    time.sleep(1.5)
+    time.sleep(1.0)
     take_screenshot(driver, "05b_utilitarios")
-    # 2) Impressao de relatorios
-    ok = clicar_por_texto(driver, 10, "Impressão de relatórios", "Impressao de relatorios", "Impressao de Relatorios", tag="*")
-    if not ok:
-        # tenta via busca superior como fallback
-        print("[NAV] Tentando via busca superior 'Impressao de relatorios'...")
-        try:
-            busca = find_element(driver, 8,
-                (By.XPATH, "//input[@type='text']"),
-                (By.XPATH, "//input[not(@type) or @type='search']"),
-                (By.CSS_SELECTOR, "input"),
-                per_locator=2.0)
-            if busca:
-                busca.clear()
-                busca.send_keys("Impressao de relatorios")
-                time.sleep(2)
-                clicar_por_texto(driver, 5, "Impressão de relatórios", "Impressao de relatorios", tag="*")
-        except Exception:
-            pass
-    time.sleep(2)
+    # 2) Impressao de relatorios (direto, timeout curto)
+    if not clicar_por_texto(driver, 5, "Impressão de relatórios", "Impressao de relatorios", "Impressao de Relatorios", tag="*"):
+        print("[ERRO] 'Impressao de relatorios' nao encontrado")
+        take_screenshot(driver, "erro_impressao_relatorios")
+        return False
+    time.sleep(1.0)
     take_screenshot(driver, "05c_impressao")
     # 3) Textbox codigo = 1033
     codigo_ok = False
@@ -558,10 +534,13 @@ def navegar_ate_relatorio_1033(driver, timeout: int = 20) -> bool:
             body_txt = (driver.find_element(By.TAG_NAME, "body").text or "").lower()
         except Exception:
             return False
+        # ATENCAO: nao usar 'periodo da conta' aqui — o nome da linha na Lista
+        # ("...Por Periodo da Conta (CATE-1033)") ja contem esse texto e dava
+        # falso-positivo (achava que abriu, mas seguia na Lista).
         marcadores_fortes = (
-            "filtros avançados", "filtros avancados", "filtro avançado",
-            "estabelecimento", "títulos", "titulos",
-            "período da conta", "periodo da conta",
+            "data inicio do periodo", "dimensões", "dimensoes",
+            "filtro avançado", "filtro avancado",
+            "sem titulo", "sem título", "ambos",
         )
         return any(m in body_txt for m in marcadores_fortes)
 
@@ -673,12 +652,12 @@ def navegar_ate_relatorio_1033(driver, timeout: int = 20) -> bool:
 
 
 def preencher_datas_e_titulos(driver, inicio: str, fim: str) -> bool:
-    """Passo 7-8: datas Inicio/Final + titulos=ambos."""
-    print(f"[6/7] Preenchendo periodo {inicio} a {fim} + titulos=ambos...")
+    """Passo 7-8: datas Inicio/Final (1x, global) + titulos=Ambos. Pula se ja preenchido."""
+    print(f"[6/7] Preenchendo periodo {inicio} a {fim} + titulos=Ambos...")
     ok_ini = ok_fim = False
     for label, valor, flag in (("inicio", inicio, "ini"), ("final", inicio and fim, "fim")):
         _ = flag
-    # Localiza inputs de data por label proximo
+    # Localiza inputs de data por label proximo (pula se valor ja confere)
     for rotulo, valor in (("inicio", inicio), ("início", inicio), ("final", fim), ("fim", fim)):
         if not valor:
             continue
@@ -692,6 +671,17 @@ def preencher_datas_e_titulos(driver, inicio: str, fim: str) -> bool:
                         continue
                     inp = lab.find_element(By.XPATH, "./following::input[1]")
                     if inp.is_displayed() and inp.is_enabled():
+                        try:
+                            atual = (inp.get_attribute("value") or "").strip()
+                        except Exception:
+                            atual = ""
+                        if atual == valor:
+                            print(f"[FILTRO] {rotulo} ja={valor} (pulado)")
+                            if rotulo.startswith("ini") or "nici" in rotulo:
+                                ok_ini = True
+                            else:
+                                ok_fim = True
+                            break
                         inp.clear()
                         inp.send_keys(valor)
                         inp.send_keys(Keys.TAB)
@@ -705,13 +695,19 @@ def preencher_datas_e_titulos(driver, inicio: str, fim: str) -> bool:
                     continue
         except Exception:
             continue
-    # Fallback: dois primeiros inputs de data visiveis
+    # Fallback: dois primeiros inputs de data visiveis (tambem com guard)
     if not (ok_ini and ok_fim):
         try:
             datas = [e for e in driver.find_elements(By.XPATH, "//input[contains(@placeholder,'/') or @type='text']") if e.is_displayed()]
             vals = [v for v in (inicio, fim) if v]
             for el, v in zip(datas[:2], vals):
                 try:
+                    try:
+                        atual = (el.get_attribute("value") or "").strip()
+                    except Exception:
+                        atual = ""
+                    if atual == v:
+                        continue
                     el.clear()
                     el.send_keys(v)
                     el.send_keys(Keys.TAB)
@@ -719,9 +715,29 @@ def preencher_datas_e_titulos(driver, inicio: str, fim: str) -> bool:
                     pass
         except Exception:
             pass
-    # Titulos = Ambos (radio) — robusto: associa input ao texto vizinho
+    # Titulos = Ambos (REPLAY GRAVADO: label#label_wid_10 / input#wid_10 value=A).
+    # wid_* pode variar entre sessoes -> fallback generico abaixo.
     try:
         marcado = False
+        try:
+            lab10 = WebDriverWait(driver, 5).until(
+                EC.element_to_be_clickable((By.ID, "label_wid_10")))
+            try:
+                lab10.click()
+            except Exception:
+                driver.execute_script("arguments[0].click();", lab10)
+            time.sleep(0.8)
+            try:
+                if driver.find_element(By.ID, "wid_10").is_selected():
+                    print("[FILTRO] Titulos=Ambos via #label_wid_10 (verificado)")
+                    marcado = True
+            except Exception:
+                marcado = True
+        except Exception:
+            pass
+        if marcado:
+            take_screenshot(driver, "06b_filtros_base")
+            return True
         for inp in driver.find_elements(By.XPATH, "//input[@type='radio']"):
             try:
                 if not inp.is_displayed():
@@ -792,106 +808,402 @@ def preencher_datas_e_titulos(driver, inicio: str, fim: str) -> bool:
     return True
 
 
+_CACHE_DESCOBERTA: list | None = None
+
+
+def carregar_lista_descoberta(driver) -> list:
+    """Retorna [{'nome'}] do xlsx ja descoberto (172 itens) — SEM abrir modal.
+
+    So redescobre (scroll no modal) se o arquivo nao existir. E por isso o
+    scroll visivel sumia da rotina: a descoberta foi bootstrap 1x, agora e reuso.
+    """
+    xlsx_desc = OUTPUT_DIR / "estabelecimentos_descobertos.xlsx"
+    if xlsx_desc.exists():
+        try:
+            import pandas as pd
+            df = pd.read_excel(xlsx_desc)
+            col = next((c for c in df.columns if "estabelec" in str(c).lower()), None)
+            if col is None:
+                col = df.columns[1] if len(df.columns) > 1 else df.columns[0]
+            nomes = [str(v).strip() for v in df[col].tolist()]
+            nomes = [n for n in nomes if n and n.lower() != "nan"]
+            print(f"[LISTA] {len(nomes)} itens de {xlsx_desc.name} — sem scroll, direto ao check")
+            return [{"nome": n} for n in nomes]
+        except Exception as e:
+            print(f"[LISTA-AVISO] {e} — redescobrindo no modal...")
+    desc = descobrir_estabelecimentos(driver)
+    if desc:
+        salvar_descoberta_excel(desc)
+    return [{"nome": d["estabelecimento"]} for d in desc]
+
+
+def descobrir_estabelecimentos(driver, timeout_seg: int = 90) -> list:
+    """Abre Filtro avancado > #WAFD-1 > raspa #table-items. CAPTURA UNICA por run.
+
+    Retorna [{'ordem','estabelecimento'}] em memoria. Chamadas repetidas
+    retornam o cache sem reabrir o modal.
+    """
+    global _CACHE_DESCOBERTA
+    if _CACHE_DESCOBERTA is not None:
+        print(f"[DESC] Reusando captura unica ({len(_CACHE_DESCOBERTA)} itens, sem recapturar)")
+        return _CACHE_DESCOBERTA
+    print("[DESC] Captura UNICA da lista (1x por run)...")
+    if not clicar_por_texto(driver, 10, "Filtro avançado", "Filtro avancado", tag="*"):
+        print("[DESC-ERRO] Link 'Filtro avancado' nao encontrado")
+        take_screenshot(driver, "desc_erro_filtro")
+        return []
+    time.sleep(2)
+    # Tipo Estabelecimento pelo ID exato (DOM: span#WAFD-1 dentro de #table-dimensions)
+    try:
+        el_tipo = WebDriverWait(driver, 10).until(
+            EC.element_to_be_clickable((By.ID, "WAFD-1")))
+        driver.execute_script("arguments[0].scrollIntoView({block:'center'});", el_tipo)
+        time.sleep(0.3)
+        try:
+            el_tipo.click()
+        except Exception:
+            driver.execute_script("arguments[0].click();", el_tipo)
+        time.sleep(2.0)
+        print("[DESC] Tipo Estabelecimento (#WAFD-1) clicado")
+    except Exception as e:
+        print(f"[DESC-ERRO] #WAFD-1 nao clicado: {e}")
+        take_screenshot(driver, "desc_erro_tipo")
+        return []
+    print("[DESC] Tipo Estabelecimento ativo. Raspando lista do meio...")
+    take_screenshot(driver, "desc_lista_inicial")
+    # Dump do HTML do modal p/ inspecao offline (responde: "qual item contem a lista?")
+    try:
+        OUTPUT_DIR.mkdir(exist_ok=True)
+        html = driver.execute_script(
+            """var m = null;
+               var els = document.querySelectorAll('*');
+               for (var e of els) {
+                 try { if ((e.innerText || '').indexOf('Filtros selecionados') >= 0 && (e.innerText || '').indexOf('DaVita') >= 0) { m = e; break; } } catch (x) {}
+               }
+               return m ? m.outerHTML.slice(0, 200000) : document.documentElement.outerHTML.slice(0, 200000);""")
+        with open(OUTPUT_DIR / "desc_modal.html", "w", encoding="utf-8") as f:
+            f.write(html)
+        print("[DESC] HTML do modal salvo em output/desc_modal.html")
+    except Exception as e:
+        print(f"[DESC-AVISO] Falha dump HTML: {e}")
+
+    # Container exato do scroll (seu print: div#table-items > table > tbody > tr).
+    # Itens: span.w-item-label-elipses (nome) + div.w-item-label-align[data-code] (valor).
+    # Coleta em 1 chamada JS (ms, nao N lookups Selenium) — scroll rapido.
+    def _coletar_nomes() -> dict:
+        """Coleta spans exatos da lista do meio + data-code."""
+        try:
+            pares = driver.execute_script(
+                "var out = [];"
+                "document.querySelectorAll(\"#table-items span.w-item-label-elipses\").forEach(function(sp){"
+                "  var t = (sp.textContent || '').trim().replace(/\\s+/g, ' ');"
+                "  if (!t || t.length > 80) return;"
+                "  var code = '';"
+                "  var box = sp.closest('div.w-item-label-align');"
+                "  if (box) code = box.getAttribute('data-code') || '';"
+                "  out.push([t, code]);"
+                "});"
+                "return out;")
+        except Exception:
+            return {}
+        achados = {}
+        for t, c in (pares or []):
+            if t not in vistos and t not in achados:
+                achados[t] = c or ""
+        return achados
+
+    vistos: dict = {}
+    sem_novos = 0
+    deadline = time.time() + timeout_seg
+    ultima_altura = -1
+    while time.time() < deadline:
+        novos = _coletar_nomes()
+        for n, v in novos.items():
+            vistos[n] = v
+        # Rola o container exato #table-items (infinite-scroll carrega o proximo lote)
+        try:
+            info = driver.execute_script(
+                """var c = document.getElementById('table-items');
+                   if (!c) return null;
+                   c.scrollTop = c.scrollTop + 800;
+                   return {top: c.scrollTop, h: c.scrollHeight, c: c.clientHeight};""")
+            time.sleep(0.9)
+            if not info:
+                break
+            no_fim = info["top"] + info["c"] >= info["h"] - 10
+            altura = info["top"]
+        except Exception:
+            break
+        if altura == ultima_altura:
+            sem_novos += 1
+        else:
+            sem_novos = 0
+        ultima_altura = altura
+        print(f"[DESC] coletados={len(vistos)} top={altura} sem_novos={sem_novos}")
+        if no_fim and sem_novos >= 1:
+            time.sleep(1.0)  # ultimo lote do infinite-scroll
+            for n, v in _coletar_nomes().items():
+                if n not in vistos:
+                    vistos[n] = v
+            break
+        if sem_novos >= 4:
+            break
+    take_screenshot(driver, "desc_lista_final")
+    # fecha o modal sem selecionar nada (volta p/ parametros limpo)
+    try:
+        clicar_por_texto(driver, 3, "Cancelar", tag="button")
+        time.sleep(1.5)
+    except Exception:
+        pass
+    lista = [{"ordem": i + 1, "estabelecimento": n}
+             for i, n in enumerate(sorted(vistos.keys(), key=lambda k: k.lower()))]
+    print(f"[DESC] Total descoberto (captura unica): {len(lista)} estabelecimentos")
+    _CACHE_DESCOBERTA = lista
+    return lista
+
+
+def salvar_descoberta_excel(lista: list) -> Path | None:
+    """Grava output/estabelecimentos_descobertos.xlsx p/ conferencia."""
+    try:
+        import pandas as pd
+    except Exception as e:
+        print(f"[DESC-ERRO] pandas indisponivel: {e}")
+        return None
+    OUTPUT_DIR.mkdir(exist_ok=True)
+    destino = OUTPUT_DIR / "estabelecimentos_descobertos.xlsx"
+    try:
+        df = pd.DataFrame(lista, columns=["ordem", "estabelecimento"])
+        df.to_excel(destino, index=False)
+        print(f"[DESC] Excel conferencia -> {destino} ({len(df)} linhas)")
+        return destino
+    except Exception as e:
+        print(f"[DESC-ERRO] Falha ao gravar Excel: {e}")
+        return None
+
+
 def selecionar_estabelecimento(driver, nome: str, timeout: int = 20) -> bool:
-    """Passos 9-10: Filtro avancado (singular, link canto inferior) > buscar > Selecionar."""
+    """Filtro avancado: painel esq 'Estabelecimento' > painel meio pesquisa+checkbox > Selecionar."""
     print(f"[EXT] Selecionando estabelecimento '{nome}'...")
     if not clicar_por_texto(driver, 10, "Filtro avançado", "Filtro avancado", "Filtros avançados", "Filtros avancados", tag="*"):
-        print("[ERRO] 'Filtros avancados' nao encontrado")
+        print("[ERRO] 'Filtro avancado' nao encontrado")
         take_screenshot(driver, "erro_filtros_avancados")
         return False
     time.sleep(2)
     take_screenshot(driver, "07a_filtros_avancados")
-    # Busca o estabelecimento (input de pesquisa dentro do modal)
-    digitado = False
-    for xp in ("//div[contains(@class,'modal') or contains(@class,'dialog')]//input[@type='text']",
-               "//input[contains(translate(@placeholder,'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'estabelec') or contains(translate(@placeholder,'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'pesquis') or contains(translate(@placeholder,'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'buscar')]",
-               "//input[@type='text']"):
+    # 1) Painel ESQUERDO pelo ID exato (DOM: span#WAFD-1)
+    try:
+        el_tipo = WebDriverWait(driver, 10).until(
+            EC.element_to_be_clickable((By.ID, "WAFD-1")))
         try:
-            for el in driver.find_elements(By.XPATH, xp):
-                try:
-                    if el.is_displayed() and el.is_enabled():
-                        el.clear()
-                        el.send_keys(nome)
-                        time.sleep(1.5)
-                        digitado = True
-                        break
-                except Exception:
-                    continue
-            if digitado:
-                break
+            el_tipo.click()
         except Exception:
-            continue
-    # Tenta clicar na linha do estabelecimento (radio/checkbox/linha)
+            driver.execute_script("arguments[0].click();", el_tipo)
+        time.sleep(1.5)
+        print("[EXT] Tipo 'Estabelecimento' (#WAFD-1) clicado")
+    except Exception as e:
+        print(f"[ERRO] #WAFD-1 nao clicado: {e}")
+        take_screenshot(driver, "erro_tipo_estabelecimento")
+        return False
+    take_screenshot(driver, "07a1_tipo_estabelecimento")
+    # 2) SEM busca: volta ao topo da lista e pega o PRIMEIRO item visivel
+    # (lista alfabetica -> 1o = DaVita Advance). Nada e digitado.
+    try:
+        driver.execute_script(
+            "var c = document.getElementById('table-items'); if (c) c.scrollTop = 0;")
+        time.sleep(1.0)
+    except Exception:
+        pass
+    take_screenshot(driver, "07a2_topo_lista")
+
+    # 3) REPLAY GRAVADO: clique no 'div.check-element' interno da linha
+    # (xpath gravado: #table-items/table/tbody/tr[N]/td/div[1]/div).
+    # Localiza a linha pelo nome exato (cada item tem sua linha), clica no
+    # check-element interno com clique nativo. Maquina de estados: 1 clique
+    # -> reconfere fresco -> so clica de novo se ainda desmarcado.
+    def _linha_por_nome():
+        """Retorna (tr, check_el, checked) da linha do 'nome', elementos frescos."""
+        try:
+            spans = driver.find_elements(By.CSS_SELECTOR, "#table-items span.w-item-label-elipses")
+        except Exception:
+            return None, None, False
+        alvo = None
+        for sp in spans:
+            try:
+                if not sp.is_displayed():
+                    continue
+                if " ".join((sp.text or "").split()).lower() == nome.strip().lower():
+                    alvo = sp.find_element(By.XPATH, "./ancestor::tr[1]")
+                    break
+            except Exception:
+                continue
+        if alvo is None:
+            return None, None, False
+        try:
+            try:
+                check_el = alvo.find_element(By.CSS_SELECTOR, "div.w-item-checkbox > div.check-element")
+            except Exception:
+                try:
+                    check_el = alvo.find_element(By.CSS_SELECTOR, "div.w-item-checkbox")
+                except Exception:
+                    check_el = alvo
+            cls = ((alvo.get_attribute("class") or "") + " "
+                   + (alvo.find_element(By.CSS_SELECTOR, "div.w-item-checkbox").get_attribute("class") or ""))
+            return alvo, check_el, ("selected" in cls or "checked" in cls)
+        except Exception:
+            return None, None, False  # stale: trata como nao verificado
+
     deadline = time.time() + timeout
-    selecionado = False
-    while time.time() < deadline and not selecionado:
-        try:
-            linhas = driver.find_elements(By.XPATH, f"//*[contains(translate(.,'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'{nome.lower()[:15]}')]")
-            for ln in linhas:
-                try:
-                    if not ln.is_displayed():
-                        continue
-                    # clica no input associado ou na linha
-                    try:
-                        inp = ln.find_element(By.XPATH, ".//input[@type='radio' or @type='checkbox'] | ./preceding::input[1]")
-                        safe_click(driver, inp)
-                        selecionado = True
-                        break
-                    except Exception:
-                        if ln.tag_name in ("tr", "div", "span", "td", "label"):
-                            safe_click(driver, ln)
-                            selecionado = True
-                            break
-                except Exception:
-                    continue
-        except Exception:
-            pass
-        if not selecionado:
+    marcado = False
+    while time.time() < deadline and not marcado:
+        tr, check_el, checked = _linha_por_nome()
+        if tr is None:
+            print(f"[EXT] linha '{nome}' nao encontrada, retry...")
             time.sleep(1)
-    if not selecionado:
-        print(f"[ERRO] Estabelecimento '{nome}' nao selecionado na lista")
+            continue
+        if checked:
+            print(f"[EXT] '{nome}' ja marcado (verificado fresco)")
+            marcado = True
+            break
+        # desmarcado -> 1 clique nativo no check-element, depois reconfere
+        try:
+            try:
+                driver.execute_script("arguments[0].scrollIntoView({block:'center'});", check_el)
+                time.sleep(0.4)
+            except Exception:
+                pass
+            try:
+                check_el.click()  # nativo, igual ao gravado
+                print(f"[EXT] Clique nativo no check de '{nome}'")
+            except Exception as e:
+                print(f"[EXT] Nativo falhou ({e}), JS no TR...")
+                try:
+                    driver.execute_script("arguments[0].click();", tr)
+                except Exception:
+                    pass
+            time.sleep(1.5)  # digest do Angular antes de reconferir
+        except Exception as e:
+            print(f"[EXT] passada com erro: {e}")
+            time.sleep(1)
+    if not marcado:
+        print(f"[ERRO] '{nome}' nao marcado na lista do meio")
         take_screenshot(driver, "erro_estab_nao_achado")
         return False
     time.sleep(1)
     take_screenshot(driver, "07b_estab_marcado")
-    if not clicar_por_texto(driver, 10, "Selecionar", tag="button"):
+    # REPLAY GRAVADO: #submit-button (fallback: texto 'Selecionar')
+    sel_ok = False
+    try:
+        btn_sel = WebDriverWait(driver, 10).until(
+            EC.element_to_be_clickable((By.ID, "submit-button")))
+        try:
+            btn_sel.click()
+        except Exception:
+            driver.execute_script("arguments[0].click();", btn_sel)
+        sel_ok = True
+        print("[EXT] #submit-button clicado")
+    except Exception:
+        sel_ok = clicar_por_texto(driver, 10, "Selecionar", tag="button")
+    if not sel_ok:
+        print("[ERRO] Botao Selecionar nao encontrado")
+        return False
         print("[ERRO] Botao Selecionar nao encontrado")
         return False
     time.sleep(2)
+    take_screenshot(driver, "07c_apos_selecionar")
     return True
 
 
-def solicitar_csv_e_baixar(driver, download_dir: Path, timeout: int = 90) -> Path | None:
-    """Passo 11: Visualizar > janela CSV > Continuar > aguarda download novo."""
-    antes = {p.name for p in download_dir.glob("*.csv")} | {p.name for p in download_dir.glob("*.crdownload")}
+def solicitar_xlsx_e_baixar(driver, download_dir: Path, timeout: int = 120) -> Path | None:
+    """Passo 11: Visualizar > formato XLSX no dropdown > Continuar > download."""
+    antes = ({p.name for p in download_dir.glob("*.xlsx")}
+             | {p.name for p in download_dir.glob("*.xls")}
+             | {p.name for p in download_dir.glob("*.csv")}
+             | {p.name for p in download_dir.glob("*.pdf")}
+             | {p.name for p in download_dir.glob("*.crdownload")})
     if not clicar_por_texto(driver, 15, "Visualizar", tag="button"):
         print("[ERRO] Botao Visualizar nao encontrado")
         take_screenshot(driver, "erro_visualizar")
         return None
     time.sleep(3)
     take_screenshot(driver, "08a_pos_visualizar")
-    # Janela: selecionar CSV (radio/combo/botao)
     try:
-        clicado_csv = clicar_por_texto(driver, 8, "CSV", tag="*")
-        if clicado_csv:
-            print("[DOWN] Formato CSV selecionado")
+        diagnosticar_popups(driver, "POS_VISUALIZAR")
     except Exception:
         pass
+    # --- REPLAY GRAVADO: dropdown de formato > opcao XLSX (fallback XLS) > Continuar ---
+    fmt_ok = False
+    fmt_alvo = ""
+    # 1) abre o dropdown de formato
+    try:
+        lb = WebDriverWait(driver, 8).until(
+            EC.element_to_be_clickable((By.CSS_SELECTOR, "#detail_3_container div.w-listbox-dropdown")))
+        try:
+            lb.click()
+        except Exception:
+            driver.execute_script("arguments[0].click();", lb)
+        time.sleep(1.5)
+        print("[DOWN] Dropdown de formato aberto")
+    except Exception as e:
+        print(f"[DOWN-AVISO] Dropdown formato nao aberto: {e}")
+    # 2) clica na opcao XLSX; se nao houver, aceita XLS
+    # (classes opt-item-<FMT>_<num>, sufixo numerico varia entre sessoes)
+    try:
+        opcs = []
+        for opt in driver.find_elements(By.CSS_SELECTOR, "a[class*='opt-item-']"):
+            try:
+                if opt.is_displayed():
+                    opcs.append(((opt.text or "").strip().upper(), opt))
+            except Exception:
+                continue
+        print(f"[DOWN] Opcoes de formato: {[t for t, _ in opcs]}")
+        for alvo in ("XLSX", "XLS"):
+            for txt, opt in opcs:
+                if txt == alvo:
+                    try:
+                        opt.click()
+                    except Exception:
+                        driver.execute_script("arguments[0].click();", opt)
+                    time.sleep(1.0)
+                    fmt_alvo = alvo
+                    print(f"[DOWN] Opcao {alvo} clicada (replay gravado)")
+                    break
+            if fmt_alvo:
+                break
+    except Exception:
+        pass
+    # 3) verifica: dropdown passou a mostrar o formato?
+    try:
+        txt_lb = (driver.find_element(By.CSS_SELECTOR, "#detail_3_container div.w-listbox-dropdown").text or "").strip().upper()
+        if txt_lb in ("XLSX", "XLS"):
+            print(f"[DOWN] Formato {txt_lb} confirmado no dropdown")
+            fmt_ok = True
+    except Exception:
+        pass
+    # 4) fallback generico (sessoes com IDs diferentes)
+    if not fmt_ok:
+        try:
+            if clicar_por_texto(driver, 4, "XLSX", "XLS", tag="*"):
+                print("[DOWN] Formato via fallback texto")
+                fmt_ok = True
+        except Exception:
+            pass
+    if not fmt_ok:
+        print("[AVISO] Formato nao confirmado. Veja 08a/08b")
     time.sleep(1)
-    take_screenshot(driver, "08b_csv")
-    if not clicar_por_texto(driver, 10, "Continuar", "Confirmar", "OK", tag="button"):
+    take_screenshot(driver, "08b_xlsx")
+    if not clicar_por_texto(driver, 10, "Continuar", "Confirmar", "OK", "Gerar", "Exportar", tag="button"):
         print("[ERRO] Botao Continuar nao encontrado")
         take_screenshot(driver, "erro_continuar")
         return None
-    print("[DOWN] Aguardando download do CSV...")
+    print("[DOWN] Aguardando download do XLSX...")
     deadline = time.time() + timeout
     while time.time() < deadline:
         if not is_driver_alive(driver):
             break
         try:
             cr = list(download_dir.glob("*.crdownload"))
-            csvs = sorted(download_dir.glob("*.csv"), key=lambda p: p.stat().st_mtime, reverse=True)
-            novos = [c for c in csvs if c.name not in antes]
+            xlsxs = sorted(download_dir.glob("*.xlsx"), key=lambda p: p.stat().st_mtime, reverse=True)
+            novos = [c for c in xlsxs if c.name not in antes]
             if novos and not cr:
                 # estabilidade: tamanho nao muda por 2s
                 t1 = novos[0].stat().st_size
@@ -902,7 +1214,7 @@ def solicitar_csv_e_baixar(driver, download_dir: Path, timeout: int = 90) -> Pat
         except Exception:
             pass
         time.sleep(2)
-    print("[ERRO] Timeout aguardando CSV")
+    print("[ERRO] Timeout aguardando XLSX")
     take_screenshot(driver, "erro_download_timeout")
     return None
 
@@ -910,10 +1222,10 @@ def solicitar_csv_e_baixar(driver, download_dir: Path, timeout: int = 90) -> Pat
 def mover_para_1033(origem: Path, nome_estab: str) -> Path:
     """Passo 12: move para ~/Downloads/1033 renomeado com nome do estabelecimento."""
     destino_dir = pasta_downloads_1033()
-    destino = destino_dir / f"{sanitizar_nome(nome_estab)}.csv"
+    destino = destino_dir / f"{sanitizar_nome(nome_estab)}.xlsx"
     i = 1
     while destino.exists():
-        destino = destino_dir / f"{sanitizar_nome(nome_estab)}_{i}.csv"
+        destino = destino_dir / f"{sanitizar_nome(nome_estab)}_{i}.xlsx"
         i += 1
     shutil.move(str(origem), str(destino))
     print(f"[ARQ] Movido -> {destino}")
@@ -1044,18 +1356,18 @@ def main() -> None:
             pass
 
         if is_driver_alive(driver):
-            print("[3.5/4] Fechando popups pos-login (generico, 15s)...")
+            print("[3.5/4] Fechando popups pos-login (max 8s, sai antes se limpar)...")
             take_screenshot(driver, "03a_antes_popup")
             try:
                 diagnosticar_popups(driver, "ANTES")
-                n_popup = fechar_popups_pos_login(driver, timeout_total=15)
+                n_popup = fechar_popups_pos_login(driver, timeout_total=8, per_wait=0.5)
                 print(f"[INFO] Popups fechados: {n_popup}")
                 diagnosticar_popups(driver, "DEPOIS")
             except Exception as e:
                 print(f"[AVISO] Falha no fechador generico: {e}")
             take_screenshot(driver, "03b_apos_popup")
             take_screenshot(driver, "03_pos_login")
-            time.sleep(2)
+            time.sleep(1)
             take_screenshot(driver, "04_final")
 
         # ── FLUXO 1033 (passos 1-13 do roteiro) ──
@@ -1063,8 +1375,7 @@ def main() -> None:
             print("[FIM] Navegador fechado antes do 1033.")
             return
         extracao_cfg = params.get("extracao", {})
-        limite_teste = int(extracao_cfg.get("limite_teste", 1))  # modo teste: 1 estab primeiro
-        intervalo = int(auto.get("intervalo_entre_coletas_segundos", 2))
+        limite_teste = int(extracao_cfg.get("limite_teste", 1))
         download_dir = Path.home() / "Downloads"
         pasta1033 = pasta_downloads_1033()
         print(f"[CFG] Pasta 1033: {pasta1033} | limite_teste={limite_teste}")
@@ -1074,14 +1385,26 @@ def main() -> None:
             take_screenshot(driver, "erro_fluxo_1033")
             return
 
-        estabelecimentos = carregar_estabelecimentos()
+        # Periodo GLOBAL (parametros.json > extracao.periodo) — preenchido 1x.
+        periodo = extracao_cfg.get("periodo", {}) or {}
+        data_inicio = str(periodo.get("data_inicio", "")).strip()
+        data_fim = str(periodo.get("data_fim", "")).strip()
+        if not data_inicio or not data_fim:
+            print("[ERRO] Periodo global ausente em parametros.json > extracao.periodo (data_inicio/data_fim)")
+            take_screenshot(driver, "erro_periodo_global")
+            return
+        print(f"[CFG] Periodo global: {data_inicio} a {data_fim}")
+        preencher_datas_e_titulos(driver, data_inicio, data_fim)
+
+        # Lista reaproveitada do xlsx (sem modal/scroll); loop baixa 1 CSV por item.
+        estabelecimentos = carregar_lista_descoberta(driver)
+        if not estabelecimentos:
+            print("[FIM] Lista vazia. Veja desc_*.png")
+            return
         if limite_teste and limite_teste > 0:
             estabelecimentos = estabelecimentos[:limite_teste]
             print(f"[MODO TESTE] Executando apenas {len(estabelecimentos)} estabelecimento(s). "
-                  f"Para rodar os 148, ajuste extracao.limite_teste=0 em parametros.json")
-        # Filtros base (passo 7-8) com o periodo do 1o estabelecimento
-        if estabelecimentos:
-            preencher_datas_e_titulos(driver, estabelecimentos[0]["inicio"], estabelecimentos[0]["fim"])
+                  f"Para rodar todos, ajuste extracao.limite_teste=0 em parametros.json")
 
         ok_count = fail = 0
         for idx, est in enumerate(estabelecimentos, 1):
@@ -1089,15 +1412,13 @@ def main() -> None:
                 print("[ENCERRADO] Navegador fechado durante o loop.")
                 break
             print(f"\n===== [{idx}/{len(estabelecimentos)}] {est['nome']} "
-                  f"({est['inicio']} a {est['fim']}) =====")
+                  f"({data_inicio} a {data_fim}) =====")
             try:
-                # Periodo pode variar por estabelecimento
-                preencher_datas_e_titulos(driver, est["inicio"], est["fim"])
                 if not selecionar_estabelecimento(driver, est["nome"]):
                     print(f"[FALHA] {est['nome']}: nao selecionou")
                     fail += 1
                     continue
-                baixado = solicitar_csv_e_baixar(driver, download_dir)
+                baixado = solicitar_xlsx_e_baixar(driver, download_dir)
                 if not baixado:
                     print(f"[FALHA] {est['nome']}: sem download")
                     fail += 1
@@ -1109,7 +1430,7 @@ def main() -> None:
                 print(f"[FALHA] {est['nome']}: {e}")
                 take_screenshot(driver, "erro_estabelecimento")
                 fail += 1
-            time.sleep(intervalo)
+            time.sleep(int(auto.get("intervalo_entre_coletas_segundos", 2)))
         print(f"\n[4/4] FLUXO 1033 CONCLUIDO — ok={ok_count} falhas={fail} pasta={pasta1033}")
     finally:
         try:

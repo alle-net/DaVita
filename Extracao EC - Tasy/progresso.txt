@@ -281,3 +281,39 @@ SESSAO 17/09 - OTIMIZACAO AUTORIZADA
       apos reiniciar: trecho do console + screenshot erro_* + diagnostico.
     - Hipoteses p/ proxima sessao: seletor de datas/titulos, Filtros avancados,
       Visualizar/CSV/Continuar ou espera de download.
+
+29. SESSAO 17-18/09 - DEBUG PROFUNDO + REPLAY GRAVADO (resumo executivo):
+    - Bug abertura relatorio: xpath contains(.,'CATE-1033') casava ancestrais
+      (logava sucesso sem sair da Lista). Fix: nos-folha contains(text()),
+      3 tentativas (double-click / ENTER / Visualizar) + verificacao real de
+      navegacao via marcadores do Parametros (sem 'periodo da conta', que dava
+      falso-positivo pelo nome da linha na Lista).
+    - Radio Ambos clicava vizinho (preceding::input). Fix: associa input ao
+      texto + verifica is_selected; depois replay usa #label_wid_10/#wid_10.
+    - 'Filtro avancado' e singular (link inferior direito).
+    - Popups: early-exit apos 2 passadas vazias (teto 15s->8s); clicar_por_texto
+      com tag='*' otimizado p/ tags clicaveis (a/button/div/span/li).
+    - Periodo virou GLOBAL em parametros.json > extracao.periodo
+      (data_inicio/data_fim); preenchido 1x (era o pisca na tela). Excel agora
+      so tem nomes.
+    - Modal Filtro avancado mapeado via F12/DOM do usuario: tipo #WAFD-1,
+      lista #table-items (scroll-item-without-headers, infinite-scroll),
+      linhas tr[ng-repeat] > div.w-item-checkbox > div.check-element +
+      div.w-item-label-align[data-code] > span.w-item-label-elipses.
+    - Descoberta automatica: raspagem #table-items com scroll (172 itens,
+      output/estabelecimentos_descobertos.xlsx). Depois virou reuso do xlsx
+      (carregar_lista_descoberta) p/ eliminar scroll visivel a cada run.
+    - Gravacao manual do usuario (gravar_cliques.py, 16:08-16:10, 103 linhas
+      novas em cliques_registrados.txt): sequencia exata que funciona —
+      duplo clique #title_1_1, Ambos #label_wid_10, #button-open-filter,
+      #WAFD-1, check no div.check-element da tr[1], #submit-button,
+      Visualizar, dropdown formato #detail_3_container, opcao a.opt-item-CSV,
+      Continuar. Replay implementado sobre esses seletores.
+    - Troca CSV -> XLSX (pedido usuario; CSV com problemas): formato XLSX
+      primeiro (fallback XLS), espera download *.xlsx (timeout 120s),
+      destino .xlsx. Teste limite_teste=5.
+    - TESTE 5 (18/09): FALHOU — timeout aguardando XLSX no 1o item + sessao
+      Edge caiu no 2o (invalid session id). Pasta 1033 vazia. Log em
+      output/run_teste5.log. Download nunca validado end-to-end.
+    - PENDENTE (pedido usuario p/ hoje): commit + mudancas — XLSX e padrao
+      (remover selecao de formato), loop desmarca anterior e marca o proximo.
