@@ -4,6 +4,7 @@ import shutil
 import subprocess
 import sys
 import time
+import unicodedata
 from datetime import datetime
 from pathlib import Path
 
@@ -807,6 +808,7 @@ def preencher_datas_e_titulos(driver, inicio: str, fim: str) -> bool:
 
 
 _CACHE_DESCOBERTA: list | None = None
+_VISTOS_RUN: set = set()  # nomes normalizados ja vistos no modal neste run
 
 
 def carregar_lista_descoberta(driver) -> list:
@@ -815,6 +817,8 @@ def carregar_lista_descoberta(driver) -> list:
     Sobrescreve output/estabelecimentos_descobertos.xlsx (artefato/auditoria).
     Garante: unidade nova some na lista, removida sai, rename acompanha o Tasy.
     """
+    global _VISTOS_RUN
+    _VISTOS_RUN = set()
     desc = descobrir_estabelecimentos(driver)
     if desc:
         salvar_descoberta_excel(desc)
@@ -1036,21 +1040,84 @@ def selecionar_estabelecimento(driver, nome: str, timeout: int = 12) -> bool:
         take_screenshot(driver, "erro_tipo_estabelecimento")
         return False
     take_screenshot(driver, "07a1_tipo_estabelecimento")
-    # 2) SEM busca: volta ao topo da lista e pega o PRIMEIRO item visivel
-    # (lista alfabetica -> 1o = DaVita Advance). Nada e digitado.
+    # 2) SCROLL-AND-SCAN 18/09: a lista e virtualizada (so ~50 linhas no DOM).
+    # Rola #table-items em passos e confere o nome a cada passo, com early-stop.
+    # Match com dobra de acento/caixa; fallback contains de candidato unico.
+    def _norm(s: str) -> str:
+        s = " ".join((s or "").split()).lower()
+        return "".join(c for c in unicodedata.normalize("NFKD", s)
+                       if not unicodedata.combining(c))
+
+    def _coletar_visiveis() -> set:
+        try:
+            spans = driver.find_elements(By.CSS_SELECTOR, "#table-items span.w-item-label-elipses")
+        except Exception:
+            return set()
+        achados = set()
+        for sp in spans:
+            try:
+                if not sp.is_displayed():
+                    continue
+                t = _norm(sp.text)
+                if t:
+                    achados.add(t)
+            except Exception:
+                continue
+        return achados
+
+    alvo_norm = _norm(nome)
+    vistos = set(_VISTOS_RUN)  # reaproveita nomes ja vistos neste run
+    take_screenshot(driver, "07a2_topo_lista")
     try:
         driver.execute_script(
             "var c = document.getElementById('table-items'); if (c) c.scrollTop = 0;")
         time.sleep(0.3)
     except Exception:
         pass
-    take_screenshot(driver, "07a2_topo_lista")
+    achou = None
+    deadline_scan = time.time() + 25
+    while time.time() < deadline_scan and achou is None:
+        for t in _coletar_visiveis():
+            vistos.add(t)
+        if alvo_norm in vistos:
+            achou = alvo_norm
+            break
+        try:
+            info = driver.execute_script(
+                "var c = document.getElementById('table-items');"
+                " if (!c) return null;"
+                " c.scrollTop = c.scrollTop + 800;"
+                " return {top: c.scrollTop, h: c.scrollHeight, c: c.clientHeight};")
+        except Exception:
+            info = None
+        time.sleep(0.6)
+        if not info or info["top"] + info["c"] >= info["h"] - 10:
+            for t in _coletar_visiveis():
+                vistos.add(t)
+            break
+    _VISTOS_RUN.update(vistos)
+    if achou is None:
+        # Fallback: contains de candidato unico (ex.: sufixo diferente no Tasy)
+        cands = sorted({t for t in vistos if alvo_norm in t or t in alvo_norm})
+        if len(cands) == 1:
+            achou = cands[0]
+            print(f"[EXT-AVISO] Exato nao achado; usando contains '{cands[0]}' p/ '{nome}'")
+        else:
+            print(f"[ERRO] '{nome}' nao achado apos scroll completo "
+                  f"(vistos={len(vistos)}, candidatos_contains={cands[:5]})")
+            try:
+                amostra = sorted(vistos)[:15]
+                print(f"[DIAG] Amostra visiveis: {amostra}")
+            except Exception:
+                pass
+            take_screenshot(driver, "erro_estab_nao_achado")
+            return False
+    print(f"[EXT] '{nome}' localizado na lista (scroll-and-scan)")
 
     # 3) REPLAY GRAVADO: clique no 'div.check-element' interno da linha
     # (xpath gravado: #table-items/table/tbody/tr[N]/td/div[1]/div).
-    # Localiza a linha pelo nome exato (cada item tem sua linha), clica no
-    # check-element interno com clique nativo. Maquina de estados: 1 clique
-    # -> reconfere fresco -> so clica de novo se ainda desmarcado.
+    # Re-localiza elementos FRESCOS (sem scroll — item ja esta renderizado).
+    # Maquina de estados: 1 clique -> reconfere fresco -> so clica de novo se desmarcado.
     def _linha_por_nome():
         """Retorna (tr, check_el, checked) da linha do 'nome', elementos frescos."""
         try:
@@ -1062,7 +1129,7 @@ def selecionar_estabelecimento(driver, nome: str, timeout: int = 12) -> bool:
             try:
                 if not sp.is_displayed():
                     continue
-                if " ".join((sp.text or "").split()).lower() == nome.strip().lower():
+                if _norm(sp.text) == achou:
                     alvo = sp.find_element(By.XPATH, "./ancestor::tr[1]")
                     break
             except Exception:
