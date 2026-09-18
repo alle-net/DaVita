@@ -400,3 +400,6 @@ SESSAO 17/09 - OTIMIZACAO AUTORIZADA
  - Extracao.py: [1/2] Intus_SC -> AGUDO-*.csv.gz, [2/2] Tasy_1033.main()
    (inclui [5/5] CRONICO-*.csv.gz). Etapas independentes (falha de uma
    nao bloqueia a outra); placar final + exit code. Imports validados.
+ - RENOMEACAO 18/09: pasta 'Extracao EC - Tasy' -> 'Importacao EC'
+   (2 extracoes incorporadas). Commit 7ce9120, renames 100%, venv
+   validado no novo caminho. Codigo inalterado (caminhos relativos).
