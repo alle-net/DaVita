@@ -378,8 +378,7 @@ SESSAO 17/09 - OTIMIZACAO AUTORIZADA
    70112e1 (destino via params + rodada cheia) > 4dc12d4 ([5/5] no fluxo).
  - FASE 2 CONSIDERADA FECHADA (18/09).
 
- FASE 3 - INTUS_SC (iniciada 18/09 tarde)
- ---------------------------------------
+ FASE 3 - INTUS_SC (iniciada 18/09 tarde) ---------------------------------------
  - Intus_SC.py: adaptado de 'Extracao EC - CSV gz/extracao.py'.
    Config via parametros.json > intus_db (credenciais ex-Config.json).
    Periodo via extracao.periodo (binds :data_inicio/:data_fim yyyy-mm-dd).
@@ -395,3 +394,9 @@ SESSAO 17/09 - OTIMIZACAO AUTORIZADA
  - Sweep Intus 18/09: fetch por chunks de 20k (141.763 linhas em 19s c/
    progresso por lote, antes ~4min silencioso); timeouts leitura/escrita
    600s; teste vivo AGUDO-20260918-1534.csv.gz validado (BOM + acentos).
+
+ FASE 4 - ORQUESTRADOR Extracao.py (18/09)
+ ----------------------------------------
+ - Extracao.py: [1/2] Intus_SC -> AGUDO-*.csv.gz, [2/2] Tasy_1033.main()
+   (inclui [5/5] CRONICO-*.csv.gz). Etapas independentes (falha de uma
+   nao bloqueia a outra); placar final + exit code. Imports validados.
