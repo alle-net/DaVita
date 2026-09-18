@@ -317,3 +317,55 @@ SESSAO 17/09 - OTIMIZACAO AUTORIZADA
       output/run_teste5.log. Download nunca validado end-to-end.
     - PENDENTE (pedido usuario p/ hoje): commit + mudancas — XLSX e padrao
       (remover selecao de formato), loop desmarca anterior e marca o proximo.
+
+ 30. SESSAO 18/09 (tarde) - REPLAY GRAVADO + LOOP COMPLETO (resumo executivo):
+    - Gravacao do usuario (08:39-08:42, 18/09): fluxo completo com 3 itens.
+      Diferencas vs roteiro antigo: relatorio abre via botao Imprimir
+      #handlebar-1093435 (nao duplo clique); download via Exportar XLS
+      #handlebar-1049356 + Continuar (XLS padrao, sem dropdown); limpeza via X
+      div.w-token-clear em #checkout-content. Replay implantado fiel.
+    - Pasta 1033: cria se nao existe, LIMPA no inicio da rodada cheia
+      (limpar=True); modo complementar (pular_existentes=true) mantem e
+      processa so os ausentes. Arquivos sobrescritos por estabelecimento.
+    - Download real e TSV com extensao .xls (cabecalho 'Location Estab Conta'
+      + tabs) — causa do alerta do Excel. Pipeline: valida TSV -> converte
+      p/ XLSX real via pandas (alerta some). 'vazio' (so cabecalho) aceito
+      sem retry; 'invalido' apaga e repete (max 3x). Contadores ok/vazios/falhas.
+    - Teste 5 unidades OK (Amazonia 7635 lin, Agreste vazio). Rodada 01/05-
+      31/07/2026: 165/172 (7 faltas: Cabo Frio, Gama, Ibirapuera, Recife,
+      Santo Andre, Vila da Penha, DKC Osasco — 1 timeout + 6 #WAFD-1 travado).
+    - Lista do modal e VIRTUALIZADA (~50 linhas no DOM, infinite-scroll;
+      provado via desc_modal.html: tem Advance, nao tem Recife). Selecao com
+      scroll-and-scan + early-stop; match com dobra de acento; busca digitada
+      first (anti-stale: re-localiza tudo apos digitar) + fallback scroll.
+    - Dimensao: painel esq tem busca #search-dimension; helper
+      ativar_dimensao_estabelecimento() filtra 'Estabelecimento', clica
+      #WAFD-1 fresco e verifica ativa (selected/active), com reabertura 1x.
+      Fixa o bug do padrao Convenio.
+    - Edge anti-bloqueio: safebrowsing/download-protection desligados
+      (msg 'nao foi possivel verificar virus' barrava o .xls falso).
+    - Otimizacoes velocidade: waits curtos, PNG so de erro (fotos_sucesso),
+      validacao single-pass, intervalo 0, coleta JS 1 roundtrip, throttle
+      is_driver_alive, limpa .crdownload no retry. Alvo ~15s/item.
+    - Decisao usuario: loop usa LISTA FIXA (ListaEstabelecimentos.xlsx, 148;
+      usuario mantem; 24 unidades da virtual fora da fixa foram mapeadas).
+      Auditoria/verificacoes removidas — 'so ler e executar'.
+    - Commits: d064c76 (replay+retry+conversao) > 240c6ea (otimizacao) >
+      78d15e4 (lista fresca/pular/anti-bloqueio/WAFD) > 4377d83 (scroll-scan)
+      > cfd85bd (lista fixa) > 41adaaf (busca first) > 0b5bf13 (dimensao) >
+      394cf11 (varredura: fix seed, JS batch, throttle, crdownload).
+    - Teste final usuario (pos-almoco): 2 unidades (Asa Norte 281 lin,
+      Asa Sul - Gama), periodo novo. EXTRACAO CONSIDERADA FECHADA.
+
+ FASE 2 - CONSOLIDACAO (iniciada 18/09 pos-almoco)
+ ------------------------------------------------
+ - Objetivo: consolidar os XLSX da 1033 em CSV.GZ unico.
+ - Schema medido (Asa Norte): 33 colunas (Location Estab Conta...Canal).
+ - Pendente: definir colunas extras (origem/periodo), delimitador, encoding,
+   destino e regra de arquivos vazios/duplicados.
+ - Spec fechada 18/09: 2 colunas extras (ds_modalidade='CRONICO',
+   atualizacao=run YYYY-MM-DD HH:MM:SS); CSV ';' UTF-8 gzip;
+   nome EC-yyyyMMdd-hhmm.csv.gz em output/; inclui tudo (vazios = 0 linhas).
+ - Script consolidar_ec.py criado (le 1033/*.xlsx, concatena, grava EC-*.csv.gz).
+ - Decisao: trabalhar com base menor de 3 estabelecimentos
+   (limite_teste=3) ate fechar a consolidacao.
