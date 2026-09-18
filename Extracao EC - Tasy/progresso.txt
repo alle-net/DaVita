@@ -377,3 +377,15 @@ SESSAO 17/09 - OTIMIZACAO AUTORIZADA
    Commits: 77ef358 (consolidar_ec.py) > afe66d1 (prefixo CRONICO) >
    70112e1 (destino via params + rodada cheia) > 4dc12d4 ([5/5] no fluxo).
  - FASE 2 CONSIDERADA FECHADA (18/09).
+
+ FASE 3 - INTUS_SC (iniciada 18/09 tarde)
+ ---------------------------------------
+ - Intus_SC.py: adaptado de 'Extracao EC - CSV gz/extracao.py'.
+   Config via parametros.json > intus_db (credenciais ex-Config.json).
+   Periodo via extracao.periodo (binds :data_inicio/:data_fim yyyy-mm-dd).
+   Colunas ds_modalidade='AGUDO' + atualizacao (ex-gravacao, com segundos).
+   Saida AGUDO-yyyyMMdd-hhmm.csv.gz, ';', UTF-8.
+   Querys/ copiada (EC/EC_RJ/ECC.sql) com datas relativas trocadas por binds.
+   Default ECC.sql (SELECT *). Deps instaladas: SQLAlchemy 2.0.54, PyMySQL 1.2.3.
+ - Teste vivo 18/09 (periodo 01/05-31/08/2026): 141.762 registros em ~4min,
+   AGUDO-20260918-1505.csv.gz com 64 cols validado (AGUDO + timestamp).

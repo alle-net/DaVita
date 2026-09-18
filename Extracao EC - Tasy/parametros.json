@@ -19,6 +19,16 @@
     "consolidado_diretorio": "~/Downloads",
     "consolidado_prefixo": "CRONICO"
   },
+  "intus_db": {
+    "servidor": "149.28.212.92",
+    "banco": "nefrolco_davita_panel",
+    "usuario": "nefrolcoud_ciclodereceita",
+    "senha": "#pwzx1rfS%cnF@MC",
+    "query": "ECC.sql",
+    "pasta_saida": "C:/Users/alexandresilva3/OneDrive - DaVita/Ciclo da Receita - HOSPITAL/Analise_De_Dados/Relatorios/0002 - Etapa Conta/Dados",
+    "ds_modalidade": "AGUDO",
+    "prefixo": "AGUDO"
+  },
   "automacao": {
     "headless": false,
     "timeout_segundos": 30,
@@ -27,11 +37,11 @@
     "fotos_sucesso": false
   },
   "extracao": {
-    "limite_teste": 0,
+    "limite_teste": 4,
     "pular_existentes": false,
     "relatorio_codigo": "1033",
     "periodo": {
-      "data_inicio": "01/01/2026",
+      "data_inicio": "01/05/2026",
       "data_fim": "31/08/2026"
     }
   }
