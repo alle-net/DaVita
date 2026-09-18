@@ -365,7 +365,7 @@ SESSAO 17/09 - OTIMIZACAO AUTORIZADA
    destino e regra de arquivos vazios/duplicados.
  - Spec fechada 18/09: 2 colunas extras (ds_modalidade='CRONICO',
    atualizacao=run YYYY-MM-DD HH:MM:SS); CSV ';' UTF-8 gzip;
-   nome EC-yyyyMMdd-hhmm.csv.gz em output/; inclui tudo (vazios = 0 linhas).
+   nome CRONICO-yyyyMMdd-hhmm.csv.gz em output/; inclui tudo (vazios = 0 linhas).
  - Script consolidar_ec.py criado (le 1033/*.xlsx, concatena, grava EC-*.csv.gz).
  - Decisao: trabalhar com base menor de 3 estabelecimentos
    (limite_teste=3) ate fechar a consolidacao.

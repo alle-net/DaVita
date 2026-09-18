@@ -4,7 +4,7 @@ Spec (18/09):
 - 1 linha por registro, todas as colunas originais +
   ds_modalidade='CRONICO' e atualizacao='<run YYYY-MM-DD HH:MM:SS>'.
 - CSV com ';', UTF-8, gzip.
-- Nome: EC-yyyyMMdd-hhmm.csv.gz em output/.
+- Nome: CRONICO-yyyyMMdd-hhmm.csv.gz em output/.
 - Inclui tudo (xlsx vazios contribuem com 0 linhas, sem quebrar).
 
 Uso: .\\.venv\\Scripts\\python.exe consolidar_ec.py
@@ -61,7 +61,7 @@ def consolidar() -> Path | None:
         return None
 
     total = pd.concat(frames, ignore_index=True)
-    nome = f"EC-{run_dt:%Y%m%d}-{run_dt:%H%M}.csv.gz"
+    nome = f"CRONICO-{run_dt:%Y%m%d}-{run_dt:%H%M}.csv.gz"
     OUTPUT_DIR.mkdir(exist_ok=True)
     destino = OUTPUT_DIR / nome
     total.to_csv(destino, sep=SEP, encoding=ENCODING, index=False, compression="gzip")
