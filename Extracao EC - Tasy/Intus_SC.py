@@ -85,23 +85,45 @@ def conectar(db: dict[str, Any]) -> Iterator[Engine]:
         f"mysql+pymysql://{db['usuario']}:{senha_encoded}"
         f"@{db['servidor']}/{db['banco']}?charset=utf8mb4"
     )
-    engine = create_engine(string_conexao, connect_args={"connect_timeout": 15})
+    # Timeouts longos: a transferencia de ~150k linhas leva minutos.
+    engine = create_engine(
+        string_conexao,
+        connect_args={
+            "connect_timeout": 15,
+            "read_timeout": 600,
+            "write_timeout": 600,
+        },
+    )
     try:
         yield engine
     finally:
         engine.dispose()
 
 
+CHUNK_SIZE = 20000  # streaming por lotes: progresso visivel + pico de RAM menor
+
+
 def extrair_dados(db: dict[str, Any], binds: dict[str, str]) -> pd.DataFrame:
     query = text(carregar_query(db["query"]))
     modalidade = str(db.get("ds_modalidade", "AGUDO") or "AGUDO")
+    carimbo = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     for tentativa in range(1, MAX_TENTATIVAS + 1):
         try:
             with conectar(db) as engine:
-                df = pd.read_sql(query, engine, params=binds, coerce_float=False)
+                partes = []
+                total = 0
+                t0 = time.time()
+                for chunk in pd.read_sql(
+                    query, engine, params=binds, coerce_float=False,
+                    chunksize=CHUNK_SIZE,
+                ):
+                    total += len(chunk)
+                    partes.append(chunk)
+                    logger.info("... %d linhas em %ds", total, int(time.time() - t0))
+            df = pd.concat(partes, ignore_index=True) if partes else pd.DataFrame()
             df["ds_modalidade"] = modalidade
-            df["atualizacao"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            df["atualizacao"] = carimbo
             return df
         except Exception as e:
             if tentativa < MAX_TENTATIVAS:
@@ -127,7 +149,9 @@ def salvar_csv_gz(df: pd.DataFrame, params: dict[str, Any], db: dict[str, Any]) 
         index=False,
         sep=";",
         compression="gzip",
-        encoding="utf-8",
+        # UTF-8 COM BOM: sem ele o Excel BR abre como Windows-1252 e exibe
+        # 'VitÃ³ria' (o arquivo estava byte-correto; o problema era a deteccao).
+        encoding="utf-8-sig",
     )
     return caminho_completo
 

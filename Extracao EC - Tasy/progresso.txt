@@ -389,3 +389,9 @@ SESSAO 17/09 - OTIMIZACAO AUTORIZADA
    Default ECC.sql (SELECT *). Deps instaladas: SQLAlchemy 2.0.54, PyMySQL 1.2.3.
  - Teste vivo 18/09 (periodo 01/05-31/08/2026): 141.762 registros em ~4min,
    AGUDO-20260918-1505.csv.gz com 64 cols validado (AGUDO + timestamp).
+ - Fix acentos 18/09: arquivo estava byte-correto em UTF-8, mas sem BOM o
+   Excel BR abria como Windows-1252 ('VitÃ³ria'). Ambos os CSVs voltaram
+   p/ utf-8-sig (CRONICO e AGUDO). Removido bloco duplicado em consolidar.
+ - Sweep Intus 18/09: fetch por chunks de 20k (141.763 linhas em 19s c/
+   progresso por lote, antes ~4min silencioso); timeouts leitura/escrita
+   600s; teste vivo AGUDO-20260918-1534.csv.gz validado (BOM + acentos).

@@ -3,7 +3,7 @@
 Spec (18/09):
 - 1 linha por registro, todas as colunas originais +
   ds_modalidade='CRONICO' e atualizacao='<run YYYY-MM-DD HH:MM:SS>'.
-- CSV com ';', UTF-8, gzip.
+- CSV com ';', UTF-8 com BOM (p/ o Excel BR detectar e nao exibir 'Ã³'), gzip.
 - Nome: <prefixo>-yyyyMMdd-hhmm.csv.gz no diretorio de saida.
 - Destino e prefixo configuraveis em parametros.json > saida
   (consolidado_diretorio, consolidado_prefixo). Default: ~/Downloads.
@@ -23,7 +23,7 @@ PARAMS_PATH = BASE_DIR / "parametros.json"
 
 MODALIDADE = "CRONICO"
 SEP = ";"
-ENCODING = "utf-8"
+ENCODING = "utf-8-sig"  # com BOM: Excel BR detecta UTF-8 (sem 'Ã³')
 
 
 def load_params() -> dict:
@@ -40,10 +40,6 @@ def destino_config() -> tuple[Path, str]:
     base = Path(raw).expanduser() if raw else Path.home() / "Downloads"
     prefixo = str(saida.get("consolidado_prefixo", "") or "").strip() or "CRONICO"
     return base, prefixo
-
-MODALIDADE = "CRONICO"
-SEP = ";"
-ENCODING = "utf-8"
 
 
 def pasta_1033() -> Path:
