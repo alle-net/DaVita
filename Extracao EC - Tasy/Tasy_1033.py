@@ -180,7 +180,13 @@ def is_driver_alive(driver) -> bool:
         return False
 
 
-def take_screenshot(driver, name: str) -> Path | None:
+_SHOTS_SUCESSO = False  # main() liga via automacao.fotos_sucesso (default: so erros)
+
+
+def take_screenshot(driver, name: str, force: bool = False) -> Path | None:
+    # Otimizacao 18/09: em rodada normal so erros (nome erro_*) geram PNG.
+    if not force and not _SHOTS_SUCESSO and not name.startswith("erro_"):
+        return None
     if not is_driver_alive(driver):
         return None
     try:
@@ -967,24 +973,37 @@ def salvar_descoberta_excel(lista: list) -> Path | None:
         return None
 
 
-def selecionar_estabelecimento(driver, nome: str, timeout: int = 20) -> bool:
-    """Filtro avancado: painel esq 'Estabelecimento' > painel meio pesquisa+checkbox > Selecionar."""
+def selecionar_estabelecimento(driver, nome: str, timeout: int = 12) -> bool:
+    """Filtro avancado: painel esq 'Estabelecimento' > painel meio pesquisa+checkbox > Selecionar.
+
+    Otimizado 18/09: IDs diretos + waits explicitos curtos (sem sleeps fixos).
+    """
     print(f"[EXT] Selecionando estabelecimento '{nome}'...")
-    if not clicar_por_texto(driver, 10, "Filtro avançado", "Filtro avancado", "Filtros avançados", "Filtros avancados", tag="*"):
-        print("[ERRO] 'Filtro avancado' nao encontrado")
-        take_screenshot(driver, "erro_filtros_avancados")
-        return False
-    time.sleep(2)
+    # Via principal gravada: #button-open-filter direto (fallback: texto)
+    try:
+        btn_fa = WebDriverWait(driver, 5).until(
+            EC.element_to_be_clickable((By.ID, "button-open-filter")))
+        try:
+            btn_fa.click()
+        except Exception:
+            driver.execute_script("arguments[0].click();", btn_fa)
+    except Exception:
+        if not clicar_por_texto(driver, 5, "Filtro avançado", "Filtro avancado", tag="*"):
+            print("[ERRO] 'Filtro avancado' nao encontrado")
+            take_screenshot(driver, "erro_filtros_avancados")
+            return False
     take_screenshot(driver, "07a_filtros_avancados")
     # 1) Painel ESQUERDO pelo ID exato (DOM: span#WAFD-1)
     try:
-        el_tipo = WebDriverWait(driver, 10).until(
+        el_tipo = WebDriverWait(driver, 5).until(
             EC.element_to_be_clickable((By.ID, "WAFD-1")))
         try:
             el_tipo.click()
         except Exception:
             driver.execute_script("arguments[0].click();", el_tipo)
-        time.sleep(1.5)
+        # Espera a lista do meio popular (em vez de sleep fixo 1.5s)
+        WebDriverWait(driver, 5).until(
+            lambda d: len(d.find_elements(By.CSS_SELECTOR, "#table-items span.w-item-label-elipses")) > 0)
         print("[EXT] Tipo 'Estabelecimento' (#WAFD-1) clicado")
     except Exception as e:
         print(f"[ERRO] #WAFD-1 nao clicado: {e}")
@@ -996,7 +1015,7 @@ def selecionar_estabelecimento(driver, nome: str, timeout: int = 20) -> bool:
     try:
         driver.execute_script(
             "var c = document.getElementById('table-items'); if (c) c.scrollTop = 0;")
-        time.sleep(1.0)
+        time.sleep(0.3)
     except Exception:
         pass
     take_screenshot(driver, "07a2_topo_lista")
@@ -1044,7 +1063,7 @@ def selecionar_estabelecimento(driver, nome: str, timeout: int = 20) -> bool:
         tr, check_el, checked = _linha_por_nome()
         if tr is None:
             print(f"[EXT] linha '{nome}' nao encontrada, retry...")
-            time.sleep(1)
+            time.sleep(0.5)
             continue
         if checked:
             print(f"[EXT] '{nome}' ja marcado (verificado fresco)")
@@ -1054,7 +1073,6 @@ def selecionar_estabelecimento(driver, nome: str, timeout: int = 20) -> bool:
         try:
             try:
                 driver.execute_script("arguments[0].scrollIntoView({block:'center'});", check_el)
-                time.sleep(0.4)
             except Exception:
                 pass
             try:
@@ -1066,20 +1084,19 @@ def selecionar_estabelecimento(driver, nome: str, timeout: int = 20) -> bool:
                     driver.execute_script("arguments[0].click();", tr)
                 except Exception:
                     pass
-            time.sleep(1.5)  # digest do Angular antes de reconferir
+            time.sleep(0.8)  # digest do Angular antes de reconferir
         except Exception as e:
             print(f"[EXT] passada com erro: {e}")
-            time.sleep(1)
+            time.sleep(0.5)
     if not marcado:
         print(f"[ERRO] '{nome}' nao marcado na lista do meio")
         take_screenshot(driver, "erro_estab_nao_achado")
         return False
-    time.sleep(1)
     take_screenshot(driver, "07b_estab_marcado")
     # REPLAY GRAVADO: #submit-button (fallback: texto 'Selecionar')
     sel_ok = False
     try:
-        btn_sel = WebDriverWait(driver, 10).until(
+        btn_sel = WebDriverWait(driver, 5).until(
             EC.element_to_be_clickable((By.ID, "submit-button")))
         try:
             btn_sel.click()
@@ -1088,13 +1105,16 @@ def selecionar_estabelecimento(driver, nome: str, timeout: int = 20) -> bool:
         sel_ok = True
         print("[EXT] #submit-button clicado")
     except Exception:
-        sel_ok = clicar_por_texto(driver, 10, "Selecionar", tag="button")
+        sel_ok = clicar_por_texto(driver, 4, "Selecionar", tag="button")
     if not sel_ok:
         print("[ERRO] Botao Selecionar nao encontrado")
         return False
-        print("[ERRO] Botao Selecionar nao encontrado")
-        return False
-    time.sleep(2)
+    # Espera o modal fechar / Exportar liberar (em vez de sleep fixo 2s)
+    try:
+        WebDriverWait(driver, 4).until(
+            EC.element_to_be_clickable((By.ID, "handlebar-1049356")))
+    except Exception:
+        time.sleep(1)
     take_screenshot(driver, "07c_apos_selecionar")
     return True
 
@@ -1107,7 +1127,7 @@ def solicitar_xlsx_e_baixar(driver, download_dir: Path, timeout: int = 60) -> Pa
     # 1) Exportar XLS direto (gravado 18/09, 3x seguidas)
     exp_ok = False
     try:
-        btn_exp = WebDriverWait(driver, 10).until(
+        btn_exp = WebDriverWait(driver, 6).until(
             EC.element_to_be_clickable((By.ID, "handlebar-1049356")))
         try:
             btn_exp.click()
@@ -1116,15 +1136,14 @@ def solicitar_xlsx_e_baixar(driver, download_dir: Path, timeout: int = 60) -> Pa
         exp_ok = True
         print("[DOWN] Exportar XLS #handlebar-1049356 clicado")
     except Exception:
-        exp_ok = clicar_por_texto(driver, 8, "Exportar XLS", tag="*")
+        exp_ok = clicar_por_texto(driver, 5, "Exportar XLS", tag="*")
     if not exp_ok:
         print("[ERRO] Botao Exportar XLS nao encontrado")
         take_screenshot(driver, "erro_exportar_xls")
         return None
-    time.sleep(2)
     take_screenshot(driver, "08a_pos_exportar")
-    # 2) Continuar no ngdialog (XLS ja e padrao — sem dropdown)
-    if not clicar_por_texto(driver, 10, "Continuar", tag="button"):
+    # 2) Continuar no ngdialog (XLS ja e padrao — sem dropdown; o wait cobre o delay)
+    if not clicar_por_texto(driver, 6, "Continuar", tag="button"):
         print("[ERRO] Botao Continuar nao encontrado")
         take_screenshot(driver, "erro_continuar")
         return None
@@ -1147,13 +1166,13 @@ def solicitar_xlsx_e_baixar(driver, download_dir: Path, timeout: int = 60) -> Pa
                     return novos[0]
         except Exception:
             pass
-        time.sleep(1)
+        time.sleep(0.5)
     print("[ERRO] Timeout aguardando XLS")
     take_screenshot(driver, "erro_download_timeout")
     return None
 
 
-def limpar_estabelecimento(driver, timeout: int = 10) -> bool:
+def limpar_estabelecimento(driver, timeout: int = 6) -> bool:
     """REPLAY 18/09: clica no X da caixa inferior (div.w-token-clear em #checkout-content)."""
     try:
         x_btn = WebDriverWait(driver, timeout).until(
@@ -1163,7 +1182,11 @@ def limpar_estabelecimento(driver, timeout: int = 10) -> bool:
         except Exception:
             driver.execute_script("arguments[0].click();", x_btn)
         print("[EXT] Estabelecimento removido via X (w-token-clear)")
-        time.sleep(1.5)
+        try:
+            WebDriverWait(driver, 3).until_not(
+                EC.presence_of_element_located((By.CSS_SELECTOR, "#checkout-content div.w-token-clear")))
+        except Exception:
+            time.sleep(0.5)
         return True
     except Exception as e:
         print(f"[AVISO] X de limpeza nao clicado: {e}")
@@ -1171,39 +1194,35 @@ def limpar_estabelecimento(driver, timeout: int = 10) -> bool:
         return False
 
 
-def validar_tsv_baixado(caminho: Path) -> str:
-    """Valida o .xls cru do Tasy (na verdade TSV). Retorna 'ok' | 'vazio' | 'invalido'.
+def validar_e_converter_tsv(origem: Path, nome_estab: str) -> tuple[str, Path | None]:
+    """Validacao + conversao em LEITURA UNICA do disco (otimizacao 18/09).
 
-    - 'ok': cabecalho TSV presente + >=1 linha de dados.
-    - 'vazio': so cabecalho (estabelecimento sem dados no periodo) — aceita, sem retry.
-    - 'invalido': sem cabecalho / ilegivel / truncado — pede retry.
+    O .xls cru do Tasy e TSV. Retorna ('ok'|'vazio'|'invalido', xlsx_final|None).
+    'ok': cabecalho + dados -> grava XLSX real na 1033 (sem alerta do Excel).
+    'vazio': so cabecalho (sem dados no periodo) -> grava XLSX so com cabecalho.
+    'invalido': sem cabecalho/truncado -> None (chamador apaga e repete).
     """
-    try:
-        if not caminho.exists() or caminho.stat().st_size < 10:
-            return "invalido"
-        raw = caminho.read_bytes()[:2000]
-        texto = raw.decode("latin-1", errors="replace")
-        if "Location Estab Conta" not in texto or "\t" not in texto:
-            print(f"[VALID] {caminho.name}: cabecalho TSV ausente -> invalido")
-            return "invalido"
-        with open(caminho, encoding="latin-1", errors="replace") as f:
-            linhas = [ln for ln in (l.strip() for l in f) if ln]
-        if len(linhas) <= 1:
-            print(f"[VALID] {caminho.name}: so cabecalho ({caminho.stat().st_size}B) -> vazio")
-            return "vazio"
-        print(f"[VALID] {caminho.name}: {len(linhas)-1} linha(s) -> ok")
-        return "ok"
-    except Exception as e:
-        print(f"[VALID] Falha ao ler {caminho.name}: {e} -> invalido")
-        return "invalido"
+    import io
 
-
-def converter_tsv_para_xlsx(origem: Path, nome_estab: str) -> Path | None:
-    """Converte o TSV cru em XLSX real na pasta 1033 (elimina o alerta do Excel).
-
-    Apaga qualquer destino homonimo (.xls/.xlsx) antes de gravar.
-    """
     import pandas as pd
+
+    try:
+        if not origem.exists() or origem.stat().st_size < 10:
+            return ("invalido", None)
+        texto = origem.read_bytes().decode("latin-1", errors="replace")
+    except Exception as e:
+        print(f"[VALID] Falha ao ler {origem.name}: {e} -> invalido")
+        return ("invalido", None)
+    if "Location Estab Conta" not in texto[:2000] or "\t" not in texto[:2000]:
+        print(f"[VALID] {origem.name}: cabecalho TSV ausente -> invalido")
+        return ("invalido", None)
+    try:
+        df = pd.read_csv(io.StringIO(texto), sep="\t", dtype=str, engine="python")
+    except Exception as e:
+        print(f"[VALID] {origem.name}: parse TSV falhou ({e}) -> invalido")
+        return ("invalido", None)
+    status = "vazio" if len(df) == 0 else "ok"
+    print(f"[VALID] {origem.name}: {len(df)} linha(s) -> {status}")
 
     destino_dir = pasta_downloads_1033()
     base = sanitizar_nome(nome_estab)
@@ -1215,17 +1234,16 @@ def converter_tsv_para_xlsx(origem: Path, nome_estab: str) -> Path | None:
         except Exception:
             pass
     try:
-        df = pd.read_csv(origem, sep="\t", encoding="latin-1", dtype=str, engine="python")
         df.to_excel(destino, index=False)
         print(f"[ARQ] Convertido -> {destino.name} ({len(df)} linha(s))")
         try:
             origem.unlink()
         except Exception:
             pass
-        return destino
+        return (status, destino)
     except Exception as e:
         print(f"[ARQ-ERRO] Conversao TSV->XLSX falhou ({origem.name}): {e}")
-        return None
+        return ("invalido", None)
 
 
 def baixar_com_retry(driver, download_dir: Path, nome_estab: str, max_tent: int = 3,
@@ -1240,12 +1258,12 @@ def baixar_com_retry(driver, download_dir: Path, nome_estab: str, max_tent: int 
     for tentativa in range(1, max_tent + 1):
         if tentativa > 1:
             print(f"[RETRY] {nome_estab}: tentativa {tentativa}/{max_tent}")
-            time.sleep(3)
+            time.sleep(2)
         baixado = solicitar_xlsx_e_baixar(driver, download_dir, timeout=timeout)
         if baixado is None:
             print(f"[RETRY] {nome_estab}: sem arquivo (tentativa {tentativa})")
             continue
-        status = validar_tsv_baixado(baixado)
+        status, final = validar_e_converter_tsv(baixado, nome_estab)
         if status == "invalido":
             for p in (baixado, destino_dir / f"{base}.xls", destino_dir / f"{base}.xlsx"):
                 try:
@@ -1254,9 +1272,6 @@ def baixar_com_retry(driver, download_dir: Path, nome_estab: str, max_tent: int 
                 except Exception:
                     pass
             print(f"[RETRY] {nome_estab}: invalido apagado (tentativa {tentativa})")
-            continue
-        final = converter_tsv_para_xlsx(baixado, nome_estab)
-        if final is None:
             continue
         return (status, final)
     return ("falha", None)
@@ -1270,9 +1285,13 @@ def read_current_url(driver) -> str:
 
 
 def main() -> None:
+    global _SHOTS_SUCESSO
     params = load_params()
     tasy = params["tasy"]
     auto = params["automacao"]
+    _SHOTS_SUCESSO = bool(auto.get("fotos_sucesso", False))
+    if not _SHOTS_SUCESSO:
+        print("[CFG] Screenshots de sucesso DESLIGADOS (otimizacao; erros ainda geram PNG)")
 
     url = tasy["url"].strip()
     usuario = tasy["usuario"].strip()

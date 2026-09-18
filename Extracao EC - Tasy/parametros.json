@@ -21,7 +21,8 @@
     "headless": false,
     "timeout_segundos": 30,
     "max_retentativas": 3,
-    "intervalo_entre_coletas_segundos": 2
+    "intervalo_entre_coletas_segundos": 0,
+    "fotos_sucesso": false
   },
   "extracao": {
     "limite_teste": 0,
