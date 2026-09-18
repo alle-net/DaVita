@@ -26,10 +26,11 @@
   },
   "extracao": {
     "limite_teste": 0,
+    "pular_existentes": true,
     "relatorio_codigo": "1033",
     "periodo": {
-      "data_inicio": "01/01/2026",
-      "data_fim": "31/08/2026"
+      "data_inicio": "01/05/2026",
+      "data_fim": "31/07/2026"
     }
   }
 }

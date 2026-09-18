@@ -135,8 +135,14 @@ def make_driver(timeout: int) -> webdriver.Edge:
         "download.default_directory": dl_dir,
         "download.prompt_for_download": False,
         "download.directory_upgrade": True,
-        "safebrowsing.enabled": True,
+        # 18/09: o .xls do Tasy (TSV com extensao falsa) cai no bloqueio
+        # "nao foi possivel verificar virus" do Edge/SmartScreen. Origem e
+        # conhecida (digisystem.cloud), entao desliga a verificacao p/ nao
+        # faltar arquivo. Revisar se o RPA passar a baixar de outras fontes.
+        "safebrowsing.enabled": False,
+        "safebrowsing.disable_download_protection": True,
     })
+    options.add_argument("--safebrowsing-disable-download-protection")
     options.add_argument(
         '--auto-select-certificate-for-urls=' + json.dumps([
             {
@@ -804,29 +810,25 @@ _CACHE_DESCOBERTA: list | None = None
 
 
 def carregar_lista_descoberta(driver) -> list:
-    """Retorna [{'nome'}] do xlsx ja descoberto (172 itens) — SEM abrir modal.
+    """Descobre a lista FRESCA no modal a cada execucao (scroll 1x, ~2-3 min).
 
-    So redescobre (scroll no modal) se o arquivo nao existir. E por isso o
-    scroll visivel sumia da rotina: a descoberta foi bootstrap 1x, agora e reuso.
+    Sobrescreve output/estabelecimentos_descobertos.xlsx (artefato/auditoria).
+    Garante: unidade nova some na lista, removida sai, rename acompanha o Tasy.
     """
-    xlsx_desc = OUTPUT_DIR / "estabelecimentos_descobertos.xlsx"
-    if xlsx_desc.exists():
-        try:
-            import pandas as pd
-            df = pd.read_excel(xlsx_desc)
-            col = next((c for c in df.columns if "estabelec" in str(c).lower()), None)
-            if col is None:
-                col = df.columns[1] if len(df.columns) > 1 else df.columns[0]
-            nomes = [str(v).strip() for v in df[col].tolist()]
-            nomes = [n for n in nomes if n and n.lower() != "nan"]
-            print(f"[LISTA] {len(nomes)} itens de {xlsx_desc.name} — sem scroll, direto ao check")
-            return [{"nome": n} for n in nomes]
-        except Exception as e:
-            print(f"[LISTA-AVISO] {e} — redescobrindo no modal...")
     desc = descobrir_estabelecimentos(driver)
     if desc:
         salvar_descoberta_excel(desc)
+    print(f"[LISTA] {len(desc)} itens frescos do modal")
     return [{"nome": d["estabelecimento"]} for d in desc]
+
+
+def filtrar_pendentes(estabelecimentos: list) -> list:
+    """Rodada complementar: mantem so os ausentes na 1033 (compara nome sanitizado)."""
+    dest = pasta_downloads_1033()
+    tem = {p.stem for p in dest.glob("*.xlsx")}
+    pend = [e for e in estabelecimentos if sanitizar_nome(e["nome"]) not in tem]
+    print(f"[LISTA] {len(pend)} pendente(s) de {len(estabelecimentos)} (1033 ja tem {len(tem)})")
+    return pend
 
 
 def descobrir_estabelecimentos(driver, timeout_seg: int = 90) -> list:
@@ -994,9 +996,33 @@ def selecionar_estabelecimento(driver, nome: str, timeout: int = 12) -> bool:
             return False
     take_screenshot(driver, "07a_filtros_avancados")
     # 1) Painel ESQUERDO pelo ID exato (DOM: span#WAFD-1)
+    # Robustez 18/09: se o modal travar (#WAFD-1 nao clicavel), fecha com
+    # Cancelar e reabre o Filtro 1x antes de declarar falha.
+    el_tipo = None
+    for tentativa_wafd in (1, 2):
+        try:
+            el_tipo = WebDriverWait(driver, 8).until(
+                EC.element_to_be_clickable((By.ID, "WAFD-1")))
+            break
+        except Exception as e:
+            print(f"[EXT-AVISO] #WAFD-1 nao clicavel (tentativa {tentativa_wafd}): {e}")
+            take_screenshot(driver, "erro_tipo_estabelecimento")
+            try:
+                clicar_por_texto(driver, 3, "Cancelar", tag="button")
+                time.sleep(1.0)
+                btn_fa2 = WebDriverWait(driver, 5).until(
+                    EC.element_to_be_clickable((By.ID, "button-open-filter")))
+                try:
+                    btn_fa2.click()
+                except Exception:
+                    driver.execute_script("arguments[0].click();", btn_fa2)
+                print("[EXT] Modal reaberto, repetindo #WAFD-1...")
+            except Exception:
+                pass
+    if el_tipo is None:
+        print("[ERRO] #WAFD-1 nao clicado apos reabertura")
+        return False
     try:
-        el_tipo = WebDriverWait(driver, 5).until(
-            EC.element_to_be_clickable((By.ID, "WAFD-1")))
         try:
             el_tipo.click()
         except Exception:
@@ -1425,9 +1451,11 @@ def main() -> None:
             return
         extracao_cfg = params.get("extracao", {})
         limite_teste = int(extracao_cfg.get("limite_teste", 1))
+        pular_existentes = bool(extracao_cfg.get("pular_existentes", False))
         download_dir = Path.home() / "Downloads"
-        pasta1033 = pasta_downloads_1033(limpar=True)
-        print(f"[CFG] Pasta 1033: {pasta1033} | limite_teste={limite_teste}")
+        # Rodada cheia limpa a 1033; complementar mantem e processa so os ausentes.
+        pasta1033 = pasta_downloads_1033(limpar=not pular_existentes)
+        print(f"[CFG] Pasta 1033: {pasta1033} | limite_teste={limite_teste} | pular_existentes={pular_existentes}")
 
         if not navegar_ate_relatorio_1033(driver, timeout=20):
             print("[FIM] Falha na navegacao ate o 1033. Veja screenshots 05*.")
@@ -1445,11 +1473,16 @@ def main() -> None:
         print(f"[CFG] Periodo global: {data_inicio} a {data_fim}")
         preencher_datas_e_titulos(driver, data_inicio, data_fim)
 
-        # Lista reaproveitada do xlsx (sem modal/scroll); loop baixa 1 CSV por item.
+        # Lista FRESCA do modal a cada execucao (1 scroll); loop baixa 1 XLSX por item.
         estabelecimentos = carregar_lista_descoberta(driver)
         if not estabelecimentos:
             print("[FIM] Lista vazia. Veja desc_*.png")
             return
+        if pular_existentes:
+            estabelecimentos = filtrar_pendentes(estabelecimentos)
+            if not estabelecimentos:
+                print("[FIM] Nada pendente — 1033 ja completa.")
+                return
         if limite_teste and limite_teste > 0:
             estabelecimentos = estabelecimentos[:limite_teste]
             print(f"[MODO TESTE] Executando apenas {len(estabelecimentos)} estabelecimento(s). "
