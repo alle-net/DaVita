@@ -32,7 +32,7 @@ QUERYS_DIR = BASE_DIR / "Querys"
 
 MAX_TENTATIVAS = 3
 INTERVALO = 2
-CHAVES_DB_OBRIGATORIAS = {"servidor", "banco", "usuario", "query", "pasta_saida"}
+CHAVES_DB_OBRIGATORIAS = {"servidor", "banco", "usuario", "query"}
 
 logging.basicConfig(
     level=logging.INFO,
@@ -113,8 +113,11 @@ def extrair_dados(db: dict[str, Any], binds: dict[str, str]) -> pd.DataFrame:
                 raise
 
 
-def salvar_csv_gz(df: pd.DataFrame, db: dict[str, Any]) -> Path:
-    pasta_saida = Path(str(db["pasta_saida"]).replace("\\", "/")).expanduser()
+def salvar_csv_gz(df: pd.DataFrame, params: dict[str, Any], db: dict[str, Any]) -> Path:
+    # Mesmo destino do Tasy: parametros.json > saida.consolidado_diretorio.
+    saida = params.get("saida", {}) or {}
+    raw = str(saida.get("consolidado_diretorio", "") or "").strip()
+    pasta_saida = Path(raw).expanduser() if raw else Path.home() / "Downloads"
     pasta_saida.mkdir(parents=True, exist_ok=True)
     prefixo = str(db.get("prefixo", "AGUDO") or "AGUDO")
     timestamp = datetime.now().strftime("%Y%m%d-%H%M")
@@ -139,7 +142,7 @@ def main() -> None:
     logger.info("Conectando ao banco de dados...")
     df = extrair_dados(db, binds)
     logger.info("Registros extraidos: %d", len(df))
-    caminho = salvar_csv_gz(df, db)
+    caminho = salvar_csv_gz(df, params, db)
     logger.info("Arquivo salvo em: %s", caminho)
 
 
