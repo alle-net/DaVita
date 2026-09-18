@@ -1712,6 +1712,17 @@ def main() -> None:
                         pass
             time.sleep(int(auto.get("intervalo_entre_coletas_segundos", 2)))
         print(f"\n[4/4] FLUXO 1033 CONCLUIDO — ok={ok_count} vazios={vazios} falhas={fail} pasta={pasta1033}")
+        # [5/4] Consolidacao automatica no mesmo fluxo (consolidar_ec.py).
+        print("\n[5/5] Consolidando CSV.GZ...")
+        try:
+            from consolidar_ec import consolidar as consolidar_ec
+            destino_ec = consolidar_ec()
+            if destino_ec is not None:
+                print(f"[5/5] CONSOLIDADO: {destino_ec}")
+            else:
+                print("[5/5-AVISO] Nada consolidado (rode consolidar_ec.py manual se preciso)")
+        except Exception as e:
+            print(f"[5/5-AVISO] Consolidacao automatica falhou: {e} (rode consolidar_ec.py manual)")
     finally:
         try:
             dialog_handler.stop()
