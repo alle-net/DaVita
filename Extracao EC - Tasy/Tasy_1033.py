@@ -1090,21 +1090,16 @@ def selecionar_estabelecimento(driver, nome: str, timeout: int = 12) -> bool:
         return norm_nome(s)
 
     def _coletar_visiveis() -> set:
+        # Otimizacao: 1 roundtrip JS (textos visiveis) em vez de N is_displayed().
         try:
-            spans = driver.find_elements(By.CSS_SELECTOR, "#table-items span.w-item-label-elipses")
+            textos = driver.execute_script(
+                "return Array.from(document.querySelectorAll("
+                " '#table-items span.w-item-label-elipses'))"
+                " .filter(function(e){ return e.offsetParent !== null; })"
+                " .map(function(e){ return (e.textContent || '').trim(); });")
         except Exception:
             return set()
-        achados = set()
-        for sp in spans:
-            try:
-                if not sp.is_displayed():
-                    continue
-                t = _norm(sp.text)
-                if t:
-                    achados.add(t)
-            except Exception:
-                continue
-        return achados
+        return {_norm(t) for t in (textos or []) if t}
 
     alvo_norm = _norm(nome)
     vistos = set(_VISTOS_RUN)  # reaproveita nomes ja vistos neste run
@@ -1115,21 +1110,33 @@ def selecionar_estabelecimento(driver, nome: str, timeout: int = 12) -> bool:
     # Anti-stale 18/09: digita -> aguarda assentar -> re-localiza TUDO do zero.
     busca_ok = False
     try:
-        search_input = None
-        for by, val in (
-            (By.CSS_SELECTOR, "#table-items input[type='search']"),
-            (By.CSS_SELECTOR, "#table-items input[type='text']"),
-            (By.XPATH, "//*[@id='table-items']/preceding::input[1]"),
-            (By.CSS_SELECTOR, "input[type='search']"),
-        ):
-            try:
-                cand = WebDriverWait(driver, 2).until(
-                    EC.element_to_be_clickable((by, val)))
-                if cand.is_displayed():
+        # Otimizacao: localiza a caixa em 1 roundtrip JS (era ate 4 waits de 2s).
+        try:
+            cand = driver.execute_script(
+                "var sels = [\"#table-items input[type='search']\","
+                " \"#table-items input[type='text']\","
+                " \"input[type='search']\"];"
+                " for (var i = 0; i < sels.length; i++) {"
+                "   var els = document.querySelectorAll(sels[i]);"
+                "   for (var j = 0; j < els.length; j++) {"
+                "     if (els[j].offsetParent !== null) return els[j];"
+                "   }"
+                " }"
+                " var t = document.getElementById('table-items');"
+                " if (t) { var p = t; for (var k = 0; k < 6 && p; k++) {"
+                "   p = p.parentElement;"
+                "   if (p) { var inp = p.querySelector('input');"
+                "     if (inp && inp.offsetParent !== null) return inp; } } }"
+                " return null;")
+            search_input = None
+            if cand is not None:
+                try:
+                    WebDriverWait(driver, 3).until(EC.element_to_be_clickable(cand))
                     search_input = cand
-                    break
-            except Exception:
-                continue
+                except Exception:
+                    search_input = None
+        except Exception:
+            search_input = None
         if search_input is not None:
             try:
                 search_input.clear()
@@ -1137,14 +1144,15 @@ def selecionar_estabelecimento(driver, nome: str, timeout: int = 12) -> bool:
                 pass
             search_input.send_keys(nome)
             print(f"[EXT] Busca digitada: '{nome}'")
-            # Aguarda a lista assentar (contagem estabiliza, teto 4s)
+            # Aguarda a lista assentar (contagem estabiliza, teto 4s; 1 roundtrip/poll)
             anterior = -1
             estavel = 0
             t_fim = time.time() + 4
             while time.time() < t_fim:
                 try:
-                    n = len(driver.find_elements(
-                        By.CSS_SELECTOR, "#table-items span.w-item-label-elipses"))
+                    n = driver.execute_script(
+                        "return document.querySelectorAll("
+                        " '#table-items span.w-item-label-elipses').length;")
                 except Exception:
                     n = -1
                 if n == anterior and n >= 0:
@@ -1155,10 +1163,11 @@ def selecionar_estabelecimento(driver, nome: str, timeout: int = 12) -> bool:
                     estavel = 0
                 anterior = n
                 time.sleep(0.3)
-            # Re-localiza do zero (elementos pos-busca, nunca os pre-busca)
-            for t in _coletar_visiveis():
-                vistos.add(t)
-            if alvo_norm in vistos:
+            # Re-localiza do zero (elementos pos-busca, nunca os pre-busca).
+            # O match precisa estar no lote ATUAL (nao no seed de runs/item anterior).
+            lote = _coletar_visiveis()
+            vistos.update(lote)
+            if alvo_norm in lote:
                 achou = alvo_norm
                 busca_ok = True
                 print(f"[EXT] '{nome}' achado via busca digitada")
@@ -1166,6 +1175,13 @@ def selecionar_estabelecimento(driver, nome: str, timeout: int = 12) -> bool:
                 print(f"[EXT] Busca sem match exato, limpando p/ scroll...")
                 try:
                     search_input.clear()
+                    try:
+                        # clear() nem sempre esvazia no Angular: garante via teclado
+                        if (search_input.get_attribute("value") or "") != "":
+                            search_input.send_keys(Keys.CONTROL, "a")
+                            search_input.send_keys(Keys.DELETE)
+                    except Exception:
+                        pass
                     time.sleep(0.8)
                 except Exception:
                     pass
@@ -1182,9 +1198,9 @@ def selecionar_estabelecimento(driver, nome: str, timeout: int = 12) -> bool:
             pass
         deadline_scan = time.time() + 25
         while time.time() < deadline_scan and achou is None:
-            for t in _coletar_visiveis():
-                vistos.add(t)
-            if alvo_norm in vistos:
+            lote = _coletar_visiveis()
+            vistos.update(lote)
+            if alvo_norm in lote:  # lote atual, nao seed de item anterior
                 achou = alvo_norm
                 break
             try:
@@ -1197,8 +1213,7 @@ def selecionar_estabelecimento(driver, nome: str, timeout: int = 12) -> bool:
                 info = None
             time.sleep(0.6)
             if not info or info["top"] + info["c"] >= info["h"] - 10:
-                for t in _coletar_visiveis():
-                    vistos.add(t)
+                vistos.update(_coletar_visiveis())
                 break
     _VISTOS_RUN.update(vistos)
     if achou is None:
@@ -1335,9 +1350,12 @@ def solicitar_xlsx_e_baixar(driver, download_dir: Path, timeout: int = 60) -> Pa
         return None
     print("[DOWN] Aguardando download do XLS...")
     deadline = time.time() + timeout
+    ultima_checagem_driver = 0.0  # is_driver_alive throttled (roundtrip caro)
     while time.time() < deadline:
-        if not is_driver_alive(driver):
-            break
+        if time.time() - ultima_checagem_driver >= 3:
+            ultima_checagem_driver = time.time()
+            if not is_driver_alive(driver):
+                break
         try:
             cr = list(download_dir.glob("*.crdownload"))
             cands = sorted(
@@ -1444,6 +1462,13 @@ def baixar_com_retry(driver, download_dir: Path, nome_estab: str, max_tent: int 
     for tentativa in range(1, max_tent + 1):
         if tentativa > 1:
             print(f"[RETRY] {nome_estab}: tentativa {tentativa}/{max_tent}")
+            # Limpa parciais travados (.crdownload) da tentativa anterior:
+            # senao o proximo wait os enxerga e espera ate o timeout a toa.
+            for p in list(download_dir.glob("*.crdownload")):
+                try:
+                    p.unlink()
+                except Exception:
+                    pass
             time.sleep(2)
         baixado = solicitar_xlsx_e_baixar(driver, download_dir, timeout=timeout)
         if baixado is None:
