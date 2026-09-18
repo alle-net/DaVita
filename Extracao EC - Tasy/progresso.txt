@@ -369,3 +369,11 @@ SESSAO 17/09 - OTIMIZACAO AUTORIZADA
  - Script consolidar_ec.py criado (le 1033/*.xlsx, concatena, grava EC-*.csv.gz).
  - Decisao: trabalhar com base menor de 3 estabelecimentos
    (limite_teste=3) ate fechar a consolidacao.
+ - Rodada cheia armada p/ processo completo (limite_teste=0,
+   pular_existentes=false). Destino/prefixo do consolidado via
+   parametros.json > saida (default ~/Downloads, CRONICO).
+ - Consolidacao embutida no fluxo: Tasy_1033.py roda [5/5] automatico via
+   consolidar_ec.consolidar() (com fallback p/ script manual).
+   Commits: 77ef358 (consolidar_ec.py) > afe66d1 (prefixo CRONICO) >
+   70112e1 (destino via params + rodada cheia) > 4dc12d4 ([5/5] no fluxo).
+ - FASE 2 CONSIDERADA FECHADA (18/09).
