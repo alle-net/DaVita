@@ -1073,51 +1073,103 @@ def selecionar_estabelecimento(driver, nome: str, timeout: int = 12) -> bool:
     alvo_norm = _norm(nome)
     vistos = set(_VISTOS_RUN)  # reaproveita nomes ja vistos neste run
     take_screenshot(driver, "07a2_topo_lista")
-    try:
-        driver.execute_script(
-            "var c = document.getElementById('table-items'); if (c) c.scrollTop = 0;")
-        time.sleep(0.3)
-    except Exception:
-        pass
     achou = None
-    deadline_scan = time.time() + 25
-    while time.time() < deadline_scan and achou is None:
-        for t in _coletar_visiveis():
-            vistos.add(t)
-        if alvo_norm in vistos:
-            achou = alvo_norm
-            break
-        try:
-            info = driver.execute_script(
-                "var c = document.getElementById('table-items');"
-                " if (!c) return null;"
-                " c.scrollTop = c.scrollTop + 800;"
-                " return {top: c.scrollTop, h: c.scrollHeight, c: c.clientHeight};")
-        except Exception:
-            info = None
-        time.sleep(0.6)
-        if not info or info["top"] + info["c"] >= info["h"] - 10:
-            for t in _coletar_visiveis():
-                vistos.add(t)
-            break
-    _VISTOS_RUN.update(vistos)
-    if achou is None:
-        # Fallback: contains de candidato unico (ex.: sufixo diferente no Tasy)
-        cands = sorted({t for t in vistos if alvo_norm in t or t in alvo_norm})
-        if len(cands) == 1:
-            achou = cands[0]
-            print(f"[EXT-AVISO] Exato nao achado; usando contains '{cands[0]}' p/ '{nome}'")
-        else:
-            print(f"[ERRO] '{nome}' nao achado apos scroll completo "
-                  f"(vistos={len(vistos)}, candidatos_contains={cands[:5]})")
+
+    # 2a) BUSCA DIGITADA primeiro (sem rolar a tela pelos outros itens).
+    # Anti-stale 18/09: digita -> aguarda assentar -> re-localiza TUDO do zero.
+    busca_ok = False
+    try:
+        search_input = None
+        for by, val in (
+            (By.CSS_SELECTOR, "#table-items input[type='search']"),
+            (By.CSS_SELECTOR, "#table-items input[type='text']"),
+            (By.XPATH, "//*[@id='table-items']/preceding::input[1]"),
+            (By.CSS_SELECTOR, "input[type='search']"),
+        ):
             try:
-                amostra = sorted(vistos)[:15]
-                print(f"[DIAG] Amostra visiveis: {amostra}")
+                cand = WebDriverWait(driver, 2).until(
+                    EC.element_to_be_clickable((by, val)))
+                if cand.is_displayed():
+                    search_input = cand
+                    break
+            except Exception:
+                continue
+        if search_input is not None:
+            try:
+                search_input.clear()
             except Exception:
                 pass
-            take_screenshot(driver, "erro_estab_nao_achado")
-            return False
-    print(f"[EXT] '{nome}' localizado na lista (scroll-and-scan)")
+            search_input.send_keys(nome)
+            print(f"[EXT] Busca digitada: '{nome}'")
+            # Aguarda a lista assentar (contagem estabiliza, teto 4s)
+            anterior = -1
+            estavel = 0
+            t_fim = time.time() + 4
+            while time.time() < t_fim:
+                try:
+                    n = len(driver.find_elements(
+                        By.CSS_SELECTOR, "#table-items span.w-item-label-elipses"))
+                except Exception:
+                    n = -1
+                if n == anterior and n >= 0:
+                    estavel += 1
+                    if estavel >= 2:
+                        break
+                else:
+                    estavel = 0
+                anterior = n
+                time.sleep(0.3)
+            # Re-localiza do zero (elementos pos-busca, nunca os pre-busca)
+            for t in _coletar_visiveis():
+                vistos.add(t)
+            if alvo_norm in vistos:
+                achou = alvo_norm
+                busca_ok = True
+                print(f"[EXT] '{nome}' achado via busca digitada")
+            else:
+                print(f"[EXT] Busca sem match exato, limpando p/ scroll...")
+                try:
+                    search_input.clear()
+                    time.sleep(0.8)
+                except Exception:
+                    pass
+    except Exception as e:
+        print(f"[EXT-AVISO] Busca digitada indisponivel ({e}), indo ao scroll...")
+
+    # 2b) SCROLL-AND-SCAN (fallback / lista virtualizada com ~50 linhas no DOM).
+    if not busca_ok:
+        try:
+            driver.execute_script(
+                "var c = document.getElementById('table-items'); if (c) c.scrollTop = 0;")
+            time.sleep(0.3)
+        except Exception:
+            pass
+        deadline_scan = time.time() + 25
+        while time.time() < deadline_scan and achou is None:
+            for t in _coletar_visiveis():
+                vistos.add(t)
+            if alvo_norm in vistos:
+                achou = alvo_norm
+                break
+            try:
+                info = driver.execute_script(
+                    "var c = document.getElementById('table-items');"
+                    " if (!c) return null;"
+                    " c.scrollTop = c.scrollTop + 800;"
+                    " return {top: c.scrollTop, h: c.scrollHeight, c: c.clientHeight};")
+            except Exception:
+                info = None
+            time.sleep(0.6)
+            if not info or info["top"] + info["c"] >= info["h"] - 10:
+                for t in _coletar_visiveis():
+                    vistos.add(t)
+                break
+    _VISTOS_RUN.update(vistos)
+    if achou is None:
+        print(f"[FALHA] '{nome}': nao localizado no filtro")
+        take_screenshot(driver, "erro_estab_nao_achado")
+        return False
+    print(f"[EXT] '{nome}' localizado na lista")
 
     # 3) REPLAY GRAVADO: clique no 'div.check-element' interno da linha
     # (xpath gravado: #table-items/table/tbody/tr[N]/td/div[1]/div).
@@ -1563,7 +1615,6 @@ def main() -> None:
                   f"Para rodar todos, ajuste extracao.limite_teste=0 em parametros.json")
 
         ok_count = fail = vazios = 0
-        falhados = []
         for idx, est in enumerate(estabelecimentos, 1):
             if not is_driver_alive(driver):
                 print("[ENCERRADO] Navegador fechado durante o loop.")
@@ -1574,13 +1625,11 @@ def main() -> None:
                 if not selecionar_estabelecimento(driver, est["nome"]):
                     print(f"[FALHA] {est['nome']}: nao selecionou")
                     fail += 1
-                    falhados.append(est["nome"])
                     continue
                 status, final = baixar_com_retry(driver, download_dir, est["nome"], max_tent=3)
                 if status == "falha":
                     print(f"[FALHA] {est['nome']}: sem download apos 3 tentativas")
                     fail += 1
-                    falhados.append(est["nome"])
                 elif status == "vazio":
                     print(f"[VAZIO] {est['nome']}: sem dados no periodo (aceito)")
                     vazios += 1
@@ -1593,7 +1642,6 @@ def main() -> None:
                 print(f"[FALHA] {est['nome']}: {e}")
                 take_screenshot(driver, "erro_estabelecimento")
                 fail += 1
-                falhados.append(est["nome"])
             finally:
                 # REPLAY 18/09: limpa o X da caixa inferior p/ o proximo item (sucesso ou falha)
                 if idx < len(estabelecimentos) and is_driver_alive(driver):
@@ -1603,19 +1651,6 @@ def main() -> None:
                         pass
             time.sleep(int(auto.get("intervalo_entre_coletas_segundos", 2)))
         print(f"\n[4/4] FLUXO 1033 CONCLUIDO — ok={ok_count} vazios={vazios} falhas={fail} pasta={pasta1033}")
-        # Auditoria fixa x modal (best-effort: nomes renderizados durante o run).
-        try:
-            fixa = {norm_nome(e["nome"]) for e in estabelecimentos}
-            novas = sorted(t for t in _VISTOS_RUN if t and t not in fixa)
-            print(f"[AUDIT] {len(novas)} nome(s) vistos no modal e fora da fixa (candidatos a incluir):")
-            for t in novas[:30]:
-                print(f"  + {t}")
-            if falhados:
-                print("[AUDIT] Da fixa NAO localizados no modal (conferir grafia na planilha ou remocao no Tasy):")
-                for n in falhados:
-                    print(f"  - {n}")
-        except Exception as e:
-            print(f"[AUDIT-AVISO] {e}")
     finally:
         try:
             dialog_handler.stop()
