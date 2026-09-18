@@ -842,6 +842,89 @@ def filtrar_pendentes(estabelecimentos: list) -> list:
     return pend
 
 
+def ativar_dimensao_estabelecimento(driver) -> bool:
+    """INICIO DO LOOP (passos 2-3): busca 'Estabelecimento' na caixa do painel
+    esquerdo (#search-dimension) > clica #WAFD-1 re-localizado > verifica ativa.
+
+    Sem dimensao ativa, o painel do meio lista convenios e a busca da unidade
+    nunca acha. Robustez: reabre o modal 1x se travar. Fallback: clique direto.
+    """
+    def _clicar_wafd_fresco() -> bool:
+        try:
+            el = WebDriverWait(driver, 8).until(
+                EC.element_to_be_clickable((By.ID, "WAFD-1")))
+            try:
+                el.click()
+            except Exception:
+                driver.execute_script("arguments[0].click();", el)
+            return True
+        except Exception as e:
+            print(f"[EXT-AVISO] #WAFD-1 nao clicavel: {e}")
+            return False
+
+    def _dimensao_ativa() -> bool:
+        try:
+            el = driver.find_element(By.ID, "WAFD-1")
+            cls = (el.get_attribute("class") or "")
+            try:
+                row_cls = el.find_element(By.XPATH, "./ancestor::tr[1]").get_attribute("class") or ""
+            except Exception:
+                row_cls = ""
+            return ("active" in cls) or ("selected" in row_cls)
+        except Exception:
+            return False
+
+    def _reabrir_modal() -> bool:
+        try:
+            clicar_por_texto(driver, 3, "Cancelar", tag="button")
+            time.sleep(1.0)
+            btn = WebDriverWait(driver, 5).until(
+                EC.element_to_be_clickable((By.ID, "button-open-filter")))
+            try:
+                btn.click()
+            except Exception:
+                driver.execute_script("arguments[0].click();", btn)
+            print("[EXT] Modal reaberto, repetindo dimensao...")
+            return True
+        except Exception:
+            return False
+
+    for tentativa in (1, 2):
+        # 2) Busca da dimensao no painel esquerdo (se a caixa existir)
+        try:
+            dim_search = WebDriverWait(driver, 3).until(
+                EC.element_to_be_clickable((By.ID, "search-dimension")))
+            try:
+                dim_search.clear()
+            except Exception:
+                pass
+            dim_search.send_keys("Estabelecimento")
+            time.sleep(0.8)
+            print("[EXT] Dimensao filtrada: 'Estabelecimento'")
+        except Exception:
+            pass  # caixa ausente: segue no clique direto
+        # 3) Clica #WAFD-1 fresco + verifica ativa
+        if _clicar_wafd_fresco():
+            try:
+                WebDriverWait(driver, 4).until(lambda d: _dimensao_ativa())
+            except Exception:
+                pass
+            if _dimensao_ativa():
+                print("[EXT] Dimensao Estabelecimento ATIVA (verificada)")
+                try:
+                    WebDriverWait(driver, 5).until(
+                        lambda d: len(d.find_elements(
+                            By.CSS_SELECTOR, "#table-items span.w-item-label-elipses")) > 0)
+                except Exception:
+                    pass
+                return True
+            print(f"[EXT-AVISO] #WAFD-1 clicado mas dimensao nao ativou (tentativa {tentativa})")
+        take_screenshot(driver, "erro_tipo_estabelecimento")
+        _reabrir_modal()
+    print("[ERRO] Dimensao Estabelecimento nao ativada apos reabertura")
+    return False
+
+
 def descobrir_estabelecimentos(driver, timeout_seg: int = 90) -> list:
     """Abre Filtro avancado > #WAFD-1 > raspa #table-items. CAPTURA UNICA por run.
 
@@ -858,20 +941,9 @@ def descobrir_estabelecimentos(driver, timeout_seg: int = 90) -> list:
         take_screenshot(driver, "desc_erro_filtro")
         return []
     time.sleep(2)
-    # Tipo Estabelecimento pelo ID exato (DOM: span#WAFD-1 dentro de #table-dimensions)
-    try:
-        el_tipo = WebDriverWait(driver, 10).until(
-            EC.element_to_be_clickable((By.ID, "WAFD-1")))
-        driver.execute_script("arguments[0].scrollIntoView({block:'center'});", el_tipo)
-        time.sleep(0.3)
-        try:
-            el_tipo.click()
-        except Exception:
-            driver.execute_script("arguments[0].click();", el_tipo)
-        time.sleep(2.0)
-        print("[DESC] Tipo Estabelecimento (#WAFD-1) clicado")
-    except Exception as e:
-        print(f"[DESC-ERRO] #WAFD-1 nao clicado: {e}")
+    # Dimensao via helper padrao (busca #search-dimension + verifica ativa)
+    if not ativar_dimensao_estabelecimento(driver):
+        print("[DESC-ERRO] Dimensao Estabelecimento nao ativada")
         take_screenshot(driver, "desc_erro_tipo")
         return []
     print("[DESC] Tipo Estabelecimento ativo. Raspando lista do meio...")
@@ -1006,45 +1078,9 @@ def selecionar_estabelecimento(driver, nome: str, timeout: int = 12) -> bool:
             take_screenshot(driver, "erro_filtros_avancados")
             return False
     take_screenshot(driver, "07a_filtros_avancados")
-    # 1) Painel ESQUERDO pelo ID exato (DOM: span#WAFD-1)
-    # Robustez 18/09: se o modal travar (#WAFD-1 nao clicavel), fecha com
-    # Cancelar e reabre o Filtro 1x antes de declarar falha.
-    el_tipo = None
-    for tentativa_wafd in (1, 2):
-        try:
-            el_tipo = WebDriverWait(driver, 8).until(
-                EC.element_to_be_clickable((By.ID, "WAFD-1")))
-            break
-        except Exception as e:
-            print(f"[EXT-AVISO] #WAFD-1 nao clicavel (tentativa {tentativa_wafd}): {e}")
-            take_screenshot(driver, "erro_tipo_estabelecimento")
-            try:
-                clicar_por_texto(driver, 3, "Cancelar", tag="button")
-                time.sleep(1.0)
-                btn_fa2 = WebDriverWait(driver, 5).until(
-                    EC.element_to_be_clickable((By.ID, "button-open-filter")))
-                try:
-                    btn_fa2.click()
-                except Exception:
-                    driver.execute_script("arguments[0].click();", btn_fa2)
-                print("[EXT] Modal reaberto, repetindo #WAFD-1...")
-            except Exception:
-                pass
-    if el_tipo is None:
-        print("[ERRO] #WAFD-1 nao clicado apos reabertura")
-        return False
-    try:
-        try:
-            el_tipo.click()
-        except Exception:
-            driver.execute_script("arguments[0].click();", el_tipo)
-        # Espera a lista do meio popular (em vez de sleep fixo 1.5s)
-        WebDriverWait(driver, 5).until(
-            lambda d: len(d.find_elements(By.CSS_SELECTOR, "#table-items span.w-item-label-elipses")) > 0)
-        print("[EXT] Tipo 'Estabelecimento' (#WAFD-1) clicado")
-    except Exception as e:
-        print(f"[ERRO] #WAFD-1 nao clicado: {e}")
-        take_screenshot(driver, "erro_tipo_estabelecimento")
+    # 1) INICIO DO LOOP: dimensao Estabelecimento via busca + verificacao ativa.
+    # Sem isso o painel do meio lista convenios (padrao do Tasy) e a unidade nunca acha.
+    if not ativar_dimensao_estabelecimento(driver):
         return False
     take_screenshot(driver, "07a1_tipo_estabelecimento")
     # 2) SCROLL-AND-SCAN 18/09: a lista e virtualizada (so ~50 linhas no DOM).
