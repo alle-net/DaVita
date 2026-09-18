@@ -15,7 +15,9 @@
   "saida": {
     "formato": "xlsx",
     "diretorio": "output",
-    "arquivo": ""
+    "arquivo": "",
+    "consolidado_diretorio": "~/Downloads",
+    "consolidado_prefixo": "CRONICO"
   },
   "automacao": {
     "headless": false,
@@ -26,11 +28,11 @@
   },
   "extracao": {
     "limite_teste": 0,
-    "pular_existentes": true,
+    "pular_existentes": false,
     "relatorio_codigo": "1033",
     "periodo": {
-      "data_inicio": "01/05/2026",
-      "data_fim": "31/07/2026"
+      "data_inicio": "01/01/2026",
+      "data_fim": "31/08/2026"
     }
   }
 }
