@@ -60,6 +60,13 @@ def sanitizar_nome(nome: str) -> str:
     return n[:120] if n else "estabelecimento"
 
 
+def norm_nome(s: str) -> str:
+    """Normaliza p/ comparacao: minusculas, espacos colapsados, sem acento."""
+    s = " ".join((s or "").split()).lower()
+    return "".join(c for c in unicodedata.normalize("NFKD", s)
+                   if not unicodedata.combining(c))
+
+
 def safe_click(driver, el) -> bool:
     try:
         el.click()
@@ -812,10 +819,10 @@ _VISTOS_RUN: set = set()  # nomes normalizados ja vistos no modal neste run
 
 
 def carregar_lista_descoberta(driver) -> list:
-    """Descobre a lista FRESCA no modal a cada execucao (scroll 1x, ~2-3 min).
+    """Descoberta completa no modal (auditoria manual; fora do fluxo padrao).
 
-    Sobrescreve output/estabelecimentos_descobertos.xlsx (artefato/auditoria).
-    Garante: unidade nova some na lista, removida sai, rename acompanha o Tasy.
+    O fluxo padrao usa a lista FIXA (ListaEstabelecimentos.xlsx). Esta funcao
+    permanece para re-auditoria sob demanda. Sobrescreve o xlsx de conferencia.
     """
     global _VISTOS_RUN
     _VISTOS_RUN = set()
@@ -1044,9 +1051,7 @@ def selecionar_estabelecimento(driver, nome: str, timeout: int = 12) -> bool:
     # Rola #table-items em passos e confere o nome a cada passo, com early-stop.
     # Match com dobra de acento/caixa; fallback contains de candidato unico.
     def _norm(s: str) -> str:
-        s = " ".join((s or "").split()).lower()
-        return "".join(c for c in unicodedata.normalize("NFKD", s)
-                       if not unicodedata.combining(c))
+        return norm_nome(s)
 
     def _coletar_visiveis() -> set:
         try:
@@ -1378,7 +1383,7 @@ def read_current_url(driver) -> str:
 
 
 def main() -> None:
-    global _SHOTS_SUCESSO
+    global _SHOTS_SUCESSO, _VISTOS_RUN
     params = load_params()
     tasy = params["tasy"]
     auto = params["automacao"]
@@ -1540,10 +1545,12 @@ def main() -> None:
         print(f"[CFG] Periodo global: {data_inicio} a {data_fim}")
         preencher_datas_e_titulos(driver, data_inicio, data_fim)
 
-        # Lista FRESCA do modal a cada execucao (1 scroll); loop baixa 1 XLSX por item.
-        estabelecimentos = carregar_lista_descoberta(driver)
+        # Lista FIXA (ListaEstabelecimentos.xlsx, mantida pelo usuario);
+        # loop baixa 1 XLSX por item. Auditoria fixa x modal sai no fim do run.
+        _VISTOS_RUN = set()
+        estabelecimentos = carregar_estabelecimentos()
         if not estabelecimentos:
-            print("[FIM] Lista vazia. Veja desc_*.png")
+            print("[FIM] Lista vazia. Confira ListaEstabelecimentos.xlsx")
             return
         if pular_existentes:
             estabelecimentos = filtrar_pendentes(estabelecimentos)
@@ -1556,6 +1563,7 @@ def main() -> None:
                   f"Para rodar todos, ajuste extracao.limite_teste=0 em parametros.json")
 
         ok_count = fail = vazios = 0
+        falhados = []
         for idx, est in enumerate(estabelecimentos, 1):
             if not is_driver_alive(driver):
                 print("[ENCERRADO] Navegador fechado durante o loop.")
@@ -1566,11 +1574,13 @@ def main() -> None:
                 if not selecionar_estabelecimento(driver, est["nome"]):
                     print(f"[FALHA] {est['nome']}: nao selecionou")
                     fail += 1
+                    falhados.append(est["nome"])
                     continue
                 status, final = baixar_com_retry(driver, download_dir, est["nome"], max_tent=3)
                 if status == "falha":
                     print(f"[FALHA] {est['nome']}: sem download apos 3 tentativas")
                     fail += 1
+                    falhados.append(est["nome"])
                 elif status == "vazio":
                     print(f"[VAZIO] {est['nome']}: sem dados no periodo (aceito)")
                     vazios += 1
@@ -1583,6 +1593,7 @@ def main() -> None:
                 print(f"[FALHA] {est['nome']}: {e}")
                 take_screenshot(driver, "erro_estabelecimento")
                 fail += 1
+                falhados.append(est["nome"])
             finally:
                 # REPLAY 18/09: limpa o X da caixa inferior p/ o proximo item (sucesso ou falha)
                 if idx < len(estabelecimentos) and is_driver_alive(driver):
@@ -1592,6 +1603,19 @@ def main() -> None:
                         pass
             time.sleep(int(auto.get("intervalo_entre_coletas_segundos", 2)))
         print(f"\n[4/4] FLUXO 1033 CONCLUIDO — ok={ok_count} vazios={vazios} falhas={fail} pasta={pasta1033}")
+        # Auditoria fixa x modal (best-effort: nomes renderizados durante o run).
+        try:
+            fixa = {norm_nome(e["nome"]) for e in estabelecimentos}
+            novas = sorted(t for t in _VISTOS_RUN if t and t not in fixa)
+            print(f"[AUDIT] {len(novas)} nome(s) vistos no modal e fora da fixa (candidatos a incluir):")
+            for t in novas[:30]:
+                print(f"  + {t}")
+            if falhados:
+                print("[AUDIT] Da fixa NAO localizados no modal (conferir grafia na planilha ou remocao no Tasy):")
+                for n in falhados:
+                    print(f"  - {n}")
+        except Exception as e:
+            print(f"[AUDIT-AVISO] {e}")
     finally:
         try:
             dialog_handler.stop()
