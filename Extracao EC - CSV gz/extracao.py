@@ -42,7 +42,7 @@ def _validar_config(config: dict[str, Any]) -> None:
 
 def carregar_query(caminho_query: str) -> str:
     caminho_completo = Path("Querys") / caminho_query
-    return caminho_completo.read_text("utf-8")
+    return caminho_completo.read_text(encoding="utf-8")
 
 
 @contextmanager
@@ -52,11 +52,100 @@ def conectar(config: dict[str, Any]) -> Iterator[Engine]:
         f"mysql+pymysql://{config['usuario']}:{senha_encoded}"
         f"@{config['servidor']}/{config['banco']}?charset=utf8mb4"
     )
-    engine = create_engine(string_conexao)
+    engine = create_engine(
+        string_conexao,
+        pool_pre_ping=True,
+        connect_args={"charset": "utf8mb4", "use_unicode": True},
+    )
     try:
         yield engine
     finally:
         engine.dispose()
+
+
+def corrigir_mojibake(valor: Any) -> Any:
+    """Corrige texto com double-encoding tipo 'GoiÃ¢nia' -> 'Goiânia'.
+
+    Retorna o valor inalterado se não for str ou se não houver marca de mojibake.
+    """
+    if not isinstance(valor, str):
+        return valor
+    if "Ã" not in valor and "Â" not in valor:
+        return valor
+    texto = valor
+    # até 2 níveis (cobre double-encoding)
+    for _ in range(2):
+        if "Ã" not in texto and "Â" not in texto:
+            break
+        corrigido = None
+        for enc in ("cp1252", "latin1"):
+            try:
+                corrigido = texto.encode(enc).decode("utf-8")
+                break
+            except (UnicodeEncodeError, UnicodeDecodeError):
+                continue
+        if corrigido is None or corrigido == texto:
+            break
+        texto = corrigido
+    return texto
+
+
+def tratar_textos_df(df: pd.DataFrame) -> pd.DataFrame:
+    """Aplica correção de acentos em TODAS as colunas de texto do DataFrame."""
+    cols_texto = df.select_dtypes(include=["object", "string"]).columns
+    for col in cols_texto:
+        # pula vl_conta: ela será formatada como moeda BR em formatar_vl_conta()
+        if col == "vl_conta":
+            continue
+        df[col] = df[col].map(corrigir_mojibake)
+    if len(cols_texto):
+        logger.info("Tratamento de acentos aplicado em %d coluna(s) texto.", len(cols_texto))
+    return df
+
+
+def formatar_moeda_br(valor: Any) -> str:
+    """Converte 1234.56 (americano) -> '1.234,56' (brasileiro).
+
+    Aceita Decimal/float/int/str. NaN/None/vazio -> ''.
+    Se já vier em formato BR ('1.234,56'), preserva.
+    """
+    if valor is None:
+        return ""
+    if isinstance(valor, float) and pd.isna(valor):
+        return ""
+    if isinstance(valor, str):
+        s = valor.strip().replace("R$", "").strip()
+        if not s:
+            return ""
+        if "," in s:
+            # já está em formato BR — normaliza espaços
+            return s
+        try:
+            num = float(s.replace(" ", ""))
+        except ValueError:
+            return valor
+    else:
+        try:
+            if pd.isna(valor):
+                return ""
+        except (TypeError, ValueError):
+            pass
+        try:
+            num = float(valor)
+        except (TypeError, ValueError):
+            return valor
+    us = f"{num:,.2f}"  # ex: '1,234.56' / '-1,234.56'
+    br = us.replace(",", "X").replace(".", ",").replace("X", ".")
+    return br
+
+
+def formatar_vl_conta(df: pd.DataFrame) -> pd.DataFrame:
+    """Aplica formato brasileiro na coluna vl_conta, se existir."""
+    if "vl_conta" not in df.columns:
+        return df
+    df["vl_conta"] = df["vl_conta"].map(formatar_moeda_br)
+    logger.info("Coluna vl_conta formatada para padrão BR (ex: 1.234,56).")
+    return df
 
 
 def extrair_dados(config: dict[str, Any]) -> pd.DataFrame:
@@ -66,6 +155,8 @@ def extrair_dados(config: dict[str, Any]) -> pd.DataFrame:
         try:
             with conectar(config) as engine:
                 df = pd.read_sql(query, engine, coerce_float=False)
+            df = tratar_textos_df(df)
+            df = formatar_vl_conta(df)
             df["gravacao"] = datetime.now().strftime("%Y-%m-%d %H:%M")
             return df
         except Exception as e:
