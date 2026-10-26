@@ -1,4 +1,5 @@
 ﻿import json
+import logging
 import re
 import shutil
 import subprocess
@@ -10,20 +11,39 @@ from pathlib import Path
 
 # ── Auto-detect venv ────────────────────────────────────────────────────────
 _SCRIPT_DIR = Path(__file__).resolve().parent
+
+LOG = logging.getLogger("tasy_1033")
+if not LOG.handlers:
+    LOG.setLevel(logging.INFO)
+    LOG.propagate = False
+    _console_handler = logging.StreamHandler(sys.stdout)
+    _console_handler.setFormatter(logging.Formatter("%(message)s"))
+    LOG.addHandler(_console_handler)
+
 _VENV_PYTHON = _SCRIPT_DIR / ".venv" / "Scripts" / "python.exe"
 if sys.prefix == sys.base_prefix and _VENV_PYTHON.exists():
     # Não estamos no venv — relança com o Python do venv
-    print(f"[VENV] Reinterpretando com {_VENV_PYTHON} ...")
+    LOG.info(f"[VENV] Reinterpretando com {_VENV_PYTHON} ...")
     result = subprocess.run([str(_VENV_PYTHON)] + sys.argv, cwd=str(_SCRIPT_DIR))
     raise SystemExit(result.returncode)
 # ─────────────────────────────────────────────────────────────────────────────
+
+if not any(isinstance(h, logging.FileHandler) for h in LOG.handlers):
+    try:
+        _log_dir = _SCRIPT_DIR / "output"
+        _log_dir.mkdir(exist_ok=True)
+        _file_handler = logging.FileHandler(_log_dir / "tasy_1033.log", encoding="utf-8")
+        _file_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
+        LOG.addHandler(_file_handler)
+    except Exception:
+        pass
 
 from selenium import webdriver
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.edge.options import Options
-from selenium.common.exceptions import WebDriverException
+from selenium.common.exceptions import InvalidSessionIdException, WebDriverException
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
@@ -32,7 +52,6 @@ from certificado_handler import NativeDialogHandler
 BASE_DIR = Path(__file__).resolve().parent
 PARAMS_PATH = BASE_DIR / "parametros.json"
 OUTPUT_DIR = BASE_DIR / "output"
-RELATORIO_NOME = "DaVita - Etapa Conta - Por Periodo da Conta (CATE-1033)"
 RELATORIO_CODIGO = "1033"
 
 
@@ -50,7 +69,7 @@ def pasta_downloads_1033(limpar: bool = False) -> Path:
                     apagados += 1
             except Exception:
                 pass
-        print(f"[ARQ] Pasta 1033 limpa: {apagados} arquivo(s) removido(s)")
+        LOG.info(f"[ARQ] Pasta 1033 limpa: {apagados} arquivo(s) removido(s)")
     return p
 
 
@@ -98,7 +117,7 @@ def clicar_por_texto(driver, timeout: int, *textos, tag: str = "button") -> bool
                     for el in els:
                         try:
                             if el.is_displayed() and el.is_enabled() and safe_click(driver, el):
-                                print(f"[NAV] Clicado {t} '{txt}'")
+                                LOG.info(f"[NAV] Clicado {t} '{txt}'")
                                 return True
                         except Exception:
                             continue
@@ -112,7 +131,7 @@ def clicar_por_texto(driver, timeout: int, *textos, tag: str = "button") -> bool
                     for el in els:
                         try:
                             if el.is_displayed() and el.is_enabled() and safe_click(driver, el):
-                                print(f"[NAV] Clicado {t} (contem) '{txt}'")
+                                LOG.info(f"[NAV] Clicado {t} (contem) '{txt}'")
                                 return True
                         except Exception:
                             continue
@@ -123,7 +142,7 @@ def clicar_por_texto(driver, timeout: int, *textos, tag: str = "button") -> bool
 
 
 def load_params() -> dict:
-    with open(PARAMS_PATH, encoding="utf-8") as f:
+    with open(PARAMS_PATH, encoding="utf-8-sig") as f:
         return json.load(f)
 
 
@@ -201,7 +220,10 @@ def take_screenshot(driver, name: str, force: bool = False) -> Path | None:
     # Otimizacao 18/09: em rodada normal so erros (nome erro_*) geram PNG.
     if not force and not _SHOTS_SUCESSO and not name.startswith("erro_"):
         return None
-    if not is_driver_alive(driver):
+    try:
+        if not is_driver_alive(driver):
+            return None
+    except Exception:
         return None
     try:
         OUTPUT_DIR.mkdir(exist_ok=True)
@@ -209,6 +231,8 @@ def take_screenshot(driver, name: str, force: bool = False) -> Path | None:
         path = OUTPUT_DIR / f"{name}_{stamp}.png"
         driver.save_screenshot(str(path))
         return path
+    except (InvalidSessionIdException, WebDriverException, OSError, ConnectionError):
+        return None
     except Exception:
         return None
 
@@ -257,7 +281,7 @@ def close_recorded_dialog(driver, timeout: int = 2) -> bool:
         )
         if button.text.strip().lower() == "fechar":
             button.click()
-            print("[INFO] Dialogo HTML registrado fechado")
+            LOG.info("[INFO] Dialogo HTML registrado fechado")
             return True
     except Exception:
         pass
@@ -314,7 +338,7 @@ def fechar_popups_pos_login(driver, timeout_total: int = 15, per_wait: float = 1
                             pass
                     if marcar and not cb.is_selected():
                         cb.click()
-                        print("[POPUP] Checkbox 'nao perguntar' marcado")
+                        LOG.info("[POPUP] Checkbox 'nao perguntar' marcado")
                 except Exception:
                     pass
         except Exception:
@@ -343,7 +367,7 @@ def fechar_popups_pos_login(driver, timeout_total: int = 15, per_wait: float = 1
                     driver.execute_script("arguments[0].click();", btn)
                 fechados += 1
                 clicou_nesta_passada = True
-                print(f"[POPUP] Fechado ({fechados}): '{txt or btn.get_attribute('class')}'")
+                LOG.info(f"[POPUP] Fechado ({fechados}): '{txt or btn.get_attribute('class')}'")
                 time.sleep(1.0)
                 break  # revarre a pagina para pegar o 2o popup em sequencia
             except Exception:
@@ -363,7 +387,7 @@ def fechar_popups_pos_login(driver, timeout_total: int = 15, per_wait: float = 1
                                 driver.execute_script("arguments[0].click();", el)
                             fechados += 1
                             clicou_nesta_passada = True
-                            print(f"[POPUP] Fechado via icone ({fechados}): '{css}'")
+                            LOG.info(f"[POPUP] Fechado via icone ({fechados}): '{css}'")
                             time.sleep(1.0)
                             break
                     except Exception:
@@ -401,9 +425,9 @@ def diagnosticar_popups(driver, tag: str) -> None:
                     )
                 except Exception:
                     continue
-        print(f"[DIAG] Botoes visiveis registrados em {path.name}")
+        LOG.info(f"[DIAG] Botoes visiveis registrados em {path.name}")
     except Exception as e:
-        print(f"[DIAG] Falha no diagnostico: {e}")
+        LOG.info(f"[DIAG] Falha no diagnostico: {e}")
 
 
 def handle_user_selection(driver, timeout: int = 2) -> bool:
@@ -417,7 +441,7 @@ def handle_user_selection(driver, timeout: int = 2) -> bool:
             per_locator=1.0,
         )
         if user_select:
-            print("[INFO] Dropdown de usuário encontrado, selecionando...")
+            LOG.info("[INFO] Dropdown de usuário encontrado, selecionando...")
             from selenium.webdriver.support.ui import Select
             try:
                 Select(user_select).select_by_index(1)
@@ -435,7 +459,7 @@ def handle_user_selection(driver, timeout: int = 2) -> bool:
             EC.element_to_be_clickable((By.XPATH, xpath_union))
         )
         btn.click()
-        print("[INFO] Botão de confirmação clicado na seleção de usuário")
+        LOG.info("[INFO] Botão de confirmação clicado na seleção de usuário")
         return True
     except Exception:
         return False
@@ -478,24 +502,24 @@ def carregar_estabelecimentos() -> list:
         if not nome or nome.lower() == "nan":
             continue
         lista.append({"nome": nome})
-    print(f"[DADOS] {len(lista)} estabelecimentos carregados de {xlsx.name}")
+    LOG.info(f"[DADOS] {len(lista)} estabelecimentos carregados de {xlsx.name}")
     return lista
 
 
 def navegar_ate_relatorio_1033(driver, timeout: int = 20) -> bool:
     """Passos 1-6: direto Utilitarios > Impressao de relatorios > codigo 1033 > filtro > abrir."""
-    print("[5/7] Navegando ate impressao de relatorios...")
+    LOG.info("[5/7] Navegando ate impressao de relatorios...")
     take_screenshot(driver, "05a_home")
     # 1) Aba Utilitarios (direto, timeout curto)
     if not clicar_por_texto(driver, 5, "Utilitários", "Utilitarios", tag="*"):
-        print("[ERRO] Aba Utilitarios nao encontrada")
+        LOG.info("[ERRO] Aba Utilitarios nao encontrada")
         take_screenshot(driver, "erro_aba_utilitarios")
         return False
     time.sleep(1.0)
     take_screenshot(driver, "05b_utilitarios")
     # 2) Impressao de relatorios (direto, timeout curto)
     if not clicar_por_texto(driver, 5, "Impressão de relatórios", "Impressao de relatorios", "Impressao de Relatorios", tag="*"):
-        print("[ERRO] 'Impressao de relatorios' nao encontrado")
+        LOG.info("[ERRO] 'Impressao de relatorios' nao encontrado")
         take_screenshot(driver, "erro_impressao_relatorios")
         return False
     time.sleep(1.0)
@@ -514,7 +538,7 @@ def navegar_ate_relatorio_1033(driver, timeout: int = 20) -> bool:
                         el.clear()
                         el.send_keys(RELATORIO_CODIGO)
                         codigo_ok = True
-                        print(f"[NAV] Codigo 1033 digitado ({xp[:40]})")
+                        LOG.info(f"[NAV] Codigo 1033 digitado ({xp[:40]})")
                         break
                 except Exception:
                     continue
@@ -523,7 +547,7 @@ def navegar_ate_relatorio_1033(driver, timeout: int = 20) -> bool:
         except Exception:
             continue
     if not codigo_ok:
-        print("[ERRO] Textbox codigo nao encontrado")
+        LOG.info("[ERRO] Textbox codigo nao encontrado")
         take_screenshot(driver, "erro_codigo_1033")
         return False
     time.sleep(1)
@@ -542,7 +566,7 @@ def navegar_ate_relatorio_1033(driver, timeout: int = 20) -> bool:
                             try:
                                 if not cb.is_selected():
                                     safe_click(driver, cb)
-                                print("[NAV] Check Relatorios do Usuario marcado")
+                                LOG.info("[NAV] Check Relatorios do Usuario marcado")
                             except Exception:
                                 safe_click(driver, lab)
                         else:
@@ -555,7 +579,7 @@ def navegar_ate_relatorio_1033(driver, timeout: int = 20) -> bool:
     take_screenshot(driver, "05d_filtro_1033")
     # 5) Botao Filtrar
     if not clicar_por_texto(driver, 10, "Filtrar", tag="button"):
-        print("[ERRO] Botao Filtrar nao encontrado")
+        LOG.info("[ERRO] Botao Filtrar nao encontrado")
         take_screenshot(driver, "erro_filtrar")
         return False
     time.sleep(3)
@@ -602,7 +626,7 @@ def navegar_ate_relatorio_1033(driver, timeout: int = 20) -> bool:
         except Exception:
             continue
     if linha is None:
-        print("[ERRO] Relatorio CATE-1033 nao encontrado na grade")
+        LOG.info("[ERRO] Relatorio CATE-1033 nao encontrado na grade")
         take_screenshot(driver, "erro_relatorio_nao_achado")
         return False
     try:
@@ -610,7 +634,7 @@ def navegar_ate_relatorio_1033(driver, timeout: int = 20) -> bool:
         time.sleep(0.5)
         safe_click(driver, linha)
         time.sleep(1.0)
-        print("[NAV] Linha CATE-1033 selecionada (1 clique)")
+        LOG.info("[NAV] Linha CATE-1033 selecionada (1 clique)")
     except Exception:
         pass
 
@@ -623,9 +647,9 @@ def navegar_ate_relatorio_1033(driver, timeout: int = 20) -> bool:
             btn_imp.click()
         except Exception:
             driver.execute_script("arguments[0].click();", btn_imp)
-        print("[NAV] Botao Imprimir #handlebar-1093435 clicado (replay 18/09)")
+        LOG.info("[NAV] Botao Imprimir #handlebar-1093435 clicado (replay 18/09)")
     except Exception:
-        print("[NAV-AVISO] #handlebar-1093435 nao achado, fallback duplo clique...")
+        LOG.info("[NAV-AVISO] #handlebar-1093435 nao achado, fallback duplo clique...")
         try:
             ActionChains(driver).double_click(linha).perform()
         except Exception:
@@ -633,7 +657,7 @@ def navegar_ate_relatorio_1033(driver, timeout: int = 20) -> bool:
     time.sleep(3)
     take_screenshot(driver, "06_relatorio_aberto")
     if _relatorio_abriu():
-        print("[NAV] Relatorio CATE-1033 ABERTO via Imprimir")
+        LOG.info("[NAV] Relatorio CATE-1033 ABERTO via Imprimir")
         return True
     # Fallback: ENTER / Visualizar
     try:
@@ -645,11 +669,11 @@ def navegar_ate_relatorio_1033(driver, timeout: int = 20) -> bool:
             pass
         time.sleep(3)
         if _relatorio_abriu():
-            print("[NAV] Relatorio ABERTO no fallback")
+            LOG.info("[NAV] Relatorio ABERTO no fallback")
             return True
     except Exception as e:
-        print(f"[NAV] Fallback falhou: {e}")
-    print("[ERRO] Relatorio nao abriu — veja 06_relatorio_aberto.png")
+        LOG.info(f"[NAV] Fallback falhou: {e}")
+    LOG.info("[ERRO] Relatorio nao abriu — veja 06_relatorio_aberto.png")
     try:
         diagnosticar_popups(driver, "RELATORIO_NAO_ABRIU")
     except Exception:
@@ -659,10 +683,8 @@ def navegar_ate_relatorio_1033(driver, timeout: int = 20) -> bool:
 
 def preencher_datas_e_titulos(driver, inicio: str, fim: str) -> bool:
     """Passo 7-8: datas Inicio/Final (1x, global) + titulos=Ambos. Pula se ja preenchido."""
-    print(f"[6/7] Preenchendo periodo {inicio} a {fim} + titulos=Ambos...")
+    LOG.info(f"[6/7] Preenchendo periodo {inicio} a {fim} + titulos=Ambos...")
     ok_ini = ok_fim = False
-    for label, valor, flag in (("inicio", inicio, "ini"), ("final", inicio and fim, "fim")):
-        _ = flag
     # Localiza inputs de data por label proximo (pula se valor ja confere)
     for rotulo, valor in (("inicio", inicio), ("início", inicio), ("final", fim), ("fim", fim)):
         if not valor:
@@ -682,7 +704,7 @@ def preencher_datas_e_titulos(driver, inicio: str, fim: str) -> bool:
                         except Exception:
                             atual = ""
                         if atual == valor:
-                            print(f"[FILTRO] {rotulo} ja={valor} (pulado)")
+                            LOG.info(f"[FILTRO] {rotulo} ja={valor} (pulado)")
                             if rotulo.startswith("ini") or "nici" in rotulo:
                                 ok_ini = True
                             else:
@@ -691,7 +713,7 @@ def preencher_datas_e_titulos(driver, inicio: str, fim: str) -> bool:
                         inp.clear()
                         inp.send_keys(valor)
                         inp.send_keys(Keys.TAB)
-                        print(f"[FILTRO] {rotulo}={valor}")
+                        LOG.info(f"[FILTRO] {rotulo}={valor}")
                         if rotulo.startswith("ini") or "nici" in rotulo:
                             ok_ini = True
                         else:
@@ -735,7 +757,7 @@ def preencher_datas_e_titulos(driver, inicio: str, fim: str) -> bool:
             time.sleep(0.8)
             try:
                 if driver.find_element(By.ID, "wid_10").is_selected():
-                    print("[FILTRO] Titulos=Ambos via #label_wid_10 (verificado)")
+                    LOG.info("[FILTRO] Titulos=Ambos via #label_wid_10 (verificado)")
                     marcado = True
             except Exception:
                 marcado = True
@@ -775,7 +797,7 @@ def preencher_datas_e_titulos(driver, inicio: str, fim: str) -> bool:
                     # verifica de verdade
                     try:
                         if inp.is_selected():
-                            print("[FILTRO] Titulos=Ambos marcado (verificado)")
+                            LOG.info("[FILTRO] Titulos=Ambos marcado (verificado)")
                             marcado = True
                             break
                     except Exception:
@@ -795,7 +817,7 @@ def preencher_datas_e_titulos(driver, inicio: str, fim: str) -> bool:
                             if r.is_displayed():
                                 driver.execute_script("arguments[0].click();", r)
                                 time.sleep(0.5)
-                                print("[FILTRO] Titulos=Ambos clicado via label (fallback)")
+                                LOG.info("[FILTRO] Titulos=Ambos clicado via label (fallback)")
                                 marcado = True
                                 break
                         except Exception:
@@ -805,11 +827,9 @@ def preencher_datas_e_titulos(driver, inicio: str, fim: str) -> bool:
                 except Exception:
                     continue
         if not marcado:
-            print("[AVISO] Radio 'Ambos' nao confirmado — veja 06b_filtros_base.png")
+            LOG.info("[AVISO] Radio 'Ambos' nao confirmado — veja 06b_filtros_base.png")
     except Exception as e:
-        print(f"[AVISO] Falha radio Ambos: {e}")
-    except Exception:
-        pass
+        LOG.info(f"[AVISO] Falha radio Ambos: {e}")
     take_screenshot(driver, "06b_filtros_base")
     return True
 
@@ -829,16 +849,16 @@ def carregar_lista_descoberta(driver) -> list:
     desc = descobrir_estabelecimentos(driver)
     if desc:
         salvar_descoberta_excel(desc)
-    print(f"[LISTA] {len(desc)} itens frescos do modal")
+    LOG.info(f"[LISTA] {len(desc)} itens frescos do modal")
     return [{"nome": d["estabelecimento"]} for d in desc]
 
 
 def filtrar_pendentes(estabelecimentos: list) -> list:
     """Rodada complementar: mantem so os ausentes na 1033 (compara nome sanitizado)."""
     dest = pasta_downloads_1033()
-    tem = {p.stem for p in dest.glob("*.xlsx")}
-    pend = [e for e in estabelecimentos if sanitizar_nome(e["nome"]) not in tem]
-    print(f"[LISTA] {len(pend)} pendente(s) de {len(estabelecimentos)} (1033 ja tem {len(tem)})")
+    tem = {p.stem.lower() for p in dest.glob("*.xlsx")}
+    pend = [e for e in estabelecimentos if sanitizar_nome(e["nome"]).lower() not in tem]
+    LOG.info(f"[LISTA] {len(pend)} pendente(s) de {len(estabelecimentos)} (1033 ja tem {len(tem)})")
     return pend
 
 
@@ -859,7 +879,7 @@ def ativar_dimensao_estabelecimento(driver) -> bool:
                 driver.execute_script("arguments[0].click();", el)
             return True
         except Exception as e:
-            print(f"[EXT-AVISO] #WAFD-1 nao clicavel: {e}")
+            LOG.info(f"[EXT-AVISO] #WAFD-1 nao clicavel: {e}")
             return False
 
     def _dimensao_ativa() -> bool:
@@ -884,7 +904,7 @@ def ativar_dimensao_estabelecimento(driver) -> bool:
                 btn.click()
             except Exception:
                 driver.execute_script("arguments[0].click();", btn)
-            print("[EXT] Modal reaberto, repetindo dimensao...")
+            LOG.info("[EXT] Modal reaberto, repetindo dimensao...")
             return True
         except Exception:
             return False
@@ -900,7 +920,7 @@ def ativar_dimensao_estabelecimento(driver) -> bool:
                 pass
             dim_search.send_keys("Estabelecimento")
             time.sleep(0.8)
-            print("[EXT] Dimensao filtrada: 'Estabelecimento'")
+            LOG.info("[EXT] Dimensao filtrada: 'Estabelecimento'")
         except Exception:
             pass  # caixa ausente: segue no clique direto
         # 3) Clica #WAFD-1 fresco + verifica ativa
@@ -910,7 +930,7 @@ def ativar_dimensao_estabelecimento(driver) -> bool:
             except Exception:
                 pass
             if _dimensao_ativa():
-                print("[EXT] Dimensao Estabelecimento ATIVA (verificada)")
+                LOG.info("[EXT] Dimensao Estabelecimento ATIVA (verificada)")
                 try:
                     WebDriverWait(driver, 5).until(
                         lambda d: len(d.find_elements(
@@ -918,10 +938,10 @@ def ativar_dimensao_estabelecimento(driver) -> bool:
                 except Exception:
                     pass
                 return True
-            print(f"[EXT-AVISO] #WAFD-1 clicado mas dimensao nao ativou (tentativa {tentativa})")
+            LOG.info(f"[EXT-AVISO] #WAFD-1 clicado mas dimensao nao ativou (tentativa {tentativa})")
         take_screenshot(driver, "erro_tipo_estabelecimento")
         _reabrir_modal()
-    print("[ERRO] Dimensao Estabelecimento nao ativada apos reabertura")
+    LOG.info("[ERRO] Dimensao Estabelecimento nao ativada apos reabertura")
     return False
 
 
@@ -933,20 +953,20 @@ def descobrir_estabelecimentos(driver, timeout_seg: int = 90) -> list:
     """
     global _CACHE_DESCOBERTA
     if _CACHE_DESCOBERTA is not None:
-        print(f"[DESC] Reusando captura unica ({len(_CACHE_DESCOBERTA)} itens, sem recapturar)")
+        LOG.info(f"[DESC] Reusando captura unica ({len(_CACHE_DESCOBERTA)} itens, sem recapturar)")
         return _CACHE_DESCOBERTA
-    print("[DESC] Captura UNICA da lista (1x por run)...")
+    LOG.info("[DESC] Captura UNICA da lista (1x por run)...")
     if not clicar_por_texto(driver, 10, "Filtro avançado", "Filtro avancado", tag="*"):
-        print("[DESC-ERRO] Link 'Filtro avancado' nao encontrado")
+        LOG.info("[DESC-ERRO] Link 'Filtro avancado' nao encontrado")
         take_screenshot(driver, "desc_erro_filtro")
         return []
     time.sleep(2)
     # Dimensao via helper padrao (busca #search-dimension + verifica ativa)
     if not ativar_dimensao_estabelecimento(driver):
-        print("[DESC-ERRO] Dimensao Estabelecimento nao ativada")
+        LOG.info("[DESC-ERRO] Dimensao Estabelecimento nao ativada")
         take_screenshot(driver, "desc_erro_tipo")
         return []
-    print("[DESC] Tipo Estabelecimento ativo. Raspando lista do meio...")
+    LOG.info("[DESC] Tipo Estabelecimento ativo. Raspando lista do meio...")
     take_screenshot(driver, "desc_lista_inicial")
     # Dump do HTML do modal p/ inspecao offline (responde: "qual item contem a lista?")
     try:
@@ -960,9 +980,9 @@ def descobrir_estabelecimentos(driver, timeout_seg: int = 90) -> list:
                return m ? m.outerHTML.slice(0, 200000) : document.documentElement.outerHTML.slice(0, 200000);""")
         with open(OUTPUT_DIR / "desc_modal.html", "w", encoding="utf-8") as f:
             f.write(html)
-        print("[DESC] HTML do modal salvo em output/desc_modal.html")
+        LOG.info("[DESC] HTML do modal salvo em output/desc_modal.html")
     except Exception as e:
-        print(f"[DESC-AVISO] Falha dump HTML: {e}")
+        LOG.info(f"[DESC-AVISO] Falha dump HTML: {e}")
 
     # Container exato do scroll (seu print: div#table-items > table > tbody > tr).
     # Itens: span.w-item-label-elipses (nome) + div.w-item-label-align[data-code] (valor).
@@ -1016,7 +1036,7 @@ def descobrir_estabelecimentos(driver, timeout_seg: int = 90) -> list:
         else:
             sem_novos = 0
         ultima_altura = altura
-        print(f"[DESC] coletados={len(vistos)} top={altura} sem_novos={sem_novos}")
+        LOG.info(f"[DESC] coletados={len(vistos)} top={altura} sem_novos={sem_novos}")
         if no_fim and sem_novos >= 1:
             time.sleep(1.0)  # ultimo lote do infinite-scroll
             for n, v in _coletar_nomes().items():
@@ -1034,7 +1054,7 @@ def descobrir_estabelecimentos(driver, timeout_seg: int = 90) -> list:
         pass
     lista = [{"ordem": i + 1, "estabelecimento": n}
              for i, n in enumerate(sorted(vistos.keys(), key=lambda k: k.lower()))]
-    print(f"[DESC] Total descoberto (captura unica): {len(lista)} estabelecimentos")
+    LOG.info(f"[DESC] Total descoberto (captura unica): {len(lista)} estabelecimentos")
     _CACHE_DESCOBERTA = lista
     return lista
 
@@ -1044,17 +1064,17 @@ def salvar_descoberta_excel(lista: list) -> Path | None:
     try:
         import pandas as pd
     except Exception as e:
-        print(f"[DESC-ERRO] pandas indisponivel: {e}")
+        LOG.info(f"[DESC-ERRO] pandas indisponivel: {e}")
         return None
     OUTPUT_DIR.mkdir(exist_ok=True)
     destino = OUTPUT_DIR / "estabelecimentos_descobertos.xlsx"
     try:
         df = pd.DataFrame(lista, columns=["ordem", "estabelecimento"])
         df.to_excel(destino, index=False)
-        print(f"[DESC] Excel conferencia -> {destino} ({len(df)} linhas)")
+        LOG.info(f"[DESC] Excel conferencia -> {destino} ({len(df)} linhas)")
         return destino
     except Exception as e:
-        print(f"[DESC-ERRO] Falha ao gravar Excel: {e}")
+        LOG.info(f"[DESC-ERRO] Falha ao gravar Excel: {e}")
         return None
 
 
@@ -1063,7 +1083,7 @@ def selecionar_estabelecimento(driver, nome: str, timeout: int = 12) -> bool:
 
     Otimizado 18/09: IDs diretos + waits explicitos curtos (sem sleeps fixos).
     """
-    print(f"[EXT] Selecionando estabelecimento '{nome}'...")
+    LOG.info(f"[EXT] Selecionando estabelecimento '{nome}'...")
     # Via principal gravada: #button-open-filter direto (fallback: texto)
     try:
         btn_fa = WebDriverWait(driver, 5).until(
@@ -1074,7 +1094,7 @@ def selecionar_estabelecimento(driver, nome: str, timeout: int = 12) -> bool:
             driver.execute_script("arguments[0].click();", btn_fa)
     except Exception:
         if not clicar_por_texto(driver, 5, "Filtro avançado", "Filtro avancado", tag="*"):
-            print("[ERRO] 'Filtro avancado' nao encontrado")
+            LOG.info("[ERRO] 'Filtro avancado' nao encontrado")
             take_screenshot(driver, "erro_filtros_avancados")
             return False
     take_screenshot(driver, "07a_filtros_avancados")
@@ -1143,7 +1163,7 @@ def selecionar_estabelecimento(driver, nome: str, timeout: int = 12) -> bool:
             except Exception:
                 pass
             search_input.send_keys(nome)
-            print(f"[EXT] Busca digitada: '{nome}'")
+            LOG.info(f"[EXT] Busca digitada: '{nome}'")
             # Aguarda a lista assentar (contagem estabiliza, teto 4s; 1 roundtrip/poll)
             anterior = -1
             estavel = 0
@@ -1170,9 +1190,9 @@ def selecionar_estabelecimento(driver, nome: str, timeout: int = 12) -> bool:
             if alvo_norm in lote:
                 achou = alvo_norm
                 busca_ok = True
-                print(f"[EXT] '{nome}' achado via busca digitada")
+                LOG.info(f"[EXT] '{nome}' achado via busca digitada")
             else:
-                print(f"[EXT] Busca sem match exato, limpando p/ scroll...")
+                LOG.info(f"[EXT] Busca sem match exato, limpando p/ scroll...")
                 try:
                     search_input.clear()
                     try:
@@ -1186,7 +1206,7 @@ def selecionar_estabelecimento(driver, nome: str, timeout: int = 12) -> bool:
                 except Exception:
                     pass
     except Exception as e:
-        print(f"[EXT-AVISO] Busca digitada indisponivel ({e}), indo ao scroll...")
+        LOG.info(f"[EXT-AVISO] Busca digitada indisponivel ({e}), indo ao scroll...")
 
     # 2b) SCROLL-AND-SCAN (fallback / lista virtualizada com ~50 linhas no DOM).
     if not busca_ok:
@@ -1217,10 +1237,10 @@ def selecionar_estabelecimento(driver, nome: str, timeout: int = 12) -> bool:
                 break
     _VISTOS_RUN.update(vistos)
     if achou is None:
-        print(f"[FALHA] '{nome}': nao localizado no filtro")
+        LOG.info(f"[FALHA] '{nome}': nao localizado no filtro")
         take_screenshot(driver, "erro_estab_nao_achado")
         return False
-    print(f"[EXT] '{nome}' localizado na lista")
+    LOG.info(f"[EXT] '{nome}' localizado na lista")
 
     # 3) REPLAY GRAVADO: clique no 'div.check-element' interno da linha
     # (xpath gravado: #table-items/table/tbody/tr[N]/td/div[1]/div).
@@ -1263,11 +1283,11 @@ def selecionar_estabelecimento(driver, nome: str, timeout: int = 12) -> bool:
     while time.time() < deadline and not marcado:
         tr, check_el, checked = _linha_por_nome()
         if tr is None:
-            print(f"[EXT] linha '{nome}' nao encontrada, retry...")
+            LOG.info(f"[EXT] linha '{nome}' nao encontrada, retry...")
             time.sleep(0.5)
             continue
         if checked:
-            print(f"[EXT] '{nome}' ja marcado (verificado fresco)")
+            LOG.info(f"[EXT] '{nome}' ja marcado (verificado fresco)")
             marcado = True
             break
         # desmarcado -> 1 clique nativo no check-element, depois reconfere
@@ -1278,19 +1298,19 @@ def selecionar_estabelecimento(driver, nome: str, timeout: int = 12) -> bool:
                 pass
             try:
                 check_el.click()  # nativo, igual ao gravado
-                print(f"[EXT] Clique nativo no check de '{nome}'")
+                LOG.info(f"[EXT] Clique nativo no check de '{nome}'")
             except Exception as e:
-                print(f"[EXT] Nativo falhou ({e}), JS no TR...")
+                LOG.info(f"[EXT] Nativo falhou ({e}), JS no TR...")
                 try:
                     driver.execute_script("arguments[0].click();", tr)
                 except Exception:
                     pass
             time.sleep(0.8)  # digest do Angular antes de reconferir
         except Exception as e:
-            print(f"[EXT] passada com erro: {e}")
+            LOG.info(f"[EXT] passada com erro: {e}")
             time.sleep(0.5)
     if not marcado:
-        print(f"[ERRO] '{nome}' nao marcado na lista do meio")
+        LOG.info(f"[ERRO] '{nome}' nao marcado na lista do meio")
         take_screenshot(driver, "erro_estab_nao_achado")
         return False
     take_screenshot(driver, "07b_estab_marcado")
@@ -1304,11 +1324,11 @@ def selecionar_estabelecimento(driver, nome: str, timeout: int = 12) -> bool:
         except Exception:
             driver.execute_script("arguments[0].click();", btn_sel)
         sel_ok = True
-        print("[EXT] #submit-button clicado")
+        LOG.info("[EXT] #submit-button clicado")
     except Exception:
         sel_ok = clicar_por_texto(driver, 4, "Selecionar", tag="button")
     if not sel_ok:
-        print("[ERRO] Botao Selecionar nao encontrado")
+        LOG.info("[ERRO] Botao Selecionar nao encontrado")
         return False
     # Espera o modal fechar / Exportar liberar (em vez de sleep fixo 2s)
     try:
@@ -1320,11 +1340,85 @@ def selecionar_estabelecimento(driver, nome: str, timeout: int = 12) -> bool:
     return True
 
 
-def solicitar_xlsx_e_baixar(driver, download_dir: Path, timeout: int = 60) -> Path | None:
-    """REPLAY 18/09: Exportar XLS #handlebar-1049356 > Continuar > download *.xls (XLS padrao)."""
-    antes = ({p.name for p in download_dir.glob("*.xls*")}
-             | {p.name for p in download_dir.glob("*.csv")}
-             | {p.name for p in download_dir.glob("*.crdownload")})
+def _snapshot_downloads(download_dir: Path) -> dict:
+    """Snapshot robusto: nome -> (mtime, size). Evita falso 'novo' por nome repetido."""
+    snap = {}
+    for p in list(download_dir.glob("*.xls")) + list(download_dir.glob("*.xlsx")):
+        try:
+            st = p.stat()
+            snap[p.name] = (st.st_mtime, st.st_size)
+        except Exception:
+            continue
+    return snap
+
+
+def _clicar_download_nativo(driver) -> bool:
+    """Trata o dialogo nativo do Tasy que trava o 2o download.
+
+    Casos vistos em diagnostico_popups.txt:
+    - #download-button 'Iniciar download' + #copy-url-button
+    - 'Abrir o processo de download' + #do-not-ask-again
+    Retorna True se clicou em algo (download deve iniciar em seguida).
+    """
+    clicou = False
+    # Marca 'nao perguntar novamente' p/ nao reexibir no proximo item
+    try:
+        for cb in driver.find_elements(By.ID, "do-not-ask-again"):
+            try:
+                if cb.is_displayed() and not cb.is_selected():
+                    cb.click()
+                    LOG.info("[DOWN] Checkbox 'nao perguntar' marcado")
+            except Exception:
+                pass
+    except Exception:
+        pass
+    # Via principal: #download-button
+    try:
+        btn = WebDriverWait(driver, 5).until(
+            EC.element_to_be_clickable((By.ID, "download-button")))
+        try:
+            btn.click()
+        except Exception:
+            driver.execute_script("arguments[0].click();", btn)
+        LOG.info("[DOWN] 'Iniciar download' clicado")
+        return True
+    except Exception:
+        pass
+    # Fallbacks por texto (curtos, sem travar o fluxo feliz)
+    for txt in ("Iniciar download", "Abrir o processo de download"):
+        try:
+            els = driver.find_elements(By.XPATH,
+                f"//button[contains(normalize-space(translate(.,'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz')),'{txt.lower()}')]")
+            for el in els:
+                try:
+                    if el.is_displayed() and el.is_enabled():
+                        try:
+                            el.click()
+                        except Exception:
+                            driver.execute_script("arguments[0].click();", el)
+                        LOG.info(f"[DOWN] '{txt}' clicado (fallback)")
+                        clicou = True
+                        break
+                except Exception:
+                    continue
+            if clicou:
+                break
+        except Exception:
+            continue
+    return clicou
+
+
+def solicitar_xlsx_e_baixar(driver, download_dir: Path, timeout: int = 30) -> Path | None:
+    """REPLAY 18/09 + fix 19/09: Exportar XLS > Continuar > [Iniciar download] > *.xls."""
+    # Limpa parciais orfaos da tentativa/item anterior (senao o wait trava a toa)
+    for p in list(download_dir.glob("*.crdownload")):
+        try:
+            # So apaga se mais velho que 5s (evita matar download recem-iniciado)
+            if time.time() - p.stat().st_mtime > 5:
+                p.unlink()
+        except Exception:
+            pass
+    antes = _snapshot_downloads(download_dir)
     # 1) Exportar XLS direto (gravado 18/09, 3x seguidas)
     exp_ok = False
     try:
@@ -1335,43 +1429,73 @@ def solicitar_xlsx_e_baixar(driver, download_dir: Path, timeout: int = 60) -> Pa
         except Exception:
             driver.execute_script("arguments[0].click();", btn_exp)
         exp_ok = True
-        print("[DOWN] Exportar XLS #handlebar-1049356 clicado")
+        LOG.info("[DOWN] Exportar XLS #handlebar-1049356 clicado")
     except Exception:
         exp_ok = clicar_por_texto(driver, 5, "Exportar XLS", tag="*")
     if not exp_ok:
-        print("[ERRO] Botao Exportar XLS nao encontrado")
+        LOG.info("[ERRO] Botao Exportar XLS nao encontrado")
         take_screenshot(driver, "erro_exportar_xls")
         return None
     take_screenshot(driver, "08a_pos_exportar")
     # 2) Continuar no ngdialog (XLS ja e padrao — sem dropdown; o wait cobre o delay)
     if not clicar_por_texto(driver, 6, "Continuar", tag="button"):
-        print("[ERRO] Botao Continuar nao encontrado")
+        LOG.info("[ERRO] Botao Continuar nao encontrado")
         take_screenshot(driver, "erro_continuar")
         return None
-    print("[DOWN] Aguardando download do XLS...")
+    # 2.5) FIX 19/09: dialogo nativo 'Iniciar download' (causa raiz do 2o item falhar).
+    # Espera curta com early-exit: se nao aparecer, segue (fluxo feliz inalterado).
+    time.sleep(1.0)
+    try:
+        _clicar_download_nativo(driver)
+    except Exception:
+        pass
+    LOG.info("[DOWN] Aguardando download do XLS...")
     deadline = time.time() + timeout
     ultima_checagem_driver = 0.0  # is_driver_alive throttled (roundtrip caro)
+    ultimo_log = 0.0
     while time.time() < deadline:
         if time.time() - ultima_checagem_driver >= 3:
             ultima_checagem_driver = time.time()
-            if not is_driver_alive(driver):
+            try:
+                if not is_driver_alive(driver):
+                    break
+            except Exception:
                 break
+        # 2a) Se o dialogo nativo abriu com atraso, clica (so 1x por passada)
+        try:
+            if driver.find_elements(By.ID, "download-button"):
+                _clicar_download_nativo(driver)
+        except Exception:
+            pass
         try:
             cr = list(download_dir.glob("*.crdownload"))
             cands = sorted(
                 list(download_dir.glob("*.xls")) + list(download_dir.glob("*.xlsx")),
                 key=lambda p: p.stat().st_mtime, reverse=True)
-            novos = [c for c in cands if c.name not in antes]
+            novos = []
+            for c in cands:
+                try:
+                    st = c.stat()
+                    key = (st.st_mtime, st.st_size)
+                    # Novo se: nome inedito OU mesmo nome mas mtime/size mudou (Edge reusa nome)
+                    if c.name not in antes or antes[c.name] != key:
+                        # Ignora arquivo ainda crescendo via .crdownload correspondente
+                        novos.append(c)
+                except Exception:
+                    continue
             if novos and not cr:
                 t1 = novos[0].stat().st_size
                 time.sleep(0.5)
                 if novos[0].stat().st_size == t1:
-                    print(f"[DOWN] Arquivo pronto: {novos[0].name}")
+                    LOG.info(f"[DOWN] Arquivo pronto: {novos[0].name}")
                     return novos[0]
+            if time.time() - ultimo_log >= 5:
+                ultimo_log = time.time()
+                LOG.info(f"[DOWN] ... aguardando ({len(cands)} xls, {len(cr)} parciais)")
         except Exception:
             pass
-        time.sleep(0.5)
-    print("[ERRO] Timeout aguardando XLS")
+        time.sleep(0.4)
+    LOG.info("[ERRO] Timeout aguardando XLS")
     take_screenshot(driver, "erro_download_timeout")
     return None
 
@@ -1385,7 +1509,7 @@ def limpar_estabelecimento(driver, timeout: int = 6) -> bool:
             x_btn.click()
         except Exception:
             driver.execute_script("arguments[0].click();", x_btn)
-        print("[EXT] Estabelecimento removido via X (w-token-clear)")
+        LOG.info("[EXT] Estabelecimento removido via X (w-token-clear)")
         try:
             WebDriverWait(driver, 3).until_not(
                 EC.presence_of_element_located((By.CSS_SELECTOR, "#checkout-content div.w-token-clear")))
@@ -1393,7 +1517,7 @@ def limpar_estabelecimento(driver, timeout: int = 6) -> bool:
             time.sleep(0.5)
         return True
     except Exception as e:
-        print(f"[AVISO] X de limpeza nao clicado: {e}")
+        LOG.info(f"[AVISO] X de limpeza nao clicado: {e}")
         take_screenshot(driver, "erro_limpar_estab")
         return False
 
@@ -1413,20 +1537,20 @@ def validar_e_converter_tsv(origem: Path, nome_estab: str) -> tuple[str, Path | 
     try:
         if not origem.exists() or origem.stat().st_size < 10:
             return ("invalido", None)
-        texto = origem.read_bytes().decode("latin-1", errors="replace")
+        texto = origem.read_bytes().decode("cp1252", errors="replace")
     except Exception as e:
-        print(f"[VALID] Falha ao ler {origem.name}: {e} -> invalido")
+        LOG.info(f"[VALID] Falha ao ler {origem.name}: {e} -> invalido")
         return ("invalido", None)
     if "Location Estab Conta" not in texto[:2000] or "\t" not in texto[:2000]:
-        print(f"[VALID] {origem.name}: cabecalho TSV ausente -> invalido")
+        LOG.info(f"[VALID] {origem.name}: cabecalho TSV ausente -> invalido")
         return ("invalido", None)
     try:
         df = pd.read_csv(io.StringIO(texto), sep="\t", dtype=str, engine="python")
     except Exception as e:
-        print(f"[VALID] {origem.name}: parse TSV falhou ({e}) -> invalido")
+        LOG.info(f"[VALID] {origem.name}: parse TSV falhou ({e}) -> invalido")
         return ("invalido", None)
     status = "vazio" if len(df) == 0 else "ok"
-    print(f"[VALID] {origem.name}: {len(df)} linha(s) -> {status}")
+    LOG.info(f"[VALID] {origem.name}: {len(df)} linha(s) -> {status}")
 
     destino_dir = pasta_downloads_1033()
     base = sanitizar_nome(nome_estab)
@@ -1439,19 +1563,19 @@ def validar_e_converter_tsv(origem: Path, nome_estab: str) -> tuple[str, Path | 
             pass
     try:
         df.to_excel(destino, index=False)
-        print(f"[ARQ] Convertido -> {destino.name} ({len(df)} linha(s))")
+        LOG.info(f"[ARQ] Convertido -> {destino.name} ({len(df)} linha(s))")
         try:
             origem.unlink()
         except Exception:
             pass
         return (status, destino)
     except Exception as e:
-        print(f"[ARQ-ERRO] Conversao TSV->XLSX falhou ({origem.name}): {e}")
+        LOG.info(f"[ARQ-ERRO] Conversao TSV->XLSX falhou ({origem.name}): {e}")
         return ("invalido", None)
 
 
 def baixar_com_retry(driver, download_dir: Path, nome_estab: str, max_tent: int = 3,
-                     timeout: int = 60) -> tuple[str, Path | None]:
+                     timeout: int = 30) -> tuple[str, Path | None]:
     """Exportar XLS > Continuar com ate max_tent tentativas.
 
     Retorna ('ok'|'vazio'|'falha', caminho_xlsx_final|None). Parciais invalidos
@@ -1461,7 +1585,7 @@ def baixar_com_retry(driver, download_dir: Path, nome_estab: str, max_tent: int 
     base = sanitizar_nome(nome_estab)
     for tentativa in range(1, max_tent + 1):
         if tentativa > 1:
-            print(f"[RETRY] {nome_estab}: tentativa {tentativa}/{max_tent}")
+            LOG.info(f"[RETRY] {nome_estab}: tentativa {tentativa}/{max_tent}")
             # Limpa parciais travados (.crdownload) da tentativa anterior:
             # senao o proximo wait os enxerga e espera ate o timeout a toa.
             for p in list(download_dir.glob("*.crdownload")):
@@ -1469,10 +1593,10 @@ def baixar_com_retry(driver, download_dir: Path, nome_estab: str, max_tent: int 
                     p.unlink()
                 except Exception:
                     pass
-            time.sleep(2)
+            time.sleep(1)
         baixado = solicitar_xlsx_e_baixar(driver, download_dir, timeout=timeout)
         if baixado is None:
-            print(f"[RETRY] {nome_estab}: sem arquivo (tentativa {tentativa})")
+            LOG.info(f"[RETRY] {nome_estab}: sem arquivo (tentativa {tentativa})")
             continue
         status, final = validar_e_converter_tsv(baixado, nome_estab)
         if status == "invalido":
@@ -1482,7 +1606,7 @@ def baixar_com_retry(driver, download_dir: Path, nome_estab: str, max_tent: int 
                         p.unlink()
                 except Exception:
                     pass
-            print(f"[RETRY] {nome_estab}: invalido apagado (tentativa {tentativa})")
+            LOG.info(f"[RETRY] {nome_estab}: invalido apagado (tentativa {tentativa})")
             continue
         return (status, final)
     return ("falha", None)
@@ -1502,7 +1626,7 @@ def main() -> None:
     auto = params["automacao"]
     _SHOTS_SUCESSO = bool(auto.get("fotos_sucesso", False))
     if not _SHOTS_SUCESSO:
-        print("[CFG] Screenshots de sucesso DESLIGADOS (otimizacao; erros ainda geram PNG)")
+        LOG.info("[CFG] Screenshots de sucesso DESLIGADOS (otimizacao; erros ainda geram PNG)")
 
     url = tasy["url"].strip()
     usuario = tasy["usuario"].strip()
@@ -1515,7 +1639,7 @@ def main() -> None:
     driver = make_driver(auto["timeout_segundos"])
 
     try:
-        print("[1/4] Abrindo sistema...")
+        LOG.info("[1/4] Abrindo sistema...")
         driver.get(url)
         WebDriverWait(driver, auto["timeout_segundos"]).until(
             lambda d: d.execute_script("return document.readyState") == "complete"
@@ -1545,7 +1669,7 @@ def main() -> None:
             take_screenshot(driver, "erro_campos_login_nao_encontrados")
             raise SystemExit("Campos de usuario/senha nao encontrados na pagina.")
 
-        print("[2/4] Preenchendo login...")
+        LOG.info("[2/4] Preenchendo login...")
         user_field.clear()
         user_field.send_keys(usuario)
         password_field.clear()
@@ -1553,7 +1677,7 @@ def main() -> None:
         take_screenshot(driver, "02_login_preenchido")
 
         dialog_handler.start(timeout=60)
-        print("[3/4] Enviando login (aguardando certificado)...")
+        LOG.info("[3/4] Enviando login (aguardando certificado)...")
         driver.execute_script("arguments[0].form.submit();", password_field)
 
         logado = False
@@ -1563,14 +1687,14 @@ def main() -> None:
             time.sleep(1.5)
             # Se o usuario fechou o navegador, encerra imediatamente
             if not is_driver_alive(driver):
-                print("[ENCERRADO] Janela do navegador fechada pelo usuario.")
+                LOG.info("[ENCERRADO] Janela do navegador fechada pelo usuario.")
                 browser_fechado = True
                 break
             try:
                 handles = driver.window_handles
                 if len(handles) > 1:
                     driver.switch_to.window(handles[-1])
-                    print(f"[INFO] Nova aba detectada: {handles[-1]}")
+                    LOG.info(f"[INFO] Nova aba detectada: {handles[-1]}")
                 # Timeouts curtos (1s) — nao bloqueiam o loop
                 click_ok_in_popup(driver, 1)
                 close_recorded_dialog(driver, 1)
@@ -1585,27 +1709,27 @@ def main() -> None:
             except (WebDriverException, OSError, ConnectionError):
                 # Sessao caiu junto com o navegador
                 if not is_driver_alive(driver):
-                    print("[ENCERRADO] Sessao perdida (navegador fechado).")
+                    LOG.info("[ENCERRADO] Sessao perdida (navegador fechado).")
                     browser_fechado = True
                     break
                 continue
-            print(f"    ... aguardando ({attempt + 1}/{max_attempts})")
+            LOG.info(f"    ... aguardando ({attempt + 1}/{max_attempts})")
 
         # Certificado ja foi tratado ou login concluiu -> para a vigia na hora
         dialog_handler.stop()
 
         if browser_fechado:
-            print("[FIM] Encerrado pelo usuario, sem screenshots finais.")
+            LOG.info("[FIM] Encerrado pelo usuario, sem screenshots finais.")
             return
 
         if logado:
-            print("LOGIN APARENTEMENTE OK")
+            LOG.info("LOGIN APARENTEMENTE OK")
             try:
-                print(f"URL atual: {driver.current_url}")
+                LOG.info(f"URL atual: {driver.current_url}")
             except Exception:
                 pass
         else:
-            print("ATENCAO: pode ainda estar na tela de login ou popup pendente")
+            LOG.info("ATENCAO: pode ainda estar na tela de login ou popup pendente")
 
         try:
             if is_driver_alive(driver):
@@ -1616,15 +1740,15 @@ def main() -> None:
             pass
 
         if is_driver_alive(driver):
-            print("[3.5/4] Fechando popups pos-login (max 8s, sai antes se limpar)...")
+            LOG.info("[3.5/4] Fechando popups pos-login (max 8s, sai antes se limpar)...")
             take_screenshot(driver, "03a_antes_popup")
             try:
                 diagnosticar_popups(driver, "ANTES")
                 n_popup = fechar_popups_pos_login(driver, timeout_total=8, per_wait=0.5)
-                print(f"[INFO] Popups fechados: {n_popup}")
+                LOG.info(f"[INFO] Popups fechados: {n_popup}")
                 diagnosticar_popups(driver, "DEPOIS")
             except Exception as e:
-                print(f"[AVISO] Falha no fechador generico: {e}")
+                LOG.info(f"[AVISO] Falha no fechador generico: {e}")
             take_screenshot(driver, "03b_apos_popup")
             take_screenshot(driver, "03_pos_login")
             time.sleep(1)
@@ -1632,18 +1756,18 @@ def main() -> None:
 
         # ── FLUXO 1033 (passos 1-13 do roteiro) ──
         if not is_driver_alive(driver):
-            print("[FIM] Navegador fechado antes do 1033.")
+            LOG.info("[FIM] Navegador fechado antes do 1033.")
             return
         extracao_cfg = params.get("extracao", {})
-        limite_teste = int(extracao_cfg.get("limite_teste", 1))
+        limite_teste = int(extracao_cfg.get("limite_teste", 0))
         pular_existentes = bool(extracao_cfg.get("pular_existentes", False))
         download_dir = Path.home() / "Downloads"
         # Rodada cheia limpa a 1033; complementar mantem e processa so os ausentes.
         pasta1033 = pasta_downloads_1033(limpar=not pular_existentes)
-        print(f"[CFG] Pasta 1033: {pasta1033} | limite_teste={limite_teste} | pular_existentes={pular_existentes}")
+        LOG.info(f"[CFG] Pasta 1033: {pasta1033} | limite_teste={limite_teste} | pular_existentes={pular_existentes}")
 
         if not navegar_ate_relatorio_1033(driver, timeout=20):
-            print("[FIM] Falha na navegacao ate o 1033. Veja screenshots 05*.")
+            LOG.info("[FIM] Falha na navegacao ate o 1033. Veja screenshots 05*.")
             take_screenshot(driver, "erro_fluxo_1033")
             return
 
@@ -1652,10 +1776,10 @@ def main() -> None:
         data_inicio = str(periodo.get("data_inicio", "")).strip()
         data_fim = str(periodo.get("data_fim", "")).strip()
         if not data_inicio or not data_fim:
-            print("[ERRO] Periodo global ausente em parametros.json > extracao.periodo (data_inicio/data_fim)")
+            LOG.info("[ERRO] Periodo global ausente em parametros.json > extracao.periodo (data_inicio/data_fim)")
             take_screenshot(driver, "erro_periodo_global")
             return
-        print(f"[CFG] Periodo global: {data_inicio} a {data_fim}")
+        LOG.info(f"[CFG] Periodo global: {data_inicio} a {data_fim}")
         preencher_datas_e_titulos(driver, data_inicio, data_fim)
 
         # Lista FIXA (ListaEstabelecimentos.xlsx, mantida pelo usuario);
@@ -1663,66 +1787,71 @@ def main() -> None:
         _VISTOS_RUN = set()
         estabelecimentos = carregar_estabelecimentos()
         if not estabelecimentos:
-            print("[FIM] Lista vazia. Confira ListaEstabelecimentos.xlsx")
+            LOG.info("[FIM] Lista vazia. Confira ListaEstabelecimentos.xlsx")
             return
         if pular_existentes:
             estabelecimentos = filtrar_pendentes(estabelecimentos)
             if not estabelecimentos:
-                print("[FIM] Nada pendente — 1033 ja completa.")
+                LOG.info("[FIM] Nada pendente — 1033 ja completa.")
                 return
         if limite_teste and limite_teste > 0:
             estabelecimentos = estabelecimentos[:limite_teste]
-            print(f"[MODO TESTE] Executando apenas {len(estabelecimentos)} estabelecimento(s). "
+            LOG.info(f"[MODO TESTE] Executando apenas {len(estabelecimentos)} estabelecimento(s). "
                   f"Para rodar todos, ajuste extracao.limite_teste=0 em parametros.json")
 
         ok_count = fail = vazios = 0
         for idx, est in enumerate(estabelecimentos, 1):
             if not is_driver_alive(driver):
-                print("[ENCERRADO] Navegador fechado durante o loop.")
+                LOG.info("[ENCERRADO] Navegador fechado durante o loop.")
                 break
-            print(f"\n===== [{idx}/{len(estabelecimentos)}] {est['nome']} "
+            LOG.info(f"\n===== [{idx}/{len(estabelecimentos)}] {est['nome']} "
                   f"({data_inicio} a {data_fim}) =====")
             try:
                 if not selecionar_estabelecimento(driver, est["nome"]):
-                    print(f"[FALHA] {est['nome']}: nao selecionou")
+                    LOG.info(f"[FALHA] {est['nome']}: nao selecionou")
                     fail += 1
                     continue
                 status, final = baixar_com_retry(driver, download_dir, est["nome"], max_tent=3)
                 if status == "falha":
-                    print(f"[FALHA] {est['nome']}: sem download apos 3 tentativas")
+                    LOG.info(f"[FALHA] {est['nome']}: sem download apos 3 tentativas")
                     fail += 1
                 elif status == "vazio":
-                    print(f"[VAZIO] {est['nome']}: sem dados no periodo (aceito)")
+                    LOG.info(f"[VAZIO] {est['nome']}: sem dados no periodo (aceito)")
                     vazios += 1
                     take_screenshot(driver, f"09_vazio_{sanitizar_nome(est['nome'])[:30]}")
                 else:
-                    print(f"[OK] {est['nome']}: {final.name}")
+                    LOG.info(f"[OK] {est['nome']}: {final.name}")
                     ok_count += 1
                     take_screenshot(driver, f"09_ok_{sanitizar_nome(est['nome'])[:30]}")
             except Exception as e:
-                print(f"[FALHA] {est['nome']}: {e}")
+                LOG.info(f"[FALHA] {est['nome']}: {e}")
                 take_screenshot(driver, "erro_estabelecimento")
                 fail += 1
             finally:
-                # REPLAY 18/09: limpa o X da caixa inferior p/ o proximo item (sucesso ou falha)
+                # REPLAY 18/09 + fix 19/09: limpa o X p/ o proximo item; se falhar,
+                # o proximo selecionar empilharia 2 filtros (causa de download invalido).
                 if idx < len(estabelecimentos) and is_driver_alive(driver):
                     try:
-                        limpar_estabelecimento(driver)
+                        if not limpar_estabelecimento(driver):
+                            LOG.info(f"[AVISO] {est['nome']}: token nao limpou — proximo pode empilhar filtro")
                     except Exception:
                         pass
-            time.sleep(int(auto.get("intervalo_entre_coletas_segundos", 2)))
-        print(f"\n[4/4] FLUXO 1033 CONCLUIDO — ok={ok_count} vazios={vazios} falhas={fail} pasta={pasta1033}")
+            intervalo = int(auto.get("intervalo_entre_coletas_segundos", 2) or 0)
+            if intervalo < 2:
+                intervalo = 2  # minimo p/ dialogo nativo fechar (evita corrida no 2o item)
+            time.sleep(intervalo)
+        LOG.info(f"\n[4/4] FLUXO 1033 CONCLUIDO — ok={ok_count} vazios={vazios} falhas={fail} pasta={pasta1033}")
         # [5/4] Consolidacao automatica no mesmo fluxo (consolidar_ec.py).
-        print("\n[5/5] Consolidando CSV.GZ...")
+        LOG.info("\n[5/5] Consolidando CSV.GZ...")
         try:
             from consolidar_ec import consolidar as consolidar_ec
             destino_ec = consolidar_ec()
             if destino_ec is not None:
-                print(f"[5/5] CONSOLIDADO: {destino_ec}")
+                LOG.info(f"[5/5] CONSOLIDADO: {destino_ec}")
             else:
-                print("[5/5-AVISO] Nada consolidado (rode consolidar_ec.py manual se preciso)")
+                LOG.info("[5/5-AVISO] Nada consolidado (rode consolidar_ec.py manual se preciso)")
         except Exception as e:
-            print(f"[5/5-AVISO] Consolidacao automatica falhou: {e} (rode consolidar_ec.py manual)")
+            LOG.info(f"[5/5-AVISO] Consolidacao automatica falhou: {e} (rode consolidar_ec.py manual)")
     finally:
         try:
             dialog_handler.stop()
