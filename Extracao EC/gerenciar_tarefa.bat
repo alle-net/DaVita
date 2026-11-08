@@ -54,7 +54,7 @@ echo.
 echo  Formato: HH:MM (ex: 14:30)
 set /p horario="Horario: "
 
-powershell -Command "$action = New-ScheduledTaskAction -Execute 'py' -Argument '-3 \"C:\Alexandre\Repositorios\DaVita\Extracao EC\extracao.py\"'; $trigger = New-ScheduledTaskTrigger -Weekly -DaysOfWeek %DIAESCOLHIDO% -At '%horario%'; Register-ScheduledTask -TaskName 'ExtracaoEC' -Action $action -Trigger $trigger -Description 'Extração EC'"
+powershell -Command "$action = New-ScheduledTaskAction -Execute 'C:\Alexandre\Repositorios\DaVita\Extracao EC\venv\Scripts\python.exe' -Argument '\"C:\Alexandre\Repositorios\DaVita\Extracao EC\Intus.py\"' -WorkingDirectory 'C:\Alexandre\Repositorios\DaVita\Extracao EC'; $trigger = New-ScheduledTaskTrigger -Weekly -DaysOfWeek %DIAESCOLHIDO% -At '%horario%'; Register-ScheduledTask -TaskName 'ExtracaoEC' -Action $action -Trigger $trigger -Description 'Extracao EC (Parquet)'"
 echo.
 echo Tarefa criada para %DIAESCOLHIDO% as %horario%
 pause
