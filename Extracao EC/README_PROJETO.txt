@@ -10,7 +10,8 @@ Descricao: Script de extracao de dados do MySQL para arquivo Parquet (compressao
 ====================================================================================
 
 Extracao EC/
-├── Config.json                  # Configuracao do banco MySQL e pasta de saida
+├── configui.json                # Arquivo UNICO de configuracao (banco, periodo,
+│                                #   SSO Tasy, pastas, automacao e extracao)
 ├── Intus.py                     # Script principal (Python)
 ├── gerenciar_tarefa.bat         # Menu para gerenciar tarefa agendada no Windows
 ├── requirements.txt             # Dependencias Python
@@ -36,11 +37,11 @@ Extracao EC/
 - Adiciona as colunas finais "ds_modalidade" (AGUDO) e "gravacao"
   (YYYY-MM-DD HH:MM) com o horario da extracao.
 - Salva como Parquet (engine pyarrow, compression zstd, index=False).
-- Nome do arquivo: EC-YYYYMMDD-HHMM.parquet
+- Nome do arquivo: AGUDO-YYYYMMDD-HHMM.parquet
 - Type hints, logging estruturado, context manager para conexao.
 
 Funcoes principais:
-  carregar_config / _validar_config  -> le e valida o Config.json
+  carregar_config / _validar_config  -> le e valida o configui.json
   carregar_query                     -> le o .sql em Querys/
   conectar                           -> context manager da Engine SQLAlchemy
   corrigir_mojibake / _tem_marca...  -> desfaz double-encoding
@@ -50,26 +51,31 @@ Funcoes principais:
   salvar_parquet                     -> grava .parquet (zstd)
   main                               -> orquestra o fluxo
 
-2.2 Config.json (Senha em texto puro - PENDENTE DE CORRECAO)
+2.2 configui.json (ARQUIVO UNICO - Senha em texto puro, PENDENTE DE CORRECAO)
 ───────────────────────────────────────────────────────────────────────────────────
+Unifica o antigo Config.json (banco) e o antigo parametros.json (Tasy/pastas/
+automacao). Layout:
+
 {
-  "servidor": "...",
-  "banco": "...",
-  "usuario": "...",
-  "senha": "<definida no Config.json>",
-  "query": "ECC.sql",
-  "data_inicial": "01/01/2026",
-  "data_final": "08/11/2026",
-  "pasta_saida": "~/Downloads"
+  "servidor": "...", "banco": "...", "usuario": "...", "senha": "...",
+  "query": "ECC.sql", "pasta_saida": "~/Downloads",
+  "data_inicial": "01/01/2026",     <- periodo GLOBAL
+  "data_final": "08/11/2026",       <- periodo GLOBAL
+  "tasy": { url, usuario, senha, modo_acesso, via, navegador },
+  "entrada": { arquivo_estabelecimentos, planilha, coluna_estabelecimento },
+  "saida": { formato, diretorio, arquivo, consolidado_diretorio, consolidado_prefixo },
+  "automacao": { headless, timeout_segundos, max_retentativas,
+                 intervalo_entre_coletas_segundos, fotos_sucesso },
+  "extracao": { limite_teste, pular_existentes, relatorio_codigo,
+                relatorio_codigo_1059 }
 }
 
-OBS: data_inicial/data_final usam o formato dd/mm/aaaa e sao obrigatorias.
-     Elas sao convertidas para yyyy-mm-dd e injetadas na query como binds
-     :data_inicio / :data_fim.
+OBS: data_inicial/data_final (dd/mm/aaaa) ficam no TOPO e sao a UNICA fonte de
+     periodo: Intus.py, Tasy_1033.py e consolidar_ec.py leem as mesmas chaves.
+     Nao existe mais o bloco extracao.periodo.
 
-OBS: A senha esta em texto puro no Config.json. Sugestao pendente: usar variavel
-     de ambiente (DB_PASSWORD) ou .env para remover a senha do JSON.
-     (Decisao de 08/11/2026: manter como esta por enquanto.)
+OBS: A senha esta em texto puro no configui.json. Sugestao pendente: usar
+     variavel de ambiente (DB_PASSWORD) ou .env para remover o segredo do JSON.
 
 2.3 requirements.txt
 ───────────────────────────────────────────────────────────────────────────────────
@@ -77,6 +83,9 @@ pandas>=3.0.5
 pyarrow>=24.0.0
 PyMySQL>=1.2.0
 SQLAlchemy>=2.0.51
+selenium>=4.52.0
+openpyxl>=3.1.5
+pywinauto>=0.6.9
 
 2.4 Querys/ECC.sql (Query em uso atualmente)
 ───────────────────────────────────────────────────────────────────────────────────
@@ -86,13 +95,11 @@ WHERE dt_periodo_inicial >= :data_inicio
   AND ds_etapa <> 'Contas Canceladas'
   AND cd_estabelecimento NOT IN (264,265)
 
-Os valores de :data_inicio e :data_fim vem do Config.json (data_inicial e
+Os valores de :data_inicio e :data_fim vem do configui.json (data_inicial e
 data_final, em dd/mm/aaaa) e sao convertidos para yyyy-mm-dd pelo Intus.py.
 
-O Tasy_1033.py tambem le o MESMO periodo do Config.json (data_inicial e
+O Tasy_1033.py tambem le o MESMO periodo do configui.json (data_inicial e
 data_final), garantindo que Intus e Tasy_1033 rodem com o mesmo range de datas.
-Se Config.json nao tiver as chaves, usa o fallback parametros.json >
-extracao.periodo.
 
 2.5 gerenciar_tarefa.bat
 ───────────────────────────────────────────────────────────────────────────────────
@@ -107,7 +114,7 @@ Executa: venv\Scripts\python.exe "C:\Alexandre\Repositorios\DaVita\Extracao EC\I
 3. FORMATO DE SAIDA (Parquet)
 ====================================================================================
 
-Arquivo: EC-YYYYMMDD-HHMM.parquet
+Arquivo: AGUDO-YYYYMMDD-HHMM.parquet
 Engine: pyarrow | Compressao: zstd | index=False
 
 Vantagens sobre CSV.gz:
@@ -123,10 +130,14 @@ Ponto de atencao:
 Tasy_1033 (consolidar_ec.py):
   - Le os XLSX de ~/Downloads/1033 e grava CRONICO-YYYYMMDD-HHMM.parquet.
   - Filtra pela coluna "Dt periodo inicial": mantem apenas linhas com data
-    entre extracao.periodo.data_inicio e data_fim (parametros.json). Linhas
+    entre data_inicial e data_final (configui.json). Linhas
     com data vazia/invalida ou fora do range sao descartadas.
   - Colunas finais "ds_modalidade" (CRONICO) e "gravacao"
     (YYYY-MM-DD HH:MM:SS), no mesmo padrao do Intus.
+  - Tipagem: datas (date32) e "Vl conta" (double). Identificadores
+    (CNPJ, carteirinha, nr_*, protocolo, titulo) permanecem texto para
+    preservar zeros a esquerda. Se algum valor fugir do formato, a coluna
+    inteira fica texto e gera aviso (nenhum dado e perdido).
 
 ====================================================================================
 4. TAREFA AGENDADA (Windows Task Scheduler)
@@ -151,7 +162,7 @@ Para abrir o Agendador de Tarefas:
 [29/07/2026]
   - Type hints em todas as funcoes.
   - print() substituido por logging estruturado.
-  - Validacao de chaves obrigatorias no Config.json.
+  - Validacao de chaves obrigatorias no configui.json.
   - Conexao com banco via @contextmanager (dispose automatico).
   - Delimitador CSV alterado para ";" (ponto e virgula).
 
@@ -162,15 +173,22 @@ Para abrir o Agendador de Tarefas:
     (travessoes, aspas e euro), mantendo maiusculas legitimas.
   - Contagem de colunas de texto no log corrigida (nao conta vl_conta).
   - requirements.txt inclui pyarrow.
-  - Periodo configuravel no Config.json (data_inicial/data_final em dd/mm/aaaa),
+  - Periodo configuravel no configui.json (data_inicial/data_final em dd/mm/aaaa),
     injetado nas queries como binds :data_inicio / :data_fim.
   - gerenciar_tarefa.bat e README atualizados (pasta "Extracao EC" e Intus.py).
+
+[10/11/2026]
+  - Config.json + parametros.json unificados em configui.json (arquivo unico).
+  - data_inicial/data_final no TOPO do configui.json: Intus.py, Tasy_1033.py e
+    consolidar_ec.py leem a MESMA fonte (fim do bloco extracao.periodo).
+  - Intus e Tasy validam formato dd/mm/aaaa e ordem das datas; leitura tolera BOM.
+  - Intus.py usa BASE_DIR (nao depende mais do diretorio atual).
 
 ====================================================================================
 6. PENDENCIAS
 ====================================================================================
 
-[ ] Remover senha do Config.json (usar variavel de ambiente ou .env).
+[ ] Remover senha do configui.json (usar variavel de ambiente ou .env).
 [ ] Opcional: unificar "Extracao EC/" (Parquet) e "Extracao EC - CSV gz/" (CSV.gz).
 
 ====================================================================================
@@ -192,7 +210,7 @@ Verificar tarefa:
 Verificar pasta de saida dos arquivos:
   C:/Users/<usuario>/Downloads/
 
-  - Intus: EC-YYYYMMDD-HHMM.parquet
+  - Intus: AGUDO-YYYYMMDD-HHMM.parquet
   - Tasy:  CRONICO-YYYYMMDD-HHMM.parquet
 
 ====================================================================================

@@ -52,8 +52,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from certificado_handler import NativeDialogHandler
 
 BASE_DIR = Path(__file__).resolve().parent
-PARAMS_PATH = BASE_DIR / "parametros.json"
-CONFIG_PATH = BASE_DIR / "Config.json"
+CONFIG_PATH = BASE_DIR / "configui.json"
 OUTPUT_DIR = BASE_DIR / "output"
 RELATORIO_CODIGO = "1033"
 
@@ -74,6 +73,54 @@ def pasta_downloads_1033(limpar: bool = False) -> Path:
                 pass
         LOG.info(f"[ARQ] Pasta 1033 limpa: {apagados} arquivo(s) removido(s)")
     return p
+
+
+MARCADOR_PERIODO = ".periodo.json"
+
+
+def ler_marcador_periodo() -> tuple[str, str] | None:
+    """Le o periodo da ultima rodada gravado em 1033/.periodo.json."""
+    caminho = pasta_downloads_1033() / MARCADOR_PERIODO
+    try:
+        cfg = json.loads(caminho.read_text(encoding="utf-8"))
+        inicio = str(cfg["data_inicial"]).strip()
+        fim = str(cfg["data_final"]).strip()
+        if inicio and fim:
+            return inicio, fim
+    except Exception:
+        pass
+    return None
+
+
+def gravar_marcador_periodo(inicio: str, fim: str) -> None:
+    """Grava o periodo da rodada atual para permitir retomada segura."""
+    caminho = pasta_downloads_1033() / MARCADOR_PERIODO
+    try:
+        payload = {
+            "data_inicial": inicio,
+            "data_final": fim,
+            "atualizado": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        }
+        caminho.write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+    except Exception as e:
+        LOG.info(f"[CFG-AVISO] Falha ao gravar marcador de periodo: {e}")
+
+
+def planejar_rodada_1033(
+    pular_existentes: bool, inicio: str, fim: str
+) -> tuple[bool, bool, tuple[str, str] | None]:
+    """Decide se limpa a pasta 1033 antes da rodada.
+
+    Retorna (limpar, mesmo_periodo, marcador). So retoma (nao limpa) quando
+    pular_existentes=True E o marcador e exatamente o periodo atual.
+    """
+    marcador = ler_marcador_periodo()
+    mesmo_periodo = marcador == (inicio, fim)
+    limpar = (not pular_existentes) or (not mesmo_periodo)
+    return limpar, mesmo_periodo, marcador
 
 
 def sanitizar_nome(nome: str) -> str:
@@ -145,29 +192,33 @@ def clicar_por_texto(driver, timeout: int, *textos, tag: str = "button") -> bool
 
 
 def load_params() -> dict:
-    with open(PARAMS_PATH, encoding="utf-8-sig") as f:
+    with open(CONFIG_PATH, encoding="utf-8-sig") as f:
         return json.load(f)
 
 
 def carregar_periodo() -> tuple[str, str]:
-    """Le o periodo de Config.json (mesmo usado pelo Intus).
+    """Le o periodo global (topo de configui.json), unico para Intus e Tasy.
 
-    Fallback: parametros.json > extracao.periodo (data_inicio/data_fim).
-    Formato esperado: dd/mm/aaaa.
+    Valida o formato dd/mm/aaaa e a ordem das datas (mesmas regras do Intus).
+    Retorna ("", "") em caso de erro para o fluxo abortar antes de baixar.
     """
     try:
-        with open(CONFIG_PATH, encoding="utf-8") as f:
+        with open(CONFIG_PATH, encoding="utf-8-sig") as f:
             cfg = json.load(f)
         inicio = str(cfg.get("data_inicial", "")).strip()
         fim = str(cfg.get("data_final", "")).strip()
-        if inicio and fim:
-            return inicio, fim
     except Exception:
-        pass
-    periodo = (load_params().get("extracao", {}) or {}).get("periodo", {}) or {}
-    inicio = str(periodo.get("data_inicio") or periodo.get("data_inicial") or "").strip()
-    fim = str(periodo.get("data_fim") or periodo.get("data_final") or "").strip()
-    return inicio, fim
+        return "", ""
+    try:
+        d_inicio = datetime.strptime(inicio, "%d/%m/%Y")
+        d_fim = datetime.strptime(fim, "%d/%m/%Y")
+    except ValueError:
+        LOG.info("[ERRO] data_inicial/data_final em configui.json devem ser dd/mm/aaaa")
+        return "", ""
+    if d_inicio > d_fim:
+        LOG.info("[ERRO] data_inicial nao pode ser posterior a data_final")
+        return "", ""
+    return d_inicio.strftime("%d/%m/%Y"), d_fim.strftime("%d/%m/%Y")
 
 
 def make_driver(timeout: int) -> webdriver.Edge:
@@ -492,7 +543,7 @@ def handle_user_selection(driver, timeout: int = 2) -> bool:
 def carregar_estabelecimentos() -> list:
     """Le ListaEstabelecimentos.xlsx (aba Lista). Retorna [{nome}].
 
-    Periodo agora e GLOBAL em Config.json (data_inicial/data_final), o mesmo
+    Periodo agora e GLOBAL em configui.json (data_inicial/data_final), o mesmo
     range usado pelo Intus. Colunas inicio/fim
     na planilha sao ignoradas se ainda existirem.
     """
@@ -1657,7 +1708,7 @@ def main() -> None:
     senha = tasy["senha"].strip()
 
     if not all([url, usuario, senha]):
-        raise SystemExit("Preencha url, usuario e senha em parametros.json")
+        raise SystemExit("Preencha url, usuario e senha em configui.json")
 
     dialog_handler = NativeDialogHandler()
     driver = make_driver(auto["timeout_segundos"])
@@ -1786,22 +1837,36 @@ def main() -> None:
         limite_teste = int(extracao_cfg.get("limite_teste", 0))
         pular_existentes = bool(extracao_cfg.get("pular_existentes", False))
         download_dir = Path.home() / "Downloads"
-        # Rodada cheia limpa a 1033; complementar mantem e processa so os ausentes.
-        pasta1033 = pasta_downloads_1033(limpar=not pular_existentes)
-        LOG.info(f"[CFG] Pasta 1033: {pasta1033} | limite_teste={limite_teste} | pular_existentes={pular_existentes}")
+
+        # Periodo GLOBAL vindo do configui.json (mesmo range do Intus).
+        # Carregado ANTES de decidir limpar a pasta: o marcador de periodo
+        # define se a rodada RETOMA (mesmo periodo) ou RECOMECA (mudou).
+        data_inicio, data_fim = carregar_periodo()
+        if not data_inicio or not data_fim:
+            LOG.info("[ERRO] Periodo ausente em configui.json (data_inicial/data_final)")
+            take_screenshot(driver, "erro_periodo_global")
+            return
+        LOG.info(f"[CFG] Periodo global: {data_inicio} a {data_fim}")
+
+        # pular_existentes so retoma se a pasta for do MESMO periodo; caso
+        # contrario limpa e faz rodada cheia (evita pular unidade com dado velho).
+        limpar, mesmo_periodo, marcador = planejar_rodada_1033(
+            pular_existentes, data_inicio, data_fim
+        )
+        pasta1033 = pasta_downloads_1033(limpar=limpar)
+        if limpar:
+            gravar_marcador_periodo(data_inicio, data_fim)
+        LOG.info(
+            f"[CFG] Pasta 1033: {pasta1033} | limite_teste={limite_teste} | "
+            f"pular_existentes={pular_existentes} | marcador={marcador or 'ausente'} | "
+            f"mesmo_periodo={mesmo_periodo} | limpar={limpar}"
+        )
 
         if not navegar_ate_relatorio_1033(driver, timeout=20):
             LOG.info("[FIM] Falha na navegacao ate o 1033. Veja screenshots 05*.")
             take_screenshot(driver, "erro_fluxo_1033")
             return
 
-        # Periodo GLOBAL vindo do Config.json (mesmo range do Intus).
-        data_inicio, data_fim = carregar_periodo()
-        if not data_inicio or not data_fim:
-            LOG.info("[ERRO] Periodo ausente em Config.json (data_inicial/data_final)")
-            take_screenshot(driver, "erro_periodo_global")
-            return
-        LOG.info(f"[CFG] Periodo global: {data_inicio} a {data_fim}")
         preencher_datas_e_titulos(driver, data_inicio, data_fim)
 
         # Lista FIXA (ListaEstabelecimentos.xlsx, mantida pelo usuario);
@@ -1811,15 +1876,15 @@ def main() -> None:
         if not estabelecimentos:
             LOG.info("[FIM] Lista vazia. Confira ListaEstabelecimentos.xlsx")
             return
-        if pular_existentes:
+        if pular_existentes and mesmo_periodo:
             estabelecimentos = filtrar_pendentes(estabelecimentos)
             if not estabelecimentos:
-                LOG.info("[FIM] Nada pendente — 1033 ja completa.")
+                LOG.info("[FIM] Nada pendente — 1033 ja completa para o periodo.")
                 return
         if limite_teste and limite_teste > 0:
             estabelecimentos = estabelecimentos[:limite_teste]
             LOG.info(f"[MODO TESTE] Executando apenas {len(estabelecimentos)} estabelecimento(s). "
-                  f"Para rodar todos, ajuste extracao.limite_teste=0 em parametros.json")
+                  f"Para rodar todos, ajuste extracao.limite_teste=0 em configui.json")
 
         ok_count = fail = vazios = 0
         for idx, est in enumerate(estabelecimentos, 1):

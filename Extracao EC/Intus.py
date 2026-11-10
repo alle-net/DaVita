@@ -9,12 +9,19 @@ from typing import Any
 from urllib.parse import quote_plus
 
 import pandas as pd
-from sqlalchemy import create_engine, text
+import pyarrow as pa
+import pyarrow.parquet as pq
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.engine import Engine
+from sqlalchemy.sql import sqltypes
+
+BASE_DIR = Path(__file__).resolve().parent
+CONFIG_PATH = BASE_DIR / "configui.json"
 
 MAX_TENTATIVAS = 3
 INTERVALO = 2
 MODALIDADE = "AGUDO"
+TABELA_ORIGEM = "status_conta"
 CHAVES_OBRIGATORIAS = {
     "servidor",
     "banco",
@@ -33,8 +40,10 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def carregar_config(caminho_config: str = "Config.json") -> dict[str, Any]:
-    with open(caminho_config, "r", encoding="utf-8") as f:
+def carregar_config(caminho_config: str | Path | None = None) -> dict[str, Any]:
+    if caminho_config is None:
+        caminho_config = CONFIG_PATH
+    with open(caminho_config, "r", encoding="utf-8-sig") as f:
         config = json.load(f)
 
     _validar_config(config)
@@ -45,12 +54,12 @@ def _validar_config(config: dict[str, Any]) -> None:
     faltando = CHAVES_OBRIGATORIAS - config.keys()
     if faltando:
         raise KeyError(
-            f"Config.json faltando chaves obrigatorias: {', '.join(sorted(faltando))}"
+            f"configui.json faltando chaves obrigatorias: {', '.join(sorted(faltando))}"
         )
 
 
 def carregar_query(caminho_query: str) -> str:
-    caminho_completo = Path("Querys") / caminho_query
+    caminho_completo = BASE_DIR / "Querys" / caminho_query
     return caminho_completo.read_text(encoding="utf-8")
 
 
@@ -61,10 +70,10 @@ def periodo_mysql(config: dict[str, Any]) -> dict[str, str]:
         fim = datetime.strptime(str(config["data_final"]).strip(), "%d/%m/%Y")
     except ValueError as e:
         raise ValueError(
-            "Config.json: data_inicial e data_final devem estar no formato dd/mm/aaaa"
+            "configui.json: data_inicial e data_final devem estar no formato dd/mm/aaaa"
         ) from e
     if inicio > fim:
-        raise ValueError("Config.json: data_inicial nao pode ser posterior a data_final")
+        raise ValueError("configui.json: data_inicial nao pode ser posterior a data_final")
     return {
         "data_inicio": inicio.strftime("%Y-%m-%d"),
         "data_fim": fim.strftime("%Y-%m-%d"),
@@ -184,6 +193,69 @@ def normalizar_vl_conta(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def obter_tipos_colunas(engine: Engine, tabela: str = TABELA_ORIGEM) -> dict[str, Any]:
+    """Le os tipos reais das colunas na origem (INFORMATION_SCHEMA)."""
+    try:
+        return {c["name"]: c["type"] for c in inspect(engine).get_columns(tabela)}
+    except Exception as e:
+        logger.warning("Nao foi possivel ler tipos de '%s': %s", tabela, e)
+        return {}
+
+
+def _codigo_tipo_sql(sql_type: Any) -> str:
+    """Resume o tipo SQL em um codigo serializavel para o Parquet."""
+    if isinstance(sql_type, sqltypes.Boolean):
+        return "bool"
+    if isinstance(sql_type, sqltypes.Integer):
+        return "int"
+    if isinstance(sql_type, sqltypes.Numeric):
+        return "float"
+    if isinstance(sql_type, sqltypes.DateTime):
+        return "timestamp"
+    if isinstance(sql_type, sqltypes.Date):
+        return "date"
+    return "string"
+
+
+def _arrow_type_por_codigo(codigo: str) -> pa.DataType:
+    """Mapeia o codigo do tipo SQL para o tipo Arrow estavel no Parquet."""
+    return {
+        "bool": pa.bool_(),
+        "int": pa.int64(),
+        "float": pa.float64(),
+        "timestamp": pa.timestamp("us"),
+        "date": pa.date32(),
+    }.get(codigo, pa.large_string())
+
+
+def corrigir_colunas_nulas(tabela: pa.Table, tipos_db: dict[str, str]) -> pa.Table:
+    """Troca o tipo Arrow 'null' (coluna 100% nula) por um tipo concreto.
+
+    O Power BI nao abre Parquet com coluna de tipo 'null' (erro
+    "Argumento 'dataType' nao pode ser nulo"). Os valores NAO mudam: apenas
+    o tipo da coluna passa a ser int64/string/date32 conforme o banco, mantendo
+    o schema estavel entre execucoes.
+    """
+    campos: list[pa.Field] = []
+    ajustadas = 0
+    for field in tabela.schema:
+        if pa.types.is_null(field.type):
+            novo_tipo = _arrow_type_por_codigo(tipos_db.get(field.name, "string"))
+            campos.append(field.with_type(novo_tipo))
+            ajustadas += 1
+            logger.info(
+                "Coluna '%s' 100%% nula: tipo Parquet ajustado para %s",
+                field.name,
+                novo_tipo,
+            )
+        else:
+            campos.append(field)
+    if not ajustadas:
+        return tabela
+    novo_schema = pa.schema(campos, metadata=tabela.schema.metadata)
+    return tabela.cast(novo_schema)
+
+
 def extrair_dados(config: dict[str, Any]) -> pd.DataFrame:
     query = text(carregar_query(config["query"]))
     binds = periodo_mysql(config)
@@ -191,11 +263,15 @@ def extrair_dados(config: dict[str, Any]) -> pd.DataFrame:
     for tentativa in range(1, MAX_TENTATIVAS + 1):
         try:
             with conectar(config) as engine:
+                tipos_db = obter_tipos_colunas(engine)
                 df = pd.read_sql(query, engine, params=binds, coerce_float=False)
             df = tratar_textos_df(df)
             df = normalizar_vl_conta(df)
             df["ds_modalidade"] = MODALIDADE
             df["gravacao"] = datetime.now().strftime("%Y-%m-%d %H:%M")
+            df.attrs["tipos_db"] = {
+                nome: _codigo_tipo_sql(tipo) for nome, tipo in tipos_db.items()
+            }
             return df
         except Exception as e:
             if tentativa < MAX_TENTATIVAS:
@@ -211,14 +287,11 @@ def salvar_parquet(df: pd.DataFrame, config: dict[str, Any]) -> Path:
     pasta_saida = Path(config["pasta_saida"]).expanduser()
     pasta_saida.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d-%H%M")
-    nome_arquivo = f"EC-{timestamp}.parquet"
+    nome_arquivo = f"AGUDO-{timestamp}.parquet"
     caminho_completo = pasta_saida / nome_arquivo
-    df.to_parquet(
-        caminho_completo,
-        engine="pyarrow",
-        compression="zstd",
-        index=False,
-    )
+    tabela = pa.Table.from_pandas(df, preserve_index=False)
+    tabela = corrigir_colunas_nulas(tabela, df.attrs.get("tipos_db", {}))
+    pq.write_table(tabela, caminho_completo, compression="zstd")
     return caminho_completo
 
 
